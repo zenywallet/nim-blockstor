@@ -115,8 +115,8 @@ proc main() =
   var buf = newSeq[byte](tcp_rmem)
   echo "connect ret=", sock.connect(cast[ptr SockAddr](addr sin), sizeof(sin).SockLen)
   var data = message("version", msg_version())
-  echo "send ret=", sock.send(addr data[0], cast[cint](data.len), cast[cint](0))
-  var recvlen = sock.recv(addr buf[0], cast[cint](buf.len), cast[cint](0))
+  echo "send ret=", sock.send(addr data[0], data.len.cint, 0.cint)
+  var recvlen = sock.recv(addr buf[0], buf.len.cint, 0.cint)
   echo "recvlen=", recvlen
   if recvlen > 0:
     echo recvlen
