@@ -15,6 +15,12 @@ type
     BitZeny
     BitZeny_testnet
 
+  AddressType* {.pure.} = enum
+    P2PKH
+    P2SH
+    P2SH_P2WPKH
+    P2WPKH
+
 proc getNetwork*(networkId: NetworkId): Network =
   case networkId
   of NetworkId.BitZeny:
@@ -66,6 +72,39 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
         break
       pos = i
     result = output[0..pos]
+
+proc getAddressHash160*(script: Script): tuple[hash160: Hash160, addressType: AddressType] =
+  var chunks = script.getScriptChunks
+  if chunks.len == 5:
+    if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
+      chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_HASH160 and
+      chunks[2].type == ChunkType.Data and chunks[2].data.len == 20 and
+      chunks[3].type == ChunkType.Code and chunks[3].op == Opcode.OP_EQUALVERIFY and
+      chunks[4].type == ChunkType.Code and chunks[4].op == Opcode.OP_CHECKSIG:
+
+      return (Hash160(chunks[2].data), AddressType.P2PKH)
+
+  elif chunks.len == 3:
+    if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_HASH160 and
+      chunks[1].type == ChunkType.Data and chunks[1].data.len == 20 and
+      chunks[2].type == ChunkType.Code and chunks[2].op == Opcode.OP_EQUAL:
+
+      return (Hash160(chunks[1].data), AddressType.P2SH)
+
+  elif chunks.len == 2:
+    if chunks[0].type == ChunkType.Data and chunks[0].data.len == 33 and
+      chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_CHECKSIG:
+
+      return (ripemd160hash(chunks[0].data), AddressType.P2PKH)
+
+    elif chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_0 and
+      chunks[1].type == ChunkType.Data:
+
+      if chunks[1].data.len == 20:
+        return (Hash160(chunks[1].data), AddressType.P2WPKH)
+
+      elif chunks[1].data.len == 32:
+        return (ripemd160hash(chunks[1].data), AddressType.P2WPKH)
 
 proc getAddress*(network: Network, script: Script): string =
   var chunks = script.getScriptChunks
