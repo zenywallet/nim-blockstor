@@ -11,20 +11,28 @@ type
     bech32*: string
     bech32Extra*: seq[string]
 
+  NetworkId* {.pure.} = enum
+    BitZeny
+    BitZeny_testnet
 
-var bitzeny* = new Network
-bitzeny.pubKeyPrefix = 81'u8
-bitzeny.scriptPrefix = 5'u8
-bitzeny.wif = 128'u8
-bitzeny.bech32 = "sz"
-bitzeny.bech32Extra = @["bz"]
+proc getNetwork*(networkId: NetworkId): Network =
+  case networkId
+  of NetworkId.BitZeny:
+    var bitzeny = new Network
+    bitzeny.pubKeyPrefix = 81'u8
+    bitzeny.scriptPrefix = 5'u8
+    bitzeny.wif = 128'u8
+    bitzeny.bech32 = "sz"
+    bitzeny.bech32Extra = @["bz"]
+    result = bitzeny
 
-var bitzeny_test* = new Network
-bitzeny_test.pubKeyPrefix = 111'u8
-bitzeny_test.scriptPrefix = 196'u8
-bitzeny_test.wif = 239'u8
-bitzeny_test.bech32 = "tz"
-
+  of NetworkId.BitZeny_testnet:
+    var bitzeny_test = new Network
+    bitzeny_test.pubKeyPrefix = 111'u8
+    bitzeny_test.scriptPrefix = 196'u8
+    bitzeny_test.wif = 239'u8
+    bitzeny_test.bech32 = "tz"
+    result = bitzeny_test
 
 proc ripemd160hash(pub: seq[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
@@ -149,6 +157,7 @@ proc p2wpkh_script*(address: string, bech32Prefix: string): seq[byte] =
 
 
 when isMainModule:
+  var bitzeny_test = getNetwork(NetworkId.BitZeny_testnet)
   var hash160_p2pkh = bitzeny_test.getHash160("mnfJyrnDZSDnaNUkognbRsbQNUanoNHArK")
   assert bitzeny_test.p2pkh_address(hash160_p2pkh) == "mnfJyrnDZSDnaNUkognbRsbQNUanoNHArK"
   assert bitzeny_test.p2sh_address(hash160_p2pkh) == "2MzPag67humcG6DL7tM6geXjGsMUyCcAU7B"
