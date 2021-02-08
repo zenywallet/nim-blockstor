@@ -41,6 +41,10 @@ proc getScriptChunks*(script: seq[byte]): Chunks =
       result.add(Chunk(type: PushData2, val: reader.getUint16.uint))
     elif op == OP_PUSHDATA4:
       result.add(Chunk(type: PushData4, val: reader.getUint32.uint))
+    elif op == OP_RETURN:
+      result.add(Chunk(type: Code, op: op))
+      result.add(Chunk(type: Data, data: reader.getBytes(reader.left)))
+      return
     elif op != NA:
       result.add(Chunk(type: Code, op: op))
     else:
