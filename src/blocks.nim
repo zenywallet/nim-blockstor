@@ -61,7 +61,7 @@ proc toJson*(blk: Block, network: Network): JsonNode =
   var json = %blk
   for i, tx in blk.txs:
     for j, o in tx.outs:
-      var script = cast[seq[byte]](o.script)
+      var script = o.script
       var p = json["txs"][i]["outs"][j]
       p["chunks"] = %script.getScriptChunks
       p["addrs"] = %network.getAddresses(script)

@@ -67,7 +67,7 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
       pos = i
     result = output[0..pos]
 
-proc getAddress*(network: Network, script: seq[byte]): string =
+proc getAddress*(network: Network, script: Script): string =
   var chunks = script.getScriptChunks
   if chunks.len == 5:
     if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
@@ -100,7 +100,7 @@ proc getAddress*(network: Network, script: seq[byte]): string =
       elif chunks[1].data.len == 32:
         return network.p2wpkh_address(ripemd160hash(chunks[1].data))
 
-proc getAddresses*(network: Network, script: seq[byte]): seq[string] =
+proc getAddresses*(network: Network, script: Script): seq[string] =
   var a = network.getAddress(script)
   if a.len > 0:
     result.add(a)

@@ -24,10 +24,12 @@ type
 
   Chunks* = seq[Chunk]
 
+  Script* = distinct seq[byte]
+
   ScriptError* = object of CatchableError
 
 
-proc getScriptChunks*(script: seq[byte]): Chunks =
+proc getScriptChunks*(script: Script): Chunks =
   result = @[]
   var reader = newReader(script)
   while reader.readable():

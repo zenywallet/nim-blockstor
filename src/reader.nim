@@ -13,6 +13,9 @@ type
 proc newReader*(data: seq[byte]): Reader =
   Reader(data: data, pos: 0)
 
+proc newReader*[T](data: T): Reader =
+  Reader(data: cast[seq[byte]](data), pos: 0)
+
 proc getUint64*(r: Reader): uint64 =
   if r.data.len < r.pos + 8:
     raise newException(ReaderError, "uint64: out of range")

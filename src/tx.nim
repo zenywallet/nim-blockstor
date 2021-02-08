@@ -10,8 +10,6 @@ type
 
   Sig* = distinct seq[byte]
 
-  Script* = distinct seq[byte]
-
   TxIn* = tuple[tx: Hash, n: uint32, sig: Sig, sequence: uint32]
 
   TxOut* = tuple[value: uint64, script: Script]
@@ -122,13 +120,12 @@ proc toJson*(tx: Tx, network: Network): JsonNode =
     json["ins"][i]["witness"] = %w
   json.delete("witnesses")
   for i, o in tx.outs:
-    var script = seq[byte](o.script)
+    var script = o.script
     json["outs"][i]["chunks"] = %script.getScriptChunks
     var addrs = network.getAddresses(script)
     if addrs.len > 0:
       json["outs"][i]["addrs"] = %addrs
   json
-
 
 when isMainModule:
   # bitcoin-cli getblockhash 100000
