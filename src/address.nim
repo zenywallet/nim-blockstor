@@ -107,37 +107,16 @@ proc getAddressHash160*(script: Script): tuple[hash160: Hash160, addressType: Ad
         return (ripemd160hash(chunks[1].data), AddressType.P2WPKH)
 
 proc getAddress*(network: Network, script: Script): string =
-  var chunks = script.getScriptChunks
-  if chunks.len == 5:
-    if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
-      chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_HASH160 and
-      chunks[2].type == ChunkType.Data and chunks[2].data.len == 20 and
-      chunks[3].type == ChunkType.Code and chunks[3].op == Opcode.OP_EQUALVERIFY and
-      chunks[4].type == ChunkType.Code and chunks[4].op == Opcode.OP_CHECKSIG:
-
-      return network.p2pkh_address(Hash160(chunks[2].data))
-
-  elif chunks.len == 3:
-    if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_HASH160 and
-      chunks[1].type == ChunkType.Data and chunks[1].data.len == 20 and
-      chunks[2].type == ChunkType.Code and chunks[2].op == Opcode.OP_EQUAL:
-
-      return network.p2sh_address(Hash160(chunks[1].data))
-
-  elif chunks.len == 2:
-    if chunks[0].type == ChunkType.Data and chunks[0].data.len == 33 and
-      chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_CHECKSIG:
-
-      return network.p2pkh_address(ripemd160hash(chunks[0].data))
-
-    elif chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_0 and
-      chunks[1].type == ChunkType.Data:
-
-      if chunks[1].data.len == 20:
-        return network.p2wpkh_address(Hash160(chunks[1].data))
-
-      elif chunks[1].data.len == 32:
-        return network.p2wpkh_address(ripemd160hash(chunks[1].data))
+  var addrHash = getAddressHash160(script)
+  case addrHash.addressType
+  of AddressType.P2PKH:
+    return network.p2pkh_address(addrHash.hash160)
+  of AddressType.P2SH:
+    return network.p2sh_address(addrHash.hash160)
+  of AddressType.P2WPKH:
+    return network.p2wpkh_address(addrHash.hash160)
+  of AddressType.P2SH_P2WPKH:
+    return network.p2sh_p2wpkh_address(addrHash.hash160)
 
 proc getAddresses*(network: Network, script: Script): seq[string] =
   var a = network.getAddress(script)
