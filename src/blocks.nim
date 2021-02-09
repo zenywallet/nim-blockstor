@@ -70,7 +70,7 @@ proc toJson*(blk: Block, network: Network): JsonNode =
 proc merkle*(txids: seq[seq[byte]]): MerkleHash =
   var list: seq[seq[byte]]
   for h in txids:
-    list.add(h.toReverse)
+    list.add(h)
   while list.len > 1:
     var tmplist: seq[seq[byte]]
     for i in countup(0, list.len - 2, 2):
