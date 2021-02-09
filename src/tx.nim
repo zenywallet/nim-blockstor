@@ -109,9 +109,6 @@ proc `%`*(obj: TxIn | TxOut): JsonNode =
 
 proc toJson*(tx: Tx, network: Network): JsonNode =
   var json = %tx
-  for i, w in tx.witnesses:
-    json["ins"][i]["witness"] = %w
-  json.delete("witnesses")
   for i, o in tx.outs:
     var script = o.script
     json["outs"][i]["chunks"] = %script.getScriptChunks
@@ -131,3 +128,21 @@ when isMainModule:
   echo tx.txid
   echo (%tx).pretty
   echo tx.toJson(getNetwork(NetworkId.BitZeny_testnet)).pretty
+
+  # bitcoin-cli getrawtransaction 8ffd07492e2e79cb57cec39e2c6332c2dec5b604d444c2a3c1ceab5a8b672528 1
+  var txHexString2 = "010000000262b19edba4c24d324e8ad1d62cb1525d5b3dafe5e92569308dc11411f93029d1010000006b483045022100cec911ccb594b8c83ec882ce014b0ab8b111754ab3ac4a494fef14dbb474e82202206057f679855e61b6743fa413847e5ed229fcb99a69bc316c9754bb4344221cf20121032abf381ba21c21a148fbf72225c5bbeaea7162c1a3db081c9f4c8577aa44f5defefffffffb9b95e5131644906bff25fcc59cd98b20279a26c902ac740965d3a04a122492000000006b48304502210085ad84f257cb088f0b6404785218fb45f9156ff99990cafa2e854b48f5a85a4302203edd39af5d4de57da7808a550e91391733e8e47a36515619f3d20e760218c3a501210330b8bc1309612641e04ecf5a294fffd6393e5e02fe72cd89035781caf628dde8feffffff044a7b3500000000001976a9140883084298f881c670d71cf2c0a014a25fc5a08388acd06461df040000001976a9142d079618f809d3a80d76b62fb900930916eb7b9688acf829776a000000001976a914ee02d26d68aa4763ed2bc4222581d4b127be46c288acf829776a000000001976a914a6ba7b15304fcb853e8c404d604e9d36f28bed0a88ac07520000"
+  var tx2 = txHexString2.toBytesFromHex.toTx
+  echo tx2
+  echo tx2.txid
+  echo (%tx2).pretty
+  echo tx2.toJson(getNetwork(NetworkId.BitZeny_testnet)).pretty
+
+  # bitcoin-cli getrawtransaction 23c52199e1759743d86ecf3a0d5fc6b4696ee41e2b47f6e85decaad0217f61f0
+  var txHexString3 = "02000000000101c7350f8befa7ca3f01fc53b4d16fae0be40e69895bf5b9419ada520a2b841c8a0000000000fdffffff021861ec0e000000001600145f2d19df77167d62418f406bbcc3f6e868240406fcd5f50500000000160014424af8569bc5bc648fa139c05668bfe75f68bf770247304402205d25f465fe527be4ebc8f37eb5718ef12ff1183468c6c2e0e9f68655b7bbc93a02202a295bbe6db51439ab852b2a9f24a445bbec0cbfc232e153bea8157dbe982805012103ba08cb88b0d5e719c50676663dce904041c53a234820fa6f2d56fbc9cd2dda9691710000"
+  var tx3 = txHexString3.toBytesFromHex.toTx
+  echo tx3
+  echo tx3.txid
+  echo tx3.hash
+  echo (%tx3).pretty
+  echo tx3.toBytes
+  echo tx3.toJson(getNetwork(NetworkId.BitZeny_testnet)).pretty
