@@ -130,4 +130,4 @@ when isMainModule:
   echo tx
   echo tx.txid
   echo (%tx).pretty
-  echo tx.toJson(bitzeny_test).pretty
+  echo tx.toJson(getNetwork(NetworkId.BitZeny_testnet)).pretty

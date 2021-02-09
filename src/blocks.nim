@@ -90,7 +90,7 @@ when isMainModule:
   var blk = blockRawString.toBytesFromHex.toBlock
   echo blk
   echo (%blk).pretty
-  echo blk.toJson(bitzeny_test).pretty
+  echo blk.toJson(getNetwork(NetworkId.BitZeny_testnet)).pretty
 
   var tx1 = "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2003a08601049029065b0867ffffff000000000d2f6e6f64655374726174756d2fffffffff02d6e448c3050000001976a9149005c615a8cc2dfa5433bd7bf6ff4cd1cf345aa088acb2e0e60e000000001976a9145f618f9b2c116188ff1f8c6bf1923d0b6ad0da7988ac00000000"
 
