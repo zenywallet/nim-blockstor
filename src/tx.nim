@@ -77,14 +77,11 @@ proc stripWitness(tx: Tx): Tx =
     outs: tx.outs,
     locktime: tx.locktime)
 
-proc hash(data: seq[byte]): string =
-  var h = sha256d(data)
-  reverse(h)
-  bytes.toHex(h)
+proc hash(data: seq[byte]): Hash = Hash(sha256d(data).toSeq)
 
-proc txid*(tx: Tx): string = tx.stripWitness.toBytes.hash
+proc txid*(tx: Tx): Hash = tx.stripWitness.toBytes.hash
 
-proc hash*(tx: Tx): string = tx.toBytes.hash
+proc hash*(tx: Tx): Hash = tx.toBytes.hash
 
 proc hashBin(data: seq[byte]): seq[byte] = sha256d(data).toSeq
 
