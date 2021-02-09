@@ -86,10 +86,7 @@ proc txid*(tx: Tx): string = tx.stripWitness.toBytes.hash
 
 proc hash*(tx: Tx): string = tx.toBytes.hash
 
-proc hashBin(data: seq[byte]): seq[byte] =
-  var h = sha256d(data)
-  reverse(h)
-  h.toSeq
+proc hashBin(data: seq[byte]): seq[byte] = sha256d(data).toSeq
 
 proc txidBin*(tx: Tx): seq[byte] = tx.stripWitness.toBytes.hashBin
 
