@@ -28,6 +28,7 @@ type
 
 
 proc toBytes*(o: BlockHash | MerkleHash): seq[byte] {.inline.} = cast[seq[byte]](o)
+proc toBytesBE*(o: BlockHash | MerkleHash): seq[byte] {.inline.} = cast[seq[byte]](o)
 
 proc toBytes*(o: seq[Tx]): seq[byte] {.inline.} =
   var s: seq[seq[byte]]
