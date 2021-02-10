@@ -89,16 +89,16 @@ type
     walletPassphraseChange = "walletpassphrasechange"
 
 type
-  RpcCommand = object
-    id: string
-    data: string
-  RpcCommands = seq[RpcCommand]
+  RpcCommand* = object
+    id*: string
+    data*: string
+  RpcCommands* = seq[RpcCommand]
 
   RpcError* = object of CatchableError
 
-type RpcConfig = ref object
-  rpcUrl: string      # http://hostname:port/
-  rpcUserPass: string # rpcuser:rpcpassword
+type RpcConfig* = ref object
+  rpcUrl*: string      # http://hostname:port/
+  rpcUserPass*: string # rpcuser:rpcpassword
 
 var defaultRpcConfig = RpcConfig(rpcUrl: "http://127.0.0.1:9252/",
                                 rpcUserPass: "rpcuser:rpcpassword")
