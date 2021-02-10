@@ -12,7 +12,7 @@ type
     bech32Extra*: seq[string]
 
   NetworkId* {.pure.} = enum
-    BitZeny
+    BitZeny_mainnet
     BitZeny_testnet
 
   AddressType* {.pure.} = enum
@@ -23,7 +23,7 @@ type
 
 proc getNetwork*(networkId: NetworkId): Network =
   case networkId
-  of NetworkId.BitZeny:
+  of NetworkId.BitZeny_mainnet:
     var bitzeny = new Network
     bitzeny.pubKeyPrefix = 81'u8
     bitzeny.scriptPrefix = 5'u8
