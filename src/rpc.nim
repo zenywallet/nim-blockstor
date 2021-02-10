@@ -172,6 +172,8 @@ proc send*(cmd: CoreCommand, rpcConfig: RpcConfig, args: varargs[string, wrapStr
   let rpcCmd = setParams(cmd, args)
   let ret = httpPost(rpcConfig, rpcCmd.data)
   if ret.code == E_OK:
+    if ret.data.len == 0:
+      raise newException(RpcError, "no data")
     result = parseJson(ret.data)
     if not result.hasKey("id") or result["id"].getStr != rpcCmd.id:
       raise newException(RpcError, $result)
@@ -184,6 +186,8 @@ template send*(cmd: CoreCommand, args: varargs[string, wrapStr]): JsonNode =
 proc send*(rpcCmd: RpcCommand, rpcConfig: RpcConfig = defaultRpcConfig): JsonNode =
   let ret = httpPost(rpcConfig, rpcCmd.data)
   if ret.code == E_OK:
+    if ret.data.len == 0:
+      raise newException(RpcError, "no data")
     result = parseJson(ret.data)
     if not result.hasKey("id") or result["id"].getStr != rpcCmd.id:
       raise newException(RpcError, $result)
@@ -201,6 +205,8 @@ proc send*(rpcCmds: RpcCommands, rpcConfig: RpcConfig = defaultRpcConfig): JsonN
   cmds = "[" & cmds & "]"
   let ret = httpPost(rpcConfig, cmds)
   if ret.code == E_OK:
+    if ret.data.len == 0:
+      raise newException(RpcError, "no data")
     result = parseJson(ret.data)
     if result.len == ids.len:
       var i = 0
