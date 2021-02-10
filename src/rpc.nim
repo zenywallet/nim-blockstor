@@ -142,7 +142,7 @@ proc filterAlphaNumeric(s: string): string =
 
 proc wrapStr*(s: string): string = "\"" & filterAlphaNumeric(s) & "\""
 
-proc wrapStr*[T](val: T): string = $val
+proc wrapStr*(val: SomeInteger | BiggestInt | JsonNode): string = $val
 
 var rpcId: uint = 0
 var rpcIdLock: Lock
