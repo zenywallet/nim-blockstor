@@ -110,16 +110,11 @@ proc getAddressHash160*(script: Script): tuple[hash160: Hash160, addressType: Ad
 proc getAddress*(network: Network, script: Script): string =
   var addrHash = getAddressHash160(script)
   case addrHash.addressType
-  of AddressType.P2PKH:
-    return network.p2pkh_address(addrHash.hash160)
-  of AddressType.P2SH:
-    return network.p2sh_address(addrHash.hash160)
-  of AddressType.P2WPKH:
-    return network.p2wpkh_address(addrHash.hash160)
-  of AddressType.P2SH_P2WPKH:
-    return network.p2sh_p2wpkh_address(addrHash.hash160)
-  of AddressType.Unknown:
-    return ""
+  of AddressType.P2PKH: network.p2pkh_address(addrHash.hash160)
+  of AddressType.P2SH: network.p2sh_address(addrHash.hash160)
+  of AddressType.P2WPKH: network.p2wpkh_address(addrHash.hash160)
+  of AddressType.P2SH_P2WPKH: network.p2sh_p2wpkh_address(addrHash.hash160)
+  of AddressType.Unknown: ""
 
 proc getAddresses*(network: Network, script: Script): seq[string] =
   var a = network.getAddress(script)
