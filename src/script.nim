@@ -28,31 +28,35 @@ type
 
   ScriptError* = object of CatchableError
 
-
 proc `$`*(data: Script): string = $cast[seq[byte]](data)
 
 proc getScriptChunks*(script: Script): Chunks =
   result = @[]
   var reader = newReader(script)
-  while reader.readable():
-    var bval = reader.getUint8
-    var op = OpcodeMap[bval]
-    if bval < OP_PUSHDATA1.ord and bval > 0:
-      result.add(Chunk(type: Data, data: reader.getBytes(bval.int)))
-    elif op == OP_PUSHDATA1:
-      result.add(Chunk(type: PushData1, val: reader.getUint8.uint))
-    elif op == OP_PUSHDATA2:
-      result.add(Chunk(type: PushData2, val: reader.getUint16.uint))
-    elif op == OP_PUSHDATA4:
-      result.add(Chunk(type: PushData4, val: reader.getUint32.uint))
-    elif op == OP_RETURN:
-      result.add(Chunk(type: Code, op: op))
-      result.add(Chunk(type: Data, data: reader.getBytes(reader.left)))
-      return
-    elif op != NA:
-      result.add(Chunk(type: Code, op: op))
-    else:
-      raise newException(ScriptError, "invalid opcode=" & $bval)
+  try:
+    while reader.readable():
+      var bval = reader.getUint8
+      var op = OpcodeMap[bval]
+      if bval < OP_PUSHDATA1.ord and bval > 0:
+        result.add(Chunk(type: Data, data: reader.getBytes(bval.int)))
+      elif op == OP_PUSHDATA1:
+        result.add(Chunk(type: PushData1, val: reader.getUint8.uint))
+      elif op == OP_PUSHDATA2:
+        result.add(Chunk(type: PushData2, val: reader.getUint16.uint))
+      elif op == OP_PUSHDATA4:
+        result.add(Chunk(type: PushData4, val: reader.getUint32.uint))
+      elif op == OP_RETURN:
+        result.add(Chunk(type: Code, op: op))
+        result.add(Chunk(type: Data, data: reader.getBytes(reader.left)))
+        return
+      elif op != NA:
+        result.add(Chunk(type: Code, op: op))
+      else:
+        raise newException(ScriptError, "invalid opcode=" & $bval)
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
+    echo "script=", script, " result=", result
 
 proc filterCodeSeparator*(chunks: Chunks): Chunks =
   var findSep = false
