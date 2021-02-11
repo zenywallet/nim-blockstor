@@ -16,6 +16,7 @@ type
     BitZeny_testnet
 
   AddressType* {.pure.} = enum
+    Unknown
     P2PKH
     P2SH
     P2SH_P2WPKH
@@ -117,6 +118,8 @@ proc getAddress*(network: Network, script: Script): string =
     return network.p2wpkh_address(addrHash.hash160)
   of AddressType.P2SH_P2WPKH:
     return network.p2sh_p2wpkh_address(addrHash.hash160)
+  of AddressType.Unknown:
+    return ""
 
 proc getAddresses*(network: Network, script: Script): seq[string] =
   var a = network.getAddress(script)
