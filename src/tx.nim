@@ -40,7 +40,7 @@ proc toBytes*(datas: seq[Witness] | seq[TxIn] | seq[TxOut]): seq[byte] =
 
 proc `$`*(data: Flags): string = $cast[uint8](data)
 
-proc `$`*(data: Witness | Sig | Script): string = $cast[seq[byte]](data)
+proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
 
 proc toTx*(reader: Reader): Tx =
   var tx = new Tx
