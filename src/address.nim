@@ -74,8 +74,11 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
       pos = i
     result = output[0..pos]
 
-proc getAddressHash160*(script: Script): tuple[hash160: Hash160, addressType: AddressType] =
-  var chunks = script.getScriptChunks
+proc getAddressHash160*(script: Script | Chunks): tuple[hash160: Hash160, addressType: AddressType] =
+  when script is Script:
+    var chunks = script.getScriptChunks
+  else:
+    var chunks = script
   if chunks.len == 5:
     if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
       chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_HASH160 and
@@ -107,7 +110,7 @@ proc getAddressHash160*(script: Script): tuple[hash160: Hash160, addressType: Ad
       elif chunks[1].data.len == 32:
         return (ripemd160hash(chunks[1].data), AddressType.P2WPKH)
 
-proc getAddress*(network: Network, script: Script): string =
+proc getAddress*(network: Network, script: Script | Chunks): string =
   var addrHash = getAddressHash160(script)
   case addrHash.addressType
   of AddressType.P2PKH: network.p2pkh_address(addrHash.hash160)
@@ -116,14 +119,17 @@ proc getAddress*(network: Network, script: Script): string =
   of AddressType.P2SH_P2WPKH: network.p2sh_p2wpkh_address(addrHash.hash160)
   of AddressType.Unknown: ""
 
-proc getAddresses*(network: Network, script: Script): seq[string] =
+proc getAddresses*(network: Network, script: Script | Chunks): seq[string] =
   var a = network.getAddress(script)
   if a.len > 0:
     result.add(a)
     return
 
   # not yet implemented, only for debugging purposes
-  var chunks = script.getScriptChunks
+  when script is Script:
+    var chunks = script.getScriptChunks
+  else:
+    var chunks = script
   for chunk in chunks:
     if chunk.type == ChunkType.Data:
       if chunk.data.len == 33:

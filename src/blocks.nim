@@ -64,8 +64,9 @@ proc toJson*(blk: Block, network: Network): JsonNode =
     for j, o in tx.outs:
       var script = o.script
       var p = json["txs"][i]["outs"][j]
-      p["chunks"] = %script.getScriptChunks
-      p["addrs"] = %network.getAddresses(script)
+      var chunks = script.getScriptChunks
+      p["chunks"] = %chunks
+      p["addrs"] = %network.getAddresses(chunks)
   json
 
 proc merkle*(txids: seq[seq[byte]]): MerkleHash =
