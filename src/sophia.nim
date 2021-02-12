@@ -49,6 +49,20 @@ template checkErr(err: cint) {.dirty.} =
     else:
       raise newException(SophiaErr, "env is nil")
 
+template checkErr(env: pointer, err: cint) =
+  if err != 0:
+    if not env.isNil:
+      var size: cint
+      var errptr: pointer = env.sp_getstring("sophia.error", addr size)
+      if size > 0:
+        var errmsg = $cast[cstring](errptr)
+        free(errptr)
+        raise newException(SophiaErr, errmsg)
+      else:
+        raise newException(SophiaErr, "unknown")
+    else:
+      raise newException(SophiaErr, "env is nil")
+
 proc open*(sophia: Sophia, dbpath: string) =
   sophia.env = sp_env()
   if sophia.env.isNil:
@@ -61,6 +75,22 @@ proc open*(sophia: Sophia, dbpath: string) =
   sophia.db = sophia.env.sp_getobject("db." & path.tail)
   if sophia.db.isNil:
     raise newException(SophiaErr, "db is nil")
+
+proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
+  var env = sp_env()
+  if env.isNil:
+    raise newException(SophiaErr, "env is nil")
+  env.checkErr env.sp_setint("log.enable", int64_t(0))
+  env.checkErr env.sp_setstring("sophia.path", dbpath.cstring, 0)
+  for dbname in dbnames:
+    env.checkErr env.sp_setstring("db", dbname.cstring, 0)
+    var sophia = new Sophia
+    sophia.env = env
+    sophia.db = env.sp_getobject("db." & dbname)
+    if sophia.db.isNil:
+      raise newException(SophiaErr, "db is nil")
+    result.add(sophia)
+  env.checkErr env.sp_open()
 
 proc close*(sophia: Sophia) =
   checkErr sophia.env.sp_destroy()

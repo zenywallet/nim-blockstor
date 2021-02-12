@@ -29,12 +29,14 @@ type
       discard
 
   DbInst* = Sophia
-
+  DbInsts* = seq[DbInst]
 
 proc open*(datapath: string): DbInst =
   var dbInst = new Sophia
   dbInst.open(datapath)
   dbInst
+
+proc opens*(dbpath: string, dbnames: seq[string]): DbInsts = sophia.opens(dbpath, dbnames)
 
 proc close*(dbInst: DbInst) =
   sophia.close(dbInst)
