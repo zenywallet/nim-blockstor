@@ -9,7 +9,7 @@ type
   Sophia* = ref object
     env: pointer
     db: pointer
-  SophiaErr* = object of Exception
+  SophiaErr* = object of CatchableError
   int64_t* = int64
 
 proc sp_env*(): pointer {.importc.}
