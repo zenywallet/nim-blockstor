@@ -1,6 +1,6 @@
 # Copyright (c) 2020 zenywallet
 
-import sophia, bytes, utils, strutils, json
+import sophia, bytes, json
 import blocks
 
 type Prefix* {.pure.} = enum
