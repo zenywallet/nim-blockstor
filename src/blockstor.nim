@@ -1,130 +1,200 @@
 # Copyright (c) 2020 zenywallet
 
-import net, nativesockets
-import nimcrypto, byteutils, strutils, sequtils
-import endians, times
+import os, times, tables, terminal
+import bytes, tcp, rpc, db
+import address, blocks, tx
+import std/exitprocs
 
-proc toBytes[T](x: var T): seq[byte] {.inline.} =
-  when T is uint8:
-    @[byte x]
-  else:
-    result = newSeq[byte](sizeof(T))
-    when T is uint16:
-      littleEndian16(addr result[0], addr x)
-    elif T is uint32:
-      littleEndian32(addr result[0], addr x)
-    elif T is uint64:
-      littleEndian64(addr result[0], addr x)
+type
+  WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
+
+  BlockstorError* = object of CatchableError
+
+var node_BitZeny_mainnet = (ip: "127.0.0.1",
+                            port: 9253'u16,
+                            protocolVersion: 70015'u32,
+                            messageStart: 0xdaa5bef9'u32,
+                            networkId: NetworkId.BitZeny_mainnet)
+
+var node_BitZeny_testnet = (ip: "127.0.0.1",
+                            port: 19253'u16,
+                            protocolVersion: 70015'u32,
+                            messageStart: 0x59454e59'u32,
+                            networkId: NetworkId.BitZeny_testnet)
+
+var nodes: seq[NodeParams]
+nodes.add(node_BitZeny_mainnet)
+nodes.add(node_BitZeny_testnet)
+
+var dbnames: seq[string]
+for node in nodes:
+  dbnames.add($node.networkId)
+
+var dbInsts = db.opens("data", dbnames)
+
+var workers: seq[WorkerParams]
+for i, node in nodes:
+  workers.add((node, dbInsts[i], i))
+
+proc quit() {.noconv.} =
+  resetAttributes()
+  if dbInsts.len > 0:
+    dbInsts[0].close()
+
+exitprocs.addExitProc(quit)
+
+type
+  AddrVal = tuple[hash160: Hash160, addressType: uint8, value: uint64, utxo_count: uint32]
+
+proc aggregate(addrvals: seq[AddrVal]): seq[AddrVal] =
+  var t = initTable[seq[byte], AddrVal]()
+  for a in addrvals:
+    var key = (a.hash160, a.addressType).toBytes
+    if t.hasKey(key):
+      t[key].value = t[key].value + a.value
+      t[key].utxo_count = t[key].utxo_count + a.utxo_count
     else:
-      raiseAssert("unsupported type")
+      t[key] = a
+  for v in t.values:
+    result.add(v)
 
-proc toBytesBE[T](x: var T): seq[byte] {.inline.} =
-  when T is uint8:
-    @[byte x]
-  else:
-    result = newSeq[byte](sizeof(T))
-    when T is uint16:
-      bigEndian16(addr result[0], addr x)
-    elif T is uint32:
-      bigEndian32(addr result[0], addr x)
-    elif T is uint64:
-      bigEndian64(addr result[0], addr x)
-    else:
-      raiseAssert("unsupported type")
+proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64) =
+  dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
 
-proc toBytes[T](x: T): seq[byte] {.inline.} =
-  when T is uint8:
-    @[byte x]
-  else:
-    var v = x
-    v.toBytes
+  var addrouts = newSeq[seq[AddrVal]](blk.txs.len)
+  var addrins = newSeq[seq[AddrVal]](blk.txs.len)
 
-proc toBytesBE[T](x: T): seq[byte] {.inline.} =
-  when T is uint8:
-    @[byte x]
-  else:
-    var v = x
-    v.toBytesBE
+  if blk.txs.len != blk.txn.int:
+    raise newException(BlockParserError, "txn conflict")
 
-proc toBytes(s: string): seq[byte] {.inline.} = cast[seq[byte]](s.toSeq)
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+    var txid = Hash(tx.txidBin)
+    dbInst.setId(sid, txid)
+    dbInst.setTx(txid, height, sid)
+    var addrvals: seq[AddrVal]
+    for n, o in tx.outs:
+      var addrHash = getAddressHash160(o.script)
+      dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
+      dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
+      addrvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
 
-proc var_int[T](val: T): seq[byte] =
-  if val < 0xfd:
-    @[byte val]
-  elif val <= 0xffff:
-    concat(@[byte 0xfd], (uint16(val)).toBytes)
-  elif val <= 0xffffffff:
-    concat(@[byte 0xfe], (uint32(val)).toBytes)
-  else:
-    concat(@[byte 0xff], (uint64(val)).toBytes)
+    addrouts[idx] = addrvals.aggregate
 
-proc var_str(val: string): seq[byte] = concat(var_int(val.len), val.toBytes)
+  for idx, tx in blk.txs:
+    var addrvals: seq[AddrVal]
+    for i in tx.ins:
+      var in_txid = i.tx
+      var n = i.n
 
-proc pad(length: int): seq[byte] {.inline.} = newSeq[byte](length)
+      if n != 0xffffffff'u32:
+        var ret_tx = dbInst.getTx(in_txid)
+        if ret_tx.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "id not found " & $in_txid)
 
-proc command(val: string): seq[byte] {.inline.} = concat(cast[seq[byte]](val.toSeq), pad(12 - val.len))
+        var id = ret_tx.res.id
+        var ret_txout = dbInst.getTxout(id, n)
+        if ret_txout.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "txout not found " & $id)
 
-var server_ip = "127.0.0.1"
-var port: uint16 = 19253 # main 9253, testnet 19253
-const PROTOCOL_VERSION = 70015
-const MESSAGE_START = 0x59454e59 # main 0xdaa5bef9, testnet 0x59454e59
-let ProtocolVersionBytes = (uint32(PROTOCOL_VERSION)).toBytes
-let MessageStartBytes = (uint32(MESSAGE_START)).toBytesBE
+        dbInst.delUnspent(ret_txout.res.address_hash, id, n)
+        addrvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
 
-proc msg_version(): seq[byte] =
-  let now = getTime()
-  result = concat(ProtocolVersionBytes,
-                  (uint64(0xd)).toBytes,
-                  (uint64(now.toUnix)).toBytes,
-                  pad(26),
-                  pad(26),
-                  (uint64(0xa5a5)).toBytes,
-                  var_str("/blockstor:0.2.0/"),
-                  (uint32(0)).toBytes)
+    addrins[idx] = addrvals.aggregate
 
-proc message(cmd: string, payload: seq[byte]): seq[byte] =
-  var checksum = sha256.digest((sha256.digest(payload)).data).data
-  result = concat(MessageStartBytes,
-                  command(cmd),
-                  (uint32(payload.len)).toBytes,
-                  checksum[0..<4],
-                  payload)
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
 
-proc toString(s: openarray[byte]): string =
-  result = newStringOfCap(len(s))
-  for c in s:
-    result.add(cast[char](c))
+    var addrvals = addrouts[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      var ret_addrval = dbInst.getAddrval(hash160)
+      if ret_addrval.err == DbStatus.NotFound:
+        dbInst.setAddrval(hash160, value, utxo_count)
+      else:
+        dbInst.setAddrval(hash160, ret_addrval.res.value + value, ret_addrval.res.utxo_count + utxo_count)
+      dbInst.setAddrlog(hash160, sid, 1, value, addressType)
 
-proc unsafeCast[T](x: var byte): T {.inline.} = cast[ptr T](addr x)[]
-proc toUint64(x: var byte): uint64 {.inline.} = cast[ptr uint64](addr x)[]
-proc toUint32(x: var byte): uint32 {.inline.} = cast[ptr uint32](addr x)[]
-proc toUint16(x: var byte): uint16 {.inline.} = cast[ptr uint16](addr x)[]
-proc toUint8(x: var byte): uint8 {.inline.} = cast[ptr uint8](addr x)[]
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
 
-proc main() =
-  var address: IpAddress = parseIpAddress(server_ip)
-  var sin: Sockaddr_in
-  sin.sin_family = type(sin.sin_family)(AF_INET.toInt)
-  copyMem(addr sin.sin_addr, unsafeAddr address.address_v4[0], sizeof(sin.sin_addr))
-  sin.sin_port = ntohs(port)
+    var addrvals = addrins[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      var ret_addrval = dbInst.getAddrval(hash160)
+      if ret_addrval.err == DbStatus.NotFound:
+        raise newException(BlockParserError, "address not found " & $hash160)
+      else:
+        dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
+      dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
-  var sock = createNativeSocket()
-  const SO_RCVBUF: cint = 8
-  var tcp_rmem = sock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
-  echo "RECVBUF=", tcp_rmem
-  var buf = newSeq[byte](tcp_rmem)
-  echo "connect ret=", sock.connect(cast[ptr SockAddr](addr sin), sizeof(sin).SockLen)
-  var data = message("version", msg_version())
-  echo "send ret=", sock.send(addr data[0], data.len.cint, 0.cint)
-  var recvlen = sock.recv(addr buf[0], buf.len.cint, 0.cint)
-  echo "recvlen=", recvlen
-  if recvlen > 0:
-    echo recvlen
-    echo buf[0..<recvlen]
-    echo buf[16..<20]
-    echo unsafeCast[uint32](buf[0])
-    echo (unsafeCast[uint32](buf[0])).toBytes
-  sock.close()
+type
+  MonitorInfo = object
+    height: int
+    hash: BlockHash
+    blkTime: int64
+
+var monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
+
+var monitorEnable = true
+proc monitor(workers: seq[WorkerParams]) {.thread.} =
+  while monitorEnable:
+    stdout.setCursorPos(0, 0)
+    stdout.eraseLine
+    stdout.styledWriteLine(styleBright, fgCyan, now().format("yyyy-MM-dd HH:mm:ss"))
+    for i, params in workers:
+      var m = monitorInfos[][i]
+      stdout.eraseLine
+      if m.height > 0:
+        stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId &
+                              " #" & $m.height & " " & $m.hash &
+                              " " & m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"))
+      else:
+        stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId)
+    stdout.setCursorPos(0, terminalHeight() - 1)
+    stdout.flushFile
+    sleep(1000)
+
+proc nodeWorker(params: WorkerParams) {.thread.} =
+  var node = newNode(params.nodeParams)
+  var dbInst = params.dbInst
+
+  block tcpMode:
+    if not node.connect():
+      raise newException(BlockstorError, "connect failed: " & $node.networkId)
+    echo "connect: ", node.networkId
+
+    defer:
+      node.close()
+
+    var seq_id = 0'u64
+
+    proc cb(height: int, hash: BlockHash, blk: Block) =
+      dbInst.writeBlock(height, hash, blk, seq_id)
+      seq_id = seq_id + blk.txs.len.uint64
+      monitorInfos[][params.id] = MonitorInfo(height: height, hash: hash, blkTime: blk.header.time.int64)
+
+    node.start(params.nodeParams, 0, BlockHash(pad(32)), cb)
+
+proc startWorker() =
+  var monitorThread: Thread[seq[WorkerParams]]
+  createThread(monitorThread, monitor, workers)
+  var threads = newSeq[Thread[WorkerParams]](workers.len)
+
+  for i, params in workers:
+    createThread(threads[i], nodeWorker, params)
+  threads.joinThreads()
+  monitorEnable = false
+  monitorThread.joinThread()
+  deallocShared(monitorInfos)
+
 
 when isMainModule:
-  main()
+  stdout.eraseScreen
+  startWorker()
