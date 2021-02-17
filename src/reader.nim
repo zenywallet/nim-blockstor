@@ -81,7 +81,7 @@ proc getVarStr*(r: Reader): string =
   var len = r.getVarInt
   var data = r.getBytes(len)
   result = data.toString
-    
+
 proc readable*(r: Reader): bool = r.data.len > r.pos
 
 proc left*(r: Reader): int = r.data.len - r.pos

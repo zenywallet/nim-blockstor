@@ -87,7 +87,6 @@ proc pushData*(data: seq[byte]): seq[byte] =
   else:
     raiseAssert("pushData: overflow")
 
-
 proc pushData*(data: openarray[byte]): seq[byte] =
   if data.len <= 0:
     raiseAssert("pushData: empty")

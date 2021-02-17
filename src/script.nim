@@ -80,7 +80,7 @@ proc filterCodeSeparator*(chunks: Chunks): Chunks =
           continue
         result.add(c)
     else:
-      if separatorPos < chunks.high: 
+      if separatorPos < chunks.high:
         result = chunks[separatorPos+1..^1]
       else:
         result = @[]
