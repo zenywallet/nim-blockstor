@@ -154,6 +154,21 @@ proc toBytesBE*(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
 proc toBytesBE*(hash: Hash): seq[byte] {.inline.} = cast[seq[byte]](hash)
 proc toBytesBE*(hash: Hash160): seq[byte] {.inline.} = cast[seq[byte]](hash)
 proc toBytesBE*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x.toSeq)
+
+proc toBytesBE*(obj: tuple | object): seq[byte] =
+  var s: seq[seq[byte]]
+  for val in obj.fields:
+    var b = val.toBytesBE
+    s.add(b)
+  concat(s)
+
+proc toBytesBE*(obj: ref tuple | ref object | ptr tuple | ptr object): seq[byte] =
+  var s: seq[seq[byte]]
+  for val in obj[].fields:
+    var b = val.toBytesBE
+    s.add(b)
+  concat(s)
+
 proc BytesBE*(args: varargs[seq[byte], toBytesBE]): seq[byte] = concat(args)
 
 proc toBytesFromHex*(s: string): seq[byte] =
