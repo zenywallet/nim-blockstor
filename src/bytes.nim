@@ -87,19 +87,7 @@ proc pushData*(data: seq[byte]): seq[byte] =
   else:
     raiseAssert("pushData: overflow")
 
-proc pushData*(data: openarray[byte]): seq[byte] =
-  if data.len <= 0:
-    raiseAssert("pushData: empty")
-  elif data.len < OP_PUSHDATA1.ord:
-    result = concat(@[byte data.len], data.toSeq)
-  elif data.len <= 0xff:
-    result = concat(@[byte OP_PUSHDATA1], (data.len).uint8.toBytes, data.toSeq)
-  elif data.len <= 0xffff:
-    result = concat(@[byte OP_PUSHDATA2], (data.len).uint16.toBytes, data.toSeq)
-  elif data.len <= 0xffffffff:
-    result = concat(@[byte OP_PUSHDATA4], (data.len).uint32.toBytes, data.toSeq)
-  else:
-    raiseAssert("pushData: overflow")
+proc pushData*(data: openarray[byte]): seq[byte] {.inline.} = pushData(data.toSeq)
 
 proc pad*(len: int): seq[byte] {.inline.} = newSeq[byte](len)
 
