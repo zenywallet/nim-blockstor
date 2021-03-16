@@ -58,7 +58,7 @@ proc p2sh_address*(network: Network, hash160: Hash160): string =
   result = base58.enc(binaddr)
 
 proc p2sh_p2wpkh_address*(network: Network, hash160: Hash160): string =
-  let script = (OP_0, pushData(hash160.toBytes)).toBytes
+  let script = (OP_0, PushData(hash160)).toBytes
   let binaddr = check(network.scriptPrefix, ripemd160hash(script))
   result = base58.enc(binaddr)
 
