@@ -209,7 +209,7 @@ proc toString*(s: openarray[byte]): string =
   for c in s:
     result.add(cast[char](c))
 
-proc toString*(buf: ptr UncheckedArray[byte], size: int): string =
+proc toString*(buf: ptr UncheckedArray[byte], size: SomeInteger): string =
   result = newStringOfCap(size)
   for i in 0..<size:
     result.add(cast[char](buf[i]))
