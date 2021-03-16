@@ -177,6 +177,19 @@ proc p2wpkh_script*(address: string, bech32Prefix: string): seq[byte] =
     if programmlen == 20:
       result = (OP_0, ChunkData(programm[0..<20])).toBytes
 
+proc getScript*(network: Network, address: string): seq[byte] =
+  var binaddr = base58.dec(address)
+  if binaddr.len == 25:
+    if binaddr[0] == network.pubKeyPrefix:
+      result = (OP_DUP, OP_HASH160, ChunkData(binaddr[1..^5]), OP_EQUALVERIFY, OP_CHECKSIG).toBytes
+    elif binaddr[0] == network.scriptPrefix:
+      result = (OP_HASH160, ChunkData(binaddr[1..^5]), OP_EQUAL).toBytes
+  elif address.startsWith(network.bech32):
+    result = p2wpkh_script(address, network.bech32)
+  else:
+    for bech32 in network.bech32Extra:
+      if address.startsWith(bech32):
+        result = p2wpkh_script(address, bech32)
 
 when isMainModule:
   var bitzeny_test = getNetwork(NetworkId.BitZeny_testnet)
