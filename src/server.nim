@@ -230,7 +230,7 @@ proc addHeaderDeflate*(body: string, etag: string, code: StatusCode = Status200,
 const BusyBody = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Sorry, It is a break time.</i>"
 const BadRequest = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Oops, something's wrong?</i>"
 const NotFound = "<!DOCTYPE html><meta charset=\"utf-8\"><i>You just found emptiness.</i>"
-const ServerError = "<!DOCTYPE html><meta charset=\"utf-8\">the fire is dead.<br>the room is freezing."
+const InternalError = "<!DOCTYPE html><meta charset=\"utf-8\">the fire is dead.<br>the room is freezing."
 const Empty = ""
 
 proc sendInstant*(s: SocketHandle, data: string) =
