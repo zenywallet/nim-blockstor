@@ -104,6 +104,8 @@ type
 
   Headers = Table[string, string]
 
+  ServerError* = object of CatchableError
+
 var active = true
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
@@ -399,6 +401,23 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): S
 proc worker(arg: ThreadArg) {.thread.} =
   var recvBuf = newSeq[byte](arg.workerParams.bufLen)
 
+  proc reserveRecvBuf(client: ptr Client, size: int) =
+    if client.recvBuf.isNil:
+      client.recvBuf = cast[ptr UncheckedArray[byte]](allocShared0(sizeof(byte) * (size + arg.workerParams.bufLen)))
+      client.recvBufSize = size + arg.workerParams.bufLen
+    var left = client.recvBufSize - client.recvCurSize
+    if size > left:
+      var nextSize = client.recvCurSize + size + arg.workerParams.bufLen
+      if nextSize > RECVBUF_EXPAND_BREAK_SIZE:
+        raise newException(ServerError, "client request too large")
+      client.recvBuf = reallocClientBuf(client.recvBuf, nextSize)
+      client.recvBufSize = nextSize
+
+  proc addRecvBuf(client: ptr Client, data: ptr UncheckedArray[byte], size: int) =
+    client.reserveRecvBuf(size)
+    copyMem(addr client.recvBuf[client.recvCurSize], addr data[0], size)
+    client.recvCurSize = client.recvCurSize + size
+
   while true:
     block channelBlock:
       var channelData = workerChannel.recv()
@@ -453,10 +472,7 @@ proc worker(arg: ThreadArg) {.thread.} =
                 var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 retWorkerHandler(retWorker)
               else:
-                client.recvBuf = cast[ptr UncheckedArray[byte]](allocShared0(sizeof(byte) * recvBuf.len))
-                client.recvBufSize = recvBuf.len
-                copyMem(addr client.recvBuf[0], addr recvBuf[0], recvlen)
-                client.recvCurSize = recvlen
+                client.addRecvBuf(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 if recvlen == recvBuf.len:
                   break
               waitEventAgain(evData, clientFd)
@@ -474,15 +490,7 @@ proc worker(arg: ThreadArg) {.thread.} =
               break channelBlock
 
         while true:
-          var nextSize = client.recvCurSize + arg.workerParams.bufLen
-          if client.recvBufSize < nextSize:
-            if nextSize > RECVBUF_EXPAND_BREAK_SIZE:
-              error "error: client request too large"
-              client.close()
-              break channelBlock
-            client.recvBuf = reallocClientBuf(client.recvBuf, nextSize)
-            client.recvBufSize = nextSize
-
+          client.reserveRecvBuf(arg.workerParams.bufLen)
           var recvlen = clientSock.recv(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint, 0.cint)
           if recvlen > 0:
             client.recvCurSize = client.recvCurSize + recvlen
