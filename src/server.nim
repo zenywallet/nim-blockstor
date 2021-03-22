@@ -379,6 +379,8 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): S
             error "invalid request path: ", urlpath
             return SendResult.Invalid
           url = normalizedPath(urlpath)
+          if urlpath.endsWith("/") and not url.endsWith("/"):
+            url = url & "/"
           if cmdparams.len >= 3 and cmdparams[2] == "HTTP/1.1":
             keepAlive = true
       else:
