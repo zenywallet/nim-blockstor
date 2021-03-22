@@ -6,6 +6,7 @@ from cgi import decodeUrl
 import os
 import bytes, files
 
+const ULIMIT_SIZE = 65536
 const CLIENT_MAX = 32000
 const CLIENT_SEARCH_LIMIT = 30000
 const WORKER_THREAD_NUM = 16
@@ -128,6 +129,27 @@ template debug(x: varargs[string, `$`]) =
     echo join(x)
 
 template error(x: varargs[string, `$`]) = echo join(x)
+
+proc setUlimit(rlim: int): bool {.discardable.} =
+  var rlp: RLimit
+  var ret = getrlimit(RLIMIT_NOFILE, rlp)
+  if ret != 0: return false
+  debug "RLIMIT_NOFILE prev=", rlp
+  if rlp.rlim_cur < rlim:
+    if rlp.rlim_max < rlim:
+      rlp.rlim_cur = rlp.rlim_max
+    else:
+      rlp.rlim_cur = rlim
+    ret = setrlimit(RLIMIT_NOFILE, rlp)
+    if ret != 0: return false
+  else:
+    debug "RLIMIT_NOFILE cur=", rlp
+    return true
+  ret = getrlimit(RLIMIT_NOFILE, rlp)
+  if ret != 0: return false
+  debug "RLIMIT_NOFILE new=", rlp
+  if rlp.rlim_cur < rlim: return false
+  return true
 
 proc initClient() =
   var tmp = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
@@ -635,6 +657,7 @@ proc main(arg: ThreadArg) {.thread.} =
     quit(QuitFailure)
 
 proc start*(): seq[Thread[ThreadArg]] =
+  setUlimit(ULIMIT_SIZE)
   createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
   result.add(mainThread)
 
