@@ -481,7 +481,7 @@ proc worker(arg: ThreadArg) {.thread.} =
             waitEventAgain(evData, clientFd, EPOLLOUT)
             break channelBlock
           of SendResult.Invalid:
-            var retSend = client.send(BadRequest.addHeader(Status400))
+            client.sendInstant(BadRequest.addHeader(Status400))
             client.close()
             break channelBlock
           of SendResult.None, SendResult.Error:
