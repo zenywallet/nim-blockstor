@@ -5,6 +5,8 @@ import strutils, sequtils, tables
 from cgi import decodeUrl
 import os
 import bytes, files
+from std/sha1 import secureHash
+import base64
 
 const ULIMIT_SIZE = 65536
 const CLIENT_MAX = 32000
@@ -17,6 +19,9 @@ const SERVER_HOST_NAME = "localhost:8000"
 const RELEASE_MODE = defined(release)
 const CLCL = 168626701'u32 # "\c\L\c\L"
 const RECVBUF_EXPAND_BREAK_SIZE = 131072 * 5
+const MAX_FRAME_SIZE = 131072 * 5
+const WEBSOCKET_PROTOCOL = "deoxy-0.1"
+const WEBSOCKET_ENTRY_POINT = "/ws"
 
 type
   Client* = object
@@ -27,6 +32,8 @@ type
     sendBuf: ptr UncheckedArray[byte]
     sendBufSize: int
     keepAlive: bool
+    wsUpgrade: bool
+    payloadSize: int
 
   ClientArray = array[CLIENT_MAX, Client]
 
@@ -105,6 +112,14 @@ type
 
   Headers = Table[string, string]
 
+  WebSocketOpCode* = enum
+    Continue = 0x0
+    Text = 0x1
+    Binary = 0x2
+    Close = 0x8
+    Ping = 0x9
+    Pong = 0xa
+
   ServerError* = object of CatchableError
 
 var active = true
@@ -161,6 +176,8 @@ proc initClient() =
     tmp[i].sendBuf = nil
     tmp[i].sendBufSize = 0
     tmp[i].keepAlive = true
+    tmp[i].wsUpgrade = false
+    tmp[i].payloadSize = 0
   clients = tmp
 
 proc freeClient() =
@@ -314,6 +331,69 @@ proc sendFlush(client: ptr Client): SendResult =
     else:
       return SendResult.None
 
+proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
+                          opcode: WebSocketOpCode = WebSocketOpCode.Binary): SendResult =
+  var frame: seq[byte]
+  var dataLen = data.len
+  var finOp = 0x80.byte or opcode.byte
+  if dataLen < 126:
+    frame = BytesBE(finOp, dataLen.byte, data)
+  elif dataLen >= 126 and dataLen <= 0xffff:
+    frame = BytesBE(finOp, 126.byte, dataLen.uint16, data)
+  else:
+    frame = BytesBE(finOp, 127.byte, dataLen.uint64, data)
+  result = client.send(frame.toString)
+
+proc getFrame(data: ptr UncheckedArray[byte],
+              size: int): tuple[find: bool, fin: bool, opcode: int8,
+                                payload: ptr UncheckedArray[byte], payloadSize: int,
+                                next: ptr UncheckedArray[byte], size: int] =
+  if size < 2:
+    return (false, false, -1.int8, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+
+  var b1 = data[1]
+  var mask = ((b1 and 0x80.byte) != 0)
+  if not mask:
+    raise newException(ServerError, "websocket client no mask")
+  var b0 = data[0]
+  var fin = ((b0 and 0xf0.byte) == 0x80.byte)
+  var opcode = (b0 and 0x0f.byte).int8
+
+  var payloadLen = (b1 and 0x7f.byte).int
+  var frameHeadSize: int
+  if payloadLen < 126:
+    frameHeadSize = 6
+  elif payloadLen == 126:
+    if size < 4:
+      return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+    payloadLen = data[2].toUint16BE.int
+    frameHeadSize = 8
+  elif payloadLen == 127:
+    if size < 10:
+      return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+    payloadLen = data[2].toUint64BE.int # exception may occur. value out of range [RangeDefect]
+    frameHeadSize = 14
+  else:
+    return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+
+  var frameSize = frameHeadSize + payloadLen
+  if frameSize > MAX_FRAME_SIZE:
+    raise newException(ServerError, "websocket frame size is too big frameSize=" & $frameSize)
+
+  if size < frameSize:
+    return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+
+  var maskData: array[4, byte]
+  copyMem(addr maskData[0], addr data[frameHeadSize - 4], 4)
+  var payload = cast[ptr UncheckedArray[byte]](addr data[frameHeadSize])
+  for i in 0..<payloadLen:
+    payload[i] = payload[i] xor maskData[i mod 4]
+
+  if size > frameSize:
+    return (true, fin, opcode, payload, payloadLen, cast[ptr UncheckedArray[byte]](addr data[frameSize]), size - frameSize)
+  else:
+    return (true, fin, opcode, payload, payloadLen, nil, 0)
+
 proc waitEventAgain(evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0) =
   var ev: EpollEvent
   ev.events = EPOLLIN or EPOLLRDHUP or exEvents
@@ -335,6 +415,8 @@ proc close(client: ptr Client) =
     deallocShared(cast[pointer](client.sendBuf))
     client.sendBuf = nil
   client.keepAlive = true
+  client.wsUpgrade = false
+  client.payloadSize = 0
   client.fd = osInvalidSocket.int
 
 var webMain* = proc(client: ptr Client, url: string, headers: Headers): SendResult =
@@ -352,6 +434,20 @@ var webMain* = proc(client: ptr Client, url: string, headers: Headers): SendResu
       return client.send(file.content.addHeader(file.md5, Status200, file.mime))
   else:
     return client.send(NotFound.addHeader(Status404))
+
+var streamMain* = proc(client: ptr Client, opcode: WebSocketOpCode,
+                      data: ptr UncheckedArray[byte], size: int): SendResult =
+  debug "ws opcode=", opcode, " size=", size
+  case opcode
+  of WebSocketOpcode.Binary, WebSocketOpcode.Text, WebSocketOpcode.Continue:
+    result = client.wsServerSend(data.toString(size), WebSocketOpcode.Binary)
+  of WebSocketOpcode.Ping:
+    result = client.wsServerSend(data.toString(size), WebSocketOpcode.Pong)
+  of WebSocketOpcode.Pong:
+    debug "pong ", data.toString(size)
+    result = SendResult.Success
+  else: # WebSocketOpcode.Close
+    result = SendResult.None
 
 proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): SendResult =
   var i = 0
@@ -400,6 +496,27 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): S
         else:
           error "invalid request no host headers=", headers
           return SendResult.Invalid
+
+        if url == WEBSOCKET_ENTRY_POINT:
+          if headers.hasKey("Sec-WebSocket-Version") and
+            headers.hasKey("Sec-WebSocket-Key") and
+            headers.hasKey("Sec-WebSocket-Protocol") and
+            headers["Sec-WebSocket-Protocol"] == WEBSOCKET_PROTOCOL:
+            var key = headers["Sec-WebSocket-Key"]
+            var sh = secureHash(key & "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+            var acceptKey = base64.encode(cast[array[0 .. 20 - 1, uint8]](sh))
+            var res = "HTTP/1.1 " & $Status101 & "\c\L" &
+                      "Upgrade: websocket\c\L" &
+                      "Connection: Upgrade\c\L" &
+                      "Sec-WebSocket-Accept: " & acceptKey & "\c\L" &
+                      "Sec-WebSocket-Protocol: " & WEBSOCKET_PROTOCOL & "\c\L" &
+                      "Sec-WebSocket-Version: 13\c\L\c\L"
+            client.wsUpgrade = true
+            debug "ws upgrade url=", url, " headers=", headers
+            return client.send(res)
+          else:
+            error "error: websocket protocol headers=", headers
+            raise newException(ServerError, "websocket protocol error")
 
         retMain = client.webMain(url, headers)
         if not keepAlive or (headers.hasKey("Connection") and
@@ -488,11 +605,44 @@ proc worker(arg: ThreadArg) {.thread.} =
             client.close()
             break channelBlock
 
+        template retStreamHandler(retStream: SendResult) {.dirty.} =
+          case retStream
+          of SendResult.Success:
+            discard
+          of SendResult.Pending:
+            exEvents = EPOLLOUT
+          of SendResult.None, SendResult.Error, SendResult.Invalid:
+            client.close()
+            break channelBlock
+
         if client.recvBufSize == 0:
           while true:
             var recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
             if recvlen > 0:
-              if recvlen >= 4 and recvBuf[recvlen - 4].toUint32 == CLCL:
+              if client.wsUpgrade:
+                var exEvents = 0'u32
+                var (find, fin, opcode, payload, payloadSize,
+                    next, size) = getFrame(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
+                while find:
+                  if fin:
+                    var retStream = client.streamMain(WebSocketOpcode(opcode), payload, payloadSize)
+                    retStreamHandler(retStream)
+                  else:
+                    if not payload.isNil and payloadSize > 0:
+                      client.addRecvBuf(payload, payloadSize)
+                      client.payloadSize = payloadSize
+                    break
+                  (find, fin, opcode, payload, payloadSize, next, size) = getFrame(next, size)
+
+                if not next.isNil and size > 0:
+                  client.addRecvBuf(next, size)
+                  if recvlen == recvBuf.len:
+                    break
+
+                waitEventAgain(evData, clientFd, exEvents)
+                break channelBlock
+
+              elif recvlen >= 4 and recvBuf[recvlen - 4].toUint32 == CLCL:
                 var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 retWorkerHandler(retWorker)
               else:
@@ -518,7 +668,37 @@ proc worker(arg: ThreadArg) {.thread.} =
           var recvlen = clientSock.recv(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint, 0.cint)
           if recvlen > 0:
             client.recvCurSize = client.recvCurSize + recvlen
-            if client.recvCurSize >= 4 and client.recvBuf[client.recvCurSize - 4].toUint32 == CLCL:
+            if client.wsUpgrade:
+              var exEvents = 0'u32
+              var p = cast[ptr UncheckedArray[byte]](addr client.recvBuf[client.payloadSize])
+              var (find, fin, opcode, payload, payloadSize,
+                  next, size) = getFrame(p, client.recvCurSize - client.payloadSize)
+              while find:
+                if not payload.isNil and payloadSize > 0:
+                  copyMem(p, payload, payloadSize)
+                  client.payloadSize = client.payloadSize + payloadSize
+                  p = cast[ptr UncheckedArray[byte]](addr client.recvBuf[client.payloadSize])
+                if fin:
+                  var retStream = client.streamMain(WebSocketOpcode(opcode),
+                                                    cast[ptr UncheckedArray[byte]](addr client.recvBuf[0]),
+                                                    client.payloadSize)
+                  retStreamHandler(retStream)
+                  client.payloadSize = 0
+                  client.recvCurSize = 0
+                (find, fin, opcode, payload, payloadSize, next, size) = getFrame(next, size)
+
+              if not next.isNil and size > 0:
+                copyMem(p, next, size)
+                client.recvCurSize = client.payloadSize + size
+                if recvlen == arg.workerParams.bufLen:
+                  continue
+              else:
+                client.recvCurSize = client.payloadSize
+
+              waitEventAgain(evData, clientFd, exEvents)
+              break channelBlock
+
+            elif client.recvCurSize >= 4 and client.recvBuf[client.recvCurSize - 4].toUint32 == CLCL:
               var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](client.recvBuf), client.recvCurSize)
               client.recvCurSize = 0
               client.recvBufSize = 0
