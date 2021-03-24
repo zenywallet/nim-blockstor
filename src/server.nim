@@ -889,8 +889,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
         clientSock.close()
         continue
 
-    if workerChannelWaitingCount > WORKER_QUEUE_LIMIT:
-      error "error: worker busy"
+    template busyErrorContinue() =
       when ENABLE_SSL:
         ssl.sendInstant(BusyBody.addHeader(Status503))
         SSL_free(ssl)
@@ -899,16 +898,14 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       clientSock.close()
       continue
 
+    if workerChannelWaitingCount > WORKER_QUEUE_LIMIT:
+      error "error: worker busy"
+      busyErrorContinue()
+
     var idx = setClient(clientFd)
     if idx < 0:
       error "error: server full"
-      when ENABLE_SSL:
-        ssl.sendInstant(BusyBody.addHeader(Status503))
-        SSL_free(ssl)
-      else:
-        clientSock.sendInstant(BusyBody.addHeader(Status503))
-      clientSock.close()
-      continue
+      busyErrorContinue()
 
     when ENABLE_SSL:
       clients[idx].ssl = ssl
