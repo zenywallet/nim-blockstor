@@ -256,6 +256,8 @@ proc setClient(fd: int): int =
     if clients[i].fd < 0:
       clients[i].fd = fd
       inc(clIdx)
+      if clIdx >= CLIENT_MAX:
+        clIdx = 0
       return i
     else:
       inc(usedCount)
