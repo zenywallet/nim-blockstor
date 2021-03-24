@@ -7,6 +7,7 @@ import os
 import bytes, files
 from std/sha1 import secureHash
 import base64
+import openssl
 
 const ULIMIT_SIZE = 65536
 const CLIENT_MAX = 32000
@@ -22,6 +23,12 @@ const RECVBUF_EXPAND_BREAK_SIZE = 131072 * 5
 const MAX_FRAME_SIZE = 131072 * 5
 const WEBSOCKET_PROTOCOL = "deoxy-0.1"
 const WEBSOCKET_ENTRY_POINT = "/ws"
+const ENABLE_SSL = true
+when ENABLE_SSL:
+  const CERT_PATH = "./"
+  const CERT_FILE = CERT_PATH / "cert.pem"
+  const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
+  const CHAIN_FILE = CERT_PATH / "fullchain.pem"
 
 type
   Client* = object
@@ -34,6 +41,8 @@ type
     keepAlive: bool
     wsUpgrade: bool
     payloadSize: int
+    when ENABLE_SSL:
+      ssl: SSL
 
   ClientArray = array[CLIENT_MAX, Client]
 
@@ -178,6 +187,8 @@ proc initClient() =
     tmp[i].keepAlive = true
     tmp[i].wsUpgrade = false
     tmp[i].payloadSize = 0
+    when ENABLE_SSL:
+      tmp[i].ssl = nil
   clients = tmp
 
 proc freeClient() =
@@ -282,8 +293,23 @@ proc sendInstant*(s: SocketHandle, data: string) =
       continue
     break
 
+when ENABLE_SSL:
+  proc sendInstant*(ssl: SSL, data: string) {.inline.} =
+    var sendRet: int
+    while true:
+      sendRet = ssl.SSL_write(data.cstring, data.len.cint)
+      if sendRet < 0 and errno == EINTR:
+        continue
+      break
+
 proc sendInstant*(client: ptr Client, data: string) {.inline.} =
-  sendInstant(client.fd.SocketHandle, data)
+  when ENABLE_SSL:
+    if not client.ssl.isNil:
+      client.ssl.sendInstant(data)
+    else:
+      client.fd.SocketHandle.sendInstant(data)
+  else:
+    client.fd.SocketHandle.sendInstant(data)
 
 proc addSendBuf(client: ptr Client, data: string) =
   var nextSize = client.sendBufSize + data.len
@@ -296,8 +322,15 @@ proc send*(client: ptr Client, data: string): SendResult =
     client.addSendBuf(data)
     return SendResult.Pending
 
+  var sendRet: int
   while true:
-    var sendRet = client.fd.SocketHandle.send(data.cstring, data.len.cint, 0'i32)
+    when ENABLE_SSL:
+      if not client.ssl.isNil:
+        sendRet = client.ssl.SSL_write(data.cstring, data.len.cint)
+      else:
+        sendRet = client.fd.SocketHandle.send(data.cstring, data.len.cint, 0'i32)
+    else:
+      sendRet = client.fd.SocketHandle.send(data.cstring, data.len.cint, 0'i32)
     if sendRet > 0:
       return SendResult.Success
     elif sendRet < 0:
@@ -314,8 +347,15 @@ proc sendFlush(client: ptr Client): SendResult =
   if client.sendBuf.isNil:
     return SendResult.None
 
+  var sendRet: int
   while true:
-    var sendRet = client.fd.SocketHandle.send(cast[cstring](client.sendBuf), client.sendBufSize.cint, 0'i32)
+    when ENABLE_SSL:
+      if not client.ssl.isNil:
+        sendRet = client.ssl.SSL_write(cast[cstring](client.sendBuf), client.sendBufSize.cint)
+      else:
+        sendRet = client.fd.SocketHandle.send(cast[cstring](client.sendBuf), client.sendBufSize.cint, 0'i32)
+    else:
+      sendRet = client.fd.SocketHandle.send(cast[cstring](client.sendBuf), client.sendBufSize.cint, 0'i32)
     if sendRet > 0:
       debug "flush sendRet=", sendRet
       client.sendBufSize = 0
@@ -405,6 +445,10 @@ proc waitEventAgain(evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0
 
 proc close(client: ptr Client) =
   debug "close ", client.fd
+  when ENABLE_SSL:
+    if not client.ssl.isNil:
+      SSL_free(client.ssl)
+      client.ssl = nil
   client.fd.SocketHandle.close()
   client.recvCurSize = 0
   client.recvBufSize = 0
@@ -615,9 +659,16 @@ proc worker(arg: ThreadArg) {.thread.} =
             client.close()
             break channelBlock
 
+        var recvlen: int
         if client.recvBufSize == 0:
           while true:
-            var recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
+            when ENABLE_SSL:
+              if not client.ssl.isNil:
+                recvlen = client.ssl.SSL_read(addr recvBuf[0], recvBuf.len.cint)
+              else:
+                recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
+            else:
+              recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
             if recvlen > 0:
               if client.wsUpgrade:
                 var exEvents = 0'u32
@@ -665,7 +716,13 @@ proc worker(arg: ThreadArg) {.thread.} =
 
         while true:
           client.reserveRecvBuf(arg.workerParams.bufLen)
-          var recvlen = clientSock.recv(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint, 0.cint)
+          when ENABLE_SSL:
+            if not client.ssl.isNil:
+              recvlen = client.ssl.SSL_read(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint)
+            else:
+              recvlen = clientSock.recv(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint, 0.cint)
+          else:
+            recvlen = clientSock.recv(addr client.recvBuf[client.recvCurSize], arg.workerParams.bufLen.cint, 0.cint)
           if recvlen > 0:
             client.recvCurSize = client.recvCurSize + recvlen
             if client.wsUpgrade:
@@ -749,7 +806,34 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
         error "error: epoll_wait ret=", nfd, " errno=", errno
         abort()
 
+when ENABLE_SSL:
+  proc newSslCtx(): SSL_CTX =
+    var ctx = SSL_CTX_new(TLS_server_method())
+    var retCert = SSL_CTX_use_certificate_file(ctx, CERT_FILE, SSL_FILETYPE_PEM)
+    if retCert != 1:
+      error "error: certificate file"
+      abort()
+    var retPriv = SSL_CTX_use_PrivateKey_file(ctx, PRIVKEY_FILE, SSL_FILETYPE_PEM)
+    if retPriv != 1:
+      error "error: private key file"
+      abort()
+    var retChain = SSL_CTX_use_certificate_chain_file(ctx, CHAIN_FILE)
+    if retChain != 1:
+      error "error: chain file"
+      abort()
+    SSL_CTX_set_options(ctx, (SSL_OP_NO_SSLv2 or SSL_OP_NO_SSLv3 or
+                          SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).culong)
+    SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER.culong)
+    result = ctx
+
+  SSL_load_error_strings()
+  SSL_library_init()
+  OpenSSL_add_all_algorithms()
+
 proc acceptClient(arg: ThreadArg) {.thread.} =
+  when ENABLE_SSL:
+    var ctx = newSslCtx()
+
   while active:
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
@@ -768,12 +852,28 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
 
     debug "client ip=", address, " fd=", clientFd
 
+    when ENABLE_SSL:
+      var ssl = SSL_new(ctx);
+      echo "SSL_set_fd ret=", SSL_set_fd(ssl, clientFd.cint)
+      if SSL_accept(ssl) <= 0:
+        error "error: SSL_accept"
+        SSL_free(ssl)
+        clientSock.close()
+        continue
+
     var idx = setClient(clientFd)
     if idx < 0:
       error "error: server full"
-      clientSock.sendInstant(BusyBody.addHeader(Status503))
+      when ENABLE_SSL:
+        ssl.sendInstant(BusyBody.addHeader(Status503))
+        SSL_free(ssl)
+      else:
+        clientSock.sendInstant(BusyBody.addHeader(Status503))
       clientSock.close()
       continue
+
+    when ENABLE_SSL:
+      clients[idx].ssl = ssl
 
     clientSock.setBlocking(false)
 
