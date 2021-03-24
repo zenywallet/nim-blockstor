@@ -323,19 +323,30 @@ proc send*(client: ptr Client, data: string): SendResult =
     return SendResult.Pending
 
   var sendRet: int
+  var pos = 0
+  var size = data.len
   while true:
+    var d = cast[cstring](unsafeAddr data[pos])
     when ENABLE_SSL:
       if not client.ssl.isNil:
-        sendRet = client.ssl.SSL_write(data.cstring, data.len.cint)
+        sendRet = client.ssl.SSL_write(d, size.cint)
       else:
-        sendRet = client.fd.SocketHandle.send(data.cstring, data.len.cint, 0'i32)
+        sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
     else:
-      sendRet = client.fd.SocketHandle.send(data.cstring, data.len.cint, 0'i32)
+      sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
     if sendRet > 0:
+      debug "send sendRet=", sendRet, " size=", size
+      size = size - sendRet
+      if size > 0:
+        pos = pos + sendRet
+        continue
       return SendResult.Success
     elif sendRet < 0:
       if errno == EAGAIN or errno == EWOULDBLOCK:
-        client.addSendBuf(data)
+        if pos > 0:
+          client.addSendBuf(data[pos..^1])
+        else:
+          client.addSendBuf(data)
         return SendResult.Pending
       if errno == EINTR:
         continue
@@ -348,22 +359,31 @@ proc sendFlush(client: ptr Client): SendResult =
     return SendResult.None
 
   var sendRet: int
+  var pos = 0
+  var size = client.sendBufSize
   while true:
+    var d = cast[cstring](addr client.sendBuf[pos])
     when ENABLE_SSL:
       if not client.ssl.isNil:
-        sendRet = client.ssl.SSL_write(cast[cstring](client.sendBuf), client.sendBufSize.cint)
+        sendRet = client.ssl.SSL_write(d, size.cint)
       else:
-        sendRet = client.fd.SocketHandle.send(cast[cstring](client.sendBuf), client.sendBufSize.cint, 0'i32)
+        sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
     else:
-      sendRet = client.fd.SocketHandle.send(cast[cstring](client.sendBuf), client.sendBufSize.cint, 0'i32)
+      sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
     if sendRet > 0:
-      debug "flush sendRet=", sendRet
+      debug "flush sendRet=", sendRet, " size=", size
+      size = size - sendRet
+      if size > 0:
+        pos = pos + sendRet
+        continue
       client.sendBufSize = 0
       deallocShared(cast[pointer](client.sendBuf))
       client.sendBuf = nil
       return SendResult.Success
     elif sendRet < 0:
       if errno == EAGAIN or errno == EWOULDBLOCK:
+        copyMem(addr client.sendBuf[0], d, size)
+        client.sendBufSize = size
         return SendResult.Pending
       if errno == EINTR:
         continue
@@ -667,6 +687,7 @@ proc worker(arg: ThreadArg) {.thread.} =
                 recvlen = client.ssl.SSL_read(addr recvBuf[0], recvBuf.len.cint)
               else:
                 recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
+
             else:
               recvlen = clientSock.recv(addr recvBuf[0], recvBuf.len.cint, 0.cint)
             if recvlen > 0:
@@ -823,7 +844,7 @@ when ENABLE_SSL:
       abort()
     SSL_CTX_set_options(ctx, (SSL_OP_NO_SSLv2 or SSL_OP_NO_SSLv3 or
                           SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).culong)
-    SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER.culong)
+    SSL_CTX_set_mode(ctx, (SSL_MODE_ENABLE_PARTIAL_WRITE or SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER).culong)
     result = ctx
 
   SSL_load_error_strings()
