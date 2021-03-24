@@ -875,7 +875,11 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
 
     when ENABLE_SSL:
       var ssl = SSL_new(ctx);
-      echo "SSL_set_fd ret=", SSL_set_fd(ssl, clientFd.cint)
+      if SSL_set_fd(ssl, clientFd.cint) != 1:
+        error "error: SSL_set_fd"
+        SSL_free(ssl)
+        clientSock.close()
+        continue
       if SSL_accept(ssl) <= 0:
         error "error: SSL_accept"
         SSL_free(ssl)
