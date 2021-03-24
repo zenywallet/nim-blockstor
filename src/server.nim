@@ -21,6 +21,7 @@ const RELEASE_MODE = defined(release)
 const CLCL = 168626701'u32 # "\c\L\c\L"
 const RECVBUF_EXPAND_BREAK_SIZE = 131072 * 5
 const MAX_FRAME_SIZE = 131072 * 5
+const WORKER_QUEUE_LIMIT = 10000
 const WEBSOCKET_PROTOCOL = "deoxy-0.1"
 const WEBSOCKET_ENTRY_POINT = "/ws"
 const ENABLE_SSL = true
@@ -140,6 +141,7 @@ var events: array[EPOLL_EVENTS_SIZE, EpollEvent]
 var epfd: cint = -1
 
 var workerChannel: Channel[tuple[appId: int, idx: int, events: uint32, evData: uint64]]
+var workerChannelWaitingCount: int = 0
 var workerThreads: array[WORKER_THREAD_NUM, Thread[ThreadArg]]
 
 var dispatcherThread: Thread[ThreadArg]
@@ -821,6 +823,7 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
           error "error: epoll_ctl ret=", ret, " errno=", errno
           abort()
         workerChannel.send((appId, idx, events[i].events, evData))
+        workerChannelWaitingCount = workerChannel.peek()
     elif nfd < 0:
         if errno == EINTR:
           continue
@@ -885,6 +888,16 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
         SSL_free(ssl)
         clientSock.close()
         continue
+
+    if workerChannelWaitingCount > WORKER_QUEUE_LIMIT:
+      error "error: worker busy"
+      when ENABLE_SSL:
+        ssl.sendInstant(BusyBody.addHeader(Status503))
+        SSL_free(ssl)
+      else:
+        clientSock.sendInstant(BusyBody.addHeader(Status503))
+      clientSock.close()
+      continue
 
     var idx = setClient(clientFd)
     if idx < 0:
