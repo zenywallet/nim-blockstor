@@ -8,6 +8,7 @@ import bytes, files
 from std/sha1 import secureHash
 import base64
 import openssl
+import times, nimcrypto
 
 const ULIMIT_SIZE = 65536
 const CLIENT_MAX = 32000
@@ -30,6 +31,7 @@ when ENABLE_SSL:
   const CERT_FILE = CERT_PATH / "cert.pem"
   const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
   const CHAIN_FILE = CERT_PATH / "fullchain.pem"
+  const SSL_AUTO_RELOAD = true
 
 type
   Client* = object
@@ -146,6 +148,7 @@ var workerThreads: array[WORKER_THREAD_NUM, Thread[ThreadArg]]
 
 var dispatcherThread: Thread[ThreadArg]
 var acceptThread: Thread[ThreadArg]
+var monitorThread: Thread[ThreadArg]
 var mainThread: Thread[ThreadArg]
 
 template debug(x: varargs[string, `$`]) =
@@ -831,6 +834,50 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
         abort()
 
 when ENABLE_SSL:
+  when SSL_AUTO_RELOAD:
+    var sslFileChanged = false
+
+    type
+      SslFileHash* = object
+        cert: array[32, byte]
+        priv: array[32, byte]
+        chain: array[32, byte]
+
+    var sslFileHash: ptr SslFileHash
+
+    proc setSslFileHash(init: bool = false) =
+      if sslFileHash.isNil:
+        if init:
+          sslFileHash = cast[ptr SslFileHash](allocShared0(sizeof(SslFileHash)))
+        else:
+          return
+      try:
+        var cert = sha256.digest(readFile(CERT_FILE)).data
+        var priv = sha256.digest(readFile(PRIVKEY_FILE)).data
+        var chain = sha256.digest(readFile(CHAIN_FILE)).data
+        if init == false:
+          if sslFileHash.cert != cert or
+            sslFileHash.priv != priv or
+            sslFileHash.chain != chain:
+            sslFileChanged = true
+            debug "SSL file changed"
+        copyMem(addr sslFileHash.cert[0], addr cert[0], 32)
+        copyMem(addr sslFileHash.priv[0], addr priv[0], 32)
+        copyMem(addr sslFileHash.chain[0], addr chain[0], 32)
+      except:
+        let e = getCurrentException()
+        error "setSslFileHash ", e.name, ": ", e.msg
+
+    proc initSslFileHash() {.inline.} = setSslFileHash(true)
+
+    proc freeSslFileHash() =
+      if not sslFileHash.isNil:
+        var tmp = sslFileHash
+        sslFileHash = nil
+        deallocShared(tmp)
+
+    proc checkSslFileHash() {.inline.} = setSslFileHash()
+
   proc newSslCtx(): SSL_CTX =
     var ctx = SSL_CTX_new(TLS_server_method())
     var retCert = SSL_CTX_use_certificate_file(ctx, CERT_FILE, SSL_FILETYPE_PEM)
@@ -856,6 +903,8 @@ when ENABLE_SSL:
 
 proc acceptClient(arg: ThreadArg) {.thread.} =
   when ENABLE_SSL:
+    when SSL_AUTO_RELOAD:
+      initSslFileHash()
     var ctx = newSslCtx()
 
   while active:
@@ -877,6 +926,14 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     debug "client ip=", address, " fd=", clientFd
 
     when ENABLE_SSL:
+      when SSL_AUTO_RELOAD:
+        if sslFileChanged:
+          sslFileChanged = false
+          var oldCtx = ctx
+          ctx = newSslCtx()
+          oldCtx.SSL_CTX_free()
+          debug "SSL ctx updated"
+
       var ssl = SSL_new(ctx);
       if SSL_set_fd(ssl, clientFd.cint) != 1:
         error "error: SSL_set_fd"
@@ -920,6 +977,27 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       error "error: epoll_ctl ret=", ret, " errno=", errno
       abort()
 
+proc monitor(arg: ThreadArg) {.thread.} =
+  var prevTime = getTime()
+  var sec = 0
+  while active:
+    if sec >= 60:
+      sec = 0
+      when ENABLE_SSL:
+        when SSL_AUTO_RELOAD:
+          if not sslFileChanged:
+            var curTime = getTime()
+            let dur = curTime - prevTime
+            if dur >= initDuration(hours = 1):
+              checkSslFileHash()
+              prevTime = curTime
+    sleep(1000)
+    inc(sec)
+
+  when ENABLE_SSL:
+    when SSL_AUTO_RELOAD:
+      freeSslFileHash()
+
 proc main(arg: ThreadArg) {.thread.} =
   serverSock = createNativeSocket()
   var aiList = getAddrInfo("0.0.0.0", Port(HTTP_PORT), Domain.AF_INET)
@@ -952,10 +1030,12 @@ proc main(arg: ThreadArg) {.thread.} =
 
   createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
   createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
+  createThread(monitorThread, monitor, ThreadArg(type: ThreadArgType.Void))
 
   var waitThreads: seq[Thread[ThreadArg]]
   waitThreads.add(dispatcherThread)
   waitThreads.add(acceptThread)
+  waitThreads.add(monitorThread)
   joinThreads(waitThreads)
 
   for i in 0..<WORKER_THREAD_NUM:
