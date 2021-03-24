@@ -16,16 +16,29 @@ const CLIENT_SEARCH_LIMIT = 30000
 const WORKER_THREAD_NUM = 16
 const EPOLL_EVENTS_SIZE = 10
 const HTTP_VERSION = 1.1
-const HTTP_PORT = 8000
-const SERVER_HOST_NAME = "localhost:8000"
-const RELEASE_MODE = defined(release)
 const CLCL = 168626701'u32 # "\c\L\c\L"
 const RECVBUF_EXPAND_BREAK_SIZE = 131072 * 5
 const MAX_FRAME_SIZE = 131072 * 5
 const WORKER_QUEUE_LIMIT = 10000
 const WEBSOCKET_PROTOCOL = "deoxy-0.1"
 const WEBSOCKET_ENTRY_POINT = "/ws"
-const ENABLE_SSL = true
+
+const RELEASE_MODE = defined(release)
+when RELEASE_MODE:
+  const ENABLE_SSL = true
+  const HTTP_PORT = 80
+  const HTTPS_PORT = 443
+  const HTTP_HOST_NAME = "localhost"
+  const HTTPS_HOST_NAME = "localhost"
+  const REDIRECT_URL = "https://" & HTTPS_HOST_NAME
+else:
+  const ENABLE_SSL = false
+  const HTTP_PORT = 8080
+  const HTTPS_PORT = 8000
+  const HTTP_HOST_NAME = "localhost:8080"
+  const HTTPS_HOST_NAME = "localhost:8000"
+  const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
+
 when ENABLE_SSL:
   const CERT_PATH = "./"
   const CERT_FILE = CERT_PATH / "cert.pem"
@@ -137,6 +150,7 @@ type
 var active = true
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
+var httpSock: SocketHandle = osInvalidSocket
 var clients: ptr ClientArray = nil
 var clIdx = 0
 var events: array[EPOLL_EVENTS_SIZE, EpollEvent]
@@ -148,6 +162,7 @@ var workerThreads: array[WORKER_THREAD_NUM, Thread[ThreadArg]]
 
 var dispatcherThread: Thread[ThreadArg]
 var acceptThread: Thread[ThreadArg]
+var httpThread: Thread[ThreadArg]
 var monitorThread: Thread[ThreadArg]
 var mainThread: Thread[ThreadArg]
 
@@ -230,6 +245,12 @@ proc quitServer() =
       error "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
       quit(QuitFailure)
     serverSock.close()
+  if httpSock != osInvalidSocket:
+    var retShutdown = httpSock.shutdown(SHUT_RD)
+    if retShutdown != 0:
+      error "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
+      quit(QuitFailure)
+    httpSock.close()
 
 proc abort() =
   debug "abort"
@@ -239,12 +260,16 @@ proc abort() =
 proc reallocClientBuf(buf: ptr UncheckedArray[byte], size: int): ptr UncheckedArray[byte] =
   result = cast[ptr UncheckedArray[byte]](reallocShared(buf, size))
 
+proc atomic_compare_exchange_n(p: ptr int, expected: ptr int, desired: int, weak: bool,
+                              success_memmodel: int, failure_memmodel: int): bool
+                              {.importc: "__atomic_compare_exchange_n", nodecl, discardable.}
+
 proc setClient(fd: int): int =
   var usedCount = 0
   for i in clIdx..<CLIENT_MAX:
-    if clients[i].fd < 0:
-      clients[i].fd = fd
-      inc(clIdx)
+    var chk = -1
+    if atomic_compare_exchange_n(addr clients[i].fd, addr chk, fd, false, 0, 0):
+      clIdx = i + 1
       if clIdx >= CLIENT_MAX:
         clIdx = 0
       return i
@@ -253,9 +278,9 @@ proc setClient(fd: int): int =
       if usedCount > CLIENT_SEARCH_LIMIT:
         return -1
   for i in 0..<clIdx:
-    if clients[i].fd < 0:
-      clients[i].fd = fd
-      inc(clIdx)
+    var chk = -1
+    if atomic_compare_exchange_n(addr clients[i].fd, addr chk, fd, false, 0, 0):
+      clIdx = i + 1
       if clIdx >= CLIENT_MAX:
         clIdx = 0
       return i
@@ -285,6 +310,12 @@ proc addHeaderDeflate*(body: string, etag: string, code: StatusCode = Status200,
             "Content-Encoding: deflate\c\L" &
             "Content-Length: " & $body.len & "\c\L\c\L" &
             body
+
+proc redirect301(location: string): string =
+  result = "HTTP/" & $HTTP_VERSION & " " & $Status301 & "\c\L" &
+          "Content-Type: text/html\c\L" &
+          "Content-Length: 0\c\L" &
+          "Location: " & location & "\c\L\c\L"
 
 const BusyBody = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Sorry, It is a break time.</i>"
 const BadRequest = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Oops, something's wrong?</i>"
@@ -520,7 +551,7 @@ var streamMain* = proc(client: ptr Client, opcode: WebSocketOpCode,
   else: # WebSocketOpcode.Close
     result = SendResult.None
 
-proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): SendResult =
+proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, appId: int): SendResult =
   var i = 0
   var cur = 0
   var first = true
@@ -561,9 +592,15 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int): S
       inc(i, 2)
       if buf[i] == byte('\c') and buf[i + 1] == byte('\L'):
         if headers.hasKey("Host"):
-          if headers["Host"] != SERVER_HOST_NAME:
-            error "invalid request host headers=", headers
-            return SendResult.Invalid
+          if appId == 1:
+            if headers["Host"] != HTTP_HOST_NAME:
+              error "invalid request host headers=", headers
+              return SendResult.Invalid
+            return client.send(redirect301(REDIRECT_URL & url))
+          else:
+            if headers["Host"] != HTTPS_HOST_NAME:
+              error "invalid request host headers=", headers
+              return SendResult.Invalid
         else:
           error "invalid request no host headers=", headers
           return SendResult.Invalid
@@ -722,7 +759,7 @@ proc worker(arg: ThreadArg) {.thread.} =
                 break channelBlock
 
               elif recvlen >= 4 and recvBuf[recvlen - 4].toUint32 == CLCL:
-                var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
+                var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen, appId)
                 retWorkerHandler(retWorker)
               else:
                 client.addRecvBuf(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
@@ -784,7 +821,7 @@ proc worker(arg: ThreadArg) {.thread.} =
               break channelBlock
 
             elif client.recvCurSize >= 4 and client.recvBuf[client.recvCurSize - 4].toUint32 == CLCL:
-              var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](client.recvBuf), client.recvCurSize)
+              var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](client.recvBuf), client.recvCurSize, appId)
               client.recvCurSize = 0
               client.recvBufSize = 0
               deallocShared(cast[pointer](client.recvBuf))
@@ -979,6 +1016,49 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       error "error: epoll_ctl ret=", ret, " errno=", errno
       abort()
 
+proc http(arg: ThreadArg) {.thread.} =
+  while active:
+    var sockAddress: Sockaddr_in
+    var addrLen = sizeof(sockAddress).SockLen
+    var clientSock = accept(httpSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
+    var clientFd = clientSock.int
+    var address = $inet_ntoa(sockAddress.sin_addr)
+
+    if clientFd < 0:
+      if errno == EINTR:
+        continue
+      elif errno == EINVAL:
+        if not active:
+          break
+      error "error: accept errno=", errno
+      abort()
+
+    debug "client ip=", address, " fd=", clientFd
+
+    template busyErrorContinue() =
+      clientSock.sendInstant(BusyBody.addHeader(Status503))
+      clientSock.close()
+      continue
+
+    if workerChannelWaitingCount > WORKER_QUEUE_LIMIT:
+      error "error: worker busy"
+      busyErrorContinue()
+
+    var idx = setClient(clientFd)
+    if idx < 0:
+      error "error: server full"
+      busyErrorContinue()
+
+    clientSock.setBlocking(false)
+
+    var ev: EpollEvent
+    ev.events = EPOLLIN or EPOLLRDHUP
+    ev.data.u64 = idx.uint or 0x100000000'u64
+    var ret = epoll_ctl(epfd, EPOLL_CTL_ADD, clientFd.cint, addr ev)
+    if ret < 0:
+      error "error: epoll_ctl ret=", ret, " errno=", errno
+      abort()
+
 proc monitor(arg: ThreadArg) {.thread.} =
   var prevTime = getTime()
   var sec = 0
@@ -1000,20 +1080,25 @@ proc monitor(arg: ThreadArg) {.thread.} =
     when SSL_AUTO_RELOAD:
       freeSslFileHash()
 
-proc main(arg: ThreadArg) {.thread.} =
-  serverSock = createNativeSocket()
-  var aiList = getAddrInfo("0.0.0.0", Port(HTTP_PORT), Domain.AF_INET)
-  serverSock.setSockOptInt(SOL_SOCKET, SO_REUSEADDR, 1)
-  var retBind = serverSock.bindAddr(aiList.ai_addr, aiList.ai_addrlen.SockLen)
+proc createServer(port: Port): SocketHandle =
+  var sock = createNativeSocket()
+  var aiList = getAddrInfo("0.0.0.0", port, Domain.AF_INET)
+  sock.setSockOptInt(SOL_SOCKET, SO_REUSEADDR, 1)
+  var retBind = sock.bindAddr(aiList.ai_addr, aiList.ai_addrlen.SockLen)
   if retBind < 0:
     error "error: bind ret=", retBind, " ", getErrnoStr()
     quit(QuitFailure)
   freeaddrinfo(aiList)
 
-  var retListen = serverSock.listen()
+  var retListen = sock.listen()
   if retListen < 0:
     error "error: listen ret=", retListen, " ", getErrnoStr()
     quit(QuitFailure)
+  result = sock
+
+proc main(arg: ThreadArg) {.thread.} =
+  serverSock = createServer(Port(HTTPS_PORT))
+  httpSock = createServer(Port(HTTP_PORT))
 
   var tcp_rmem = serverSock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
   debug "RECVBUF=", tcp_rmem
@@ -1032,11 +1117,13 @@ proc main(arg: ThreadArg) {.thread.} =
 
   createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
   createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
+  createThread(httpThread, http, ThreadArg(type: ThreadArgType.Void))
   createThread(monitorThread, monitor, ThreadArg(type: ThreadArgType.Void))
 
   var waitThreads: seq[Thread[ThreadArg]]
   waitThreads.add(dispatcherThread)
   waitThreads.add(acceptThread)
+  waitThreads.add(httpThread)
   waitThreads.add(monitorThread)
   joinThreads(waitThreads)
 
