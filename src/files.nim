@@ -3,7 +3,7 @@
 
 import os, macros, strutils, tables, mimetypes
 import nimcrypto, md5, base64
-import zip/zlib
+import zip/zlib, brotli
 import bytes
 
 const srcDir = currentSourcePath().parentDir()
@@ -11,11 +11,13 @@ const publicDir = srcDir / "../public"
 
 macro constFilesTable: untyped =
   var filesTable: seq[tuple[key: string, val: tuple[content: string, deflate: string,
+                                                    brotli: string,
                                                     mime: string,
                                                     sha256: string, md5: string]]]
   let plen = publicDir.len
   let mimes = newMimetypes()
   echo staticExec("nim c -d:release " & (srcDir / "deflate.nim"))
+  echo staticExec("nim c -d:release " & (srcDir / "brotli.nim"))
   for f in walkDirRec(publicDir):
     echo "const file: ", f
     let filename = f[plen..^1]
@@ -30,7 +32,12 @@ macro constFilesTable: untyped =
     discard staticExec((srcDir / "deflate") & " " & f & " " & (srcDir / "deflate_tmp"))
     let deflate = readFile(srcDir / "deflate_tmp")
     discard staticExec("rm " & (srcDir / "deflate_tmp"))
-    filesTable.add((filename, (data, deflate, mime, hash, md5)))
+
+    discard staticExec((srcDir / "brotli") & " " & f & " " & (srcDir / "brotli_tmp"))
+    let brotliComp = readFile(srcDir / "brotli_tmp")
+    discard staticExec("rm " & (srcDir / "brotli_tmp"))
+
+    filesTable.add((filename, (data, deflate, brotliComp, mime, hash, md5)))
 
   newConstStmt(
     newIdentNode("filesTable"),
@@ -42,6 +49,7 @@ macro constFilesTable: untyped =
 constFilesTable()
 
 proc getConstFile*(file: string): tuple[content: string, deflate: string,
+                                        brotli: string,
                                         mime: string,
                                         sha256: string, md5: string] =
   try:
@@ -60,6 +68,7 @@ proc initDynamicFile*() =
   mimes = newMimetypes()
 
 proc getDynamicFile*(file: string): tuple[content: string, deflate: string,
+                                          brotli: string,
                                           mime: string,
                                           sha256: string, md5: string] =
   var requestDir = currentPublicDir / file
@@ -78,7 +87,8 @@ proc getDynamicFile*(file: string): tuple[content: string, deflate: string,
       let hash = base64.encode(sha256.digest(data).data)
       let md5 = base64.encode(data.toMD5())
       let deflate = compress(data, stream = RAW_DEFLATE)
-      result = (data, deflate, mime, hash, md5)
+      let brotliComp = brotli.comp(data).toString
+      result = (data, deflate, brotliComp, mime, hash, md5)
     except:
       discard
 

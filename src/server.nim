@@ -319,6 +319,14 @@ proc addHeaderDeflate*(body: string, etag: string, code: StatusCode = Status200,
             "Content-Length: " & $body.len & "\c\L\c\L" &
             body
 
+proc addHeaderBrotli*(body: string, etag: string, code: StatusCode = Status200, mimetype: string = "text/html"): string =
+    result = "HTTP/" & $HTTP_VERSION & " " & $code & "\c\L" &
+            "Content-Type: " & mimetype & "\c\L" &
+            "ETag: " & etag & "\c\L" &
+            "Content-Encoding: br\c\L" &
+            "Content-Length: " & $body.len & "\c\L\c\L" &
+            body
+
 proc redirect301(location: string): string =
   result = "HTTP/" & $HTTP_VERSION & " " & $Status301 & "\c\L" &
           "Content-Type: text/html\c\L" &
@@ -540,7 +548,9 @@ var webMain* = proc(client: ptr Client, url: string, headers: Headers): SendResu
       if headers.hasKey("Accept-Encoding"):
         var acceptEnc = headers["Accept-Encoding"].split(",")
         acceptEnc.apply(proc(x: string): string = x.strip)
-        if acceptEnc.contains("deflate"):
+        if acceptEnc.contains("br"):
+          return client.send(file.brotli.addHeaderBrotli(file.md5, Status200, file.mime))
+        elif acceptEnc.contains("deflate"):
           return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
       return client.send(file.content.addHeader(file.md5, Status200, file.mime))
   else:
