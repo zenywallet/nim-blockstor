@@ -4,3 +4,6 @@
 [submodule "deps/sophia"]
 	path = deps/sophia
 	url = https://github.com/pmwkaa/sophia
+[submodule "deps/brotli"]
+	path = deps/brotli
+	url = https://github.com/google/brotli
