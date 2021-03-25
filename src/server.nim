@@ -9,6 +9,7 @@ import std/sha1
 import base64
 import openssl
 import times, nimcrypto
+import stats
 
 const ULIMIT_SIZE = 65536
 const CLIENT_MAX = 32000
@@ -22,6 +23,12 @@ const MAX_FRAME_SIZE = 131072 * 5
 const WORKER_QUEUE_LIMIT = 10000
 const WEBSOCKET_PROTOCOL = "deoxy-0.1"
 const WEBSOCKET_ENTRY_POINT = "/ws"
+const REQ_LIMIT_DISPATCH_PERIOD = 60
+const REQ_LIMIT_DISPATCH_MAX = 1200
+const REQ_LIMIT_HTTPS_ACCEPT_PERIOD = 60
+const REQ_LIMIT_HTTPS_ACCEPT_MAX = 120
+const REQ_LIMIT_HTTP_ACCEPT_PERIOD = 60
+const REQ_LIMIT_HTTP_ACCEPT_MAX = 120
 
 const RELEASE_MODE = defined(release)
 when RELEASE_MODE:
@@ -59,6 +66,7 @@ type
     payloadSize: int
     when ENABLE_SSL:
       ssl: SSL
+    ip: uint32
 
   ClientArray = array[CLIENT_MAX, Client]
 
@@ -321,6 +329,7 @@ const BusyBody = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Sorry, It is a break
 const BadRequest = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Oops, something's wrong?</i>"
 const NotFound = "<!DOCTYPE html><meta charset=\"utf-8\"><i>You just found emptiness.</i>"
 const InternalError = "<!DOCTYPE html><meta charset=\"utf-8\">the fire is dead.<br>the room is freezing."
+const TooMany = "<!DOCTYPE html><meta charset=\"utf-8\"><i>Take your time.</i>"
 const Empty = ""
 
 proc sendInstant*(s: SocketHandle, data: string) =
@@ -696,6 +705,17 @@ proc worker(arg: ThreadArg) {.thread.} =
             waitEventAgain(evData, clientFd)
             break channelBlock
 
+        if appId == 2:
+          if client.wsUpgrade:
+            error "error: ws too many ", inet_ntoa(InAddr(s_addr: client.ip))
+            client.close()
+            break channelBlock
+          else:
+            error "error: too many ", inet_ntoa(InAddr(s_addr: client.ip))
+            clientSock.sendInstant(TooMany.addHeader(Status429))
+            clientSock.close()
+            break channelBlock
+
         template retWorkerHandler(retWorker: SendResult) {.dirty.} =
           case retWorker
           of SendResult.Success:
@@ -849,6 +869,8 @@ proc worker(arg: ThreadArg) {.thread.} =
         error e.name, ": ", e.msg
 
 proc dispatcher(arg: ThreadArg) {.thread.} =
+  var reqStats = newCheckReqs(REQ_LIMIT_DISPATCH_PERIOD)
+
   while true:
     var nfd = epoll_wait(epfd, cast[ptr EpollEvent](addr events),
                         EPOLL_EVENTS_SIZE.cint, 3000.cint)
@@ -864,6 +886,11 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
         if ret < 0:
           error "error: epoll_ctl ret=", ret, " errno=", errno
           abort()
+
+        var reqCount = reqStats.checkReq(clients[idx].ip)
+        if reqCount > REQ_LIMIT_DISPATCH_MAX:
+          appId = 2
+
         workerChannel.send((appId, idx, events[i].events, evData))
         workerChannelWaitingCount = workerChannel.peek()
     elif nfd < 0:
@@ -945,12 +972,14 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     when SSL_AUTO_RELOAD:
       initSslFileHash()
     var ctx = newSslCtx()
+  var reqStats = newCheckReqs(REQ_LIMIT_HTTPS_ACCEPT_PERIOD)
 
   while active:
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
     var clientSock = accept(serverSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     var clientFd = clientSock.int
+    var ip = sockAddress.sin_addr.s_addr
     var address = $inet_ntoa(sockAddress.sin_addr)
 
     if clientFd < 0:
@@ -998,6 +1027,13 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       error "error: worker busy"
       busyErrorContinue()
 
+    var reqCount = reqStats.checkReq(ip)
+    if reqCount > REQ_LIMIT_HTTPS_ACCEPT_MAX:
+      error "error: too many ", address
+      clientSock.sendInstant(TooMany.addHeader(Status429))
+      clientSock.close()
+      continue
+
     var idx = setClient(clientFd)
     if idx < 0:
       error "error: server full"
@@ -1005,6 +1041,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
 
     when ENABLE_SSL:
       clients[idx].ssl = ssl
+    clients[idx].ip = ip
 
     clientSock.setBlocking(false)
 
@@ -1017,11 +1054,14 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       abort()
 
 proc http(arg: ThreadArg) {.thread.} =
+  var reqStats = newCheckReqs(REQ_LIMIT_HTTP_ACCEPT_PERIOD)
+
   while active:
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
     var clientSock = accept(httpSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     var clientFd = clientSock.int
+    var ip = sockAddress.sin_addr.s_addr
     var address = $inet_ntoa(sockAddress.sin_addr)
 
     if clientFd < 0:
@@ -1044,10 +1084,19 @@ proc http(arg: ThreadArg) {.thread.} =
       error "error: worker busy"
       busyErrorContinue()
 
+    var reqCount = reqStats.checkReq(ip)
+    if reqCount > REQ_LIMIT_HTTP_ACCEPT_MAX:
+      error "error: too many ", address
+      clientSock.sendInstant(TooMany.addHeader(Status429))
+      clientSock.close()
+      continue
+
     var idx = setClient(clientFd)
     if idx < 0:
       error "error: server full"
       busyErrorContinue()
+
+    clients[idx].ip = ip
 
     clientSock.setBlocking(false)
 
