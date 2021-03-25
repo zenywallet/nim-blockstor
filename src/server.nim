@@ -5,7 +5,7 @@ import strutils, sequtils, tables
 from cgi import decodeUrl
 import os
 import bytes, files
-from std/sha1 import secureHash
+import std/sha1
 import base64
 import openssl
 import times, nimcrypto
@@ -612,7 +612,7 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, ap
             headers["Sec-WebSocket-Protocol"] == WEBSOCKET_PROTOCOL:
             var key = headers["Sec-WebSocket-Key"]
             var sh = secureHash(key & "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-            var acceptKey = base64.encode(cast[array[0 .. 20 - 1, uint8]](sh))
+            var acceptKey = base64.encode(sh.Sha1Digest)
             var res = "HTTP/1.1 " & $Status101 & "\c\L" &
                       "Upgrade: websocket\c\L" &
                       "Connection: Upgrade\c\L" &
