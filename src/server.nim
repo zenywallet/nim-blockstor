@@ -791,6 +791,11 @@ proc worker(arg: ThreadArg) {.thread.} =
               elif recvlen >= 4 and recvBuf[recvlen - 4].toUint32 == CLCL:
                 var retWorker = workerMain(client, cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen, appId)
                 retWorkerHandler(retWorker)
+              elif recvlen >= 4 and recvBuf[0..3].toString != "GET ":
+                  error "invalid request cmd=", recvBuf[0..<recvlen].toString
+                  clientSock.sendInstant(Empty.addHeader(Status405))
+                  client.close()
+                  break channelBlock
               else:
                 client.addRecvBuf(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 if recvlen == recvBuf.len:
