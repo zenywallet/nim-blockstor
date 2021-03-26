@@ -17,6 +17,7 @@ macro constFilesTable: untyped =
   let plen = publicDir.len
   let mimes = newMimetypes()
   echo staticExec("nim c -d:release " & (srcDir / "deflate.nim"))
+  echo staticExec("nim c -d:release " & (srcDir / "zopfli.nim"))
   echo staticExec("nim c -d:release " & (srcDir / "brotli.nim"))
   for f in walkDirRec(publicDir):
     echo "const file: ", f
@@ -33,11 +34,19 @@ macro constFilesTable: untyped =
     let deflate = readFile(srcDir / "deflate_tmp")
     discard staticExec("rm " & (srcDir / "deflate_tmp"))
 
+    discard staticExec((srcDir / "zopfli") & " " & f & " " & (srcDir / "zopfli_tmp"))
+    let zopfli = readFile(srcDir / "zopfli_tmp")
+    discard staticExec("rm " & (srcDir / "zopfli_tmp"))
+
     discard staticExec((srcDir / "brotli") & " " & f & " " & (srcDir / "brotli_tmp"))
     let brotliComp = readFile(srcDir / "brotli_tmp")
     discard staticExec("rm " & (srcDir / "brotli_tmp"))
 
-    filesTable.add((filename, (data, deflate, brotliComp, mime, hash, md5)))
+    echo "deflate : zopfli = ", deflate.len, " : ", zopfli.len
+    if deflate.len > zopfli.len:
+      filesTable.add((filename, (data, zopfli, brotliComp, mime, hash, md5)))
+    else:
+      filesTable.add((filename, (data, deflate, brotliComp, mime, hash, md5)))
 
   newConstStmt(
     newIdentNode("filesTable"),
