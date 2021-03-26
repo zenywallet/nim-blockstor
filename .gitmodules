@@ -7,3 +7,6 @@
 [submodule "deps/brotli"]
 	path = deps/brotli
 	url = https://github.com/google/brotli
+[submodule "deps/zopfli"]
+	path = deps/zopfli
+	url = https://github.com/google/zopfli
