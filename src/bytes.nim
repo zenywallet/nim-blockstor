@@ -71,7 +71,7 @@ proc varInt*[T](val: T): seq[byte] =
   else:
     concat(@[byte 0xff], (uint64(val)).toBytes)
 
-proc varStr*(s: string): seq[byte] {.inline.} = concat(varInt(s.len), cast[seq[byte]](s.toSeq))
+proc varStr*(s: string): seq[byte] {.inline.} = concat(varInt(s.len), cast[seq[byte]](s))
 
 proc pushData*(data: seq[byte]): seq[byte] =
   if data.len <= 0:
@@ -99,9 +99,9 @@ proc newFixedStr*(data: string, size: int): FixedStr {.inline.} = FixedStr(data:
 
 proc fixedStr*(str: string, size: int): seq[byte] {.inline.} =
   if size < str.len:
-    concat(cast[seq[byte]](str.toSeq)[0..<size])
+    concat(cast[seq[byte]](str)[0..<size])
   else:
-    concat(cast[seq[byte]](str.toSeq), pad(size - str.len))
+    concat(cast[seq[byte]](str), pad(size - str.len))
 
 proc toBytes(x: seq[byte]): seq[byte] {.inline.} = x
 proc toBytes(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
@@ -112,7 +112,7 @@ proc toBytes*(fstr: FixedStr): seq[byte] {.inline.} = fixedStr(fstr.data, fstr.s
 proc toBytes*(hash: Hash): seq[byte] {.inline.} = cast[seq[byte]](hash)
 proc toBytes*(hash: Hash160): seq[byte] {.inline.} = cast[seq[byte]](hash)
 proc toBytes*(p: PushData): seq[byte] {.inline.} = pushData(cast[seq[byte]](p))
-proc toBytes*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x.toSeq)
+proc toBytes*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x)
 
 proc toBytes*(obj: tuple | object): seq[byte] =
   var s: seq[seq[byte]]
@@ -146,7 +146,7 @@ proc toBytesBE*(x: seq[byte]): seq[byte] {.inline.} = x
 proc toBytesBE*(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
 proc toBytesBE*(hash: Hash): seq[byte] {.inline.} = cast[seq[byte]](hash)
 proc toBytesBE*(hash: Hash160): seq[byte] {.inline.} = cast[seq[byte]](hash)
-proc toBytesBE*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x.toSeq)
+proc toBytesBE*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x)
 
 proc toBytesBE*(obj: tuple | object): seq[byte] =
   var s: seq[seq[byte]]
