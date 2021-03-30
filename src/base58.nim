@@ -29,6 +29,10 @@ proc enc*(data: seq[byte]): string =
     if b != 0:
       break
     inc(skip)
+  for d in data:
+    if d != 0:
+      break
+    dec(skip)
   for b in buf[skip..^1]:
     result.add(base58Chars[b])
 
@@ -47,8 +51,15 @@ proc dec*(str: string): seq[byte] =
       carry = carry + buf[j].float * 58.0
       buf[j] = byte(carry mod 256.0)
       carry = carry / 256.0
-  for i, b in buf:
+  var skip = 0
+  for b in buf:
     if b != 0:
-      buf = buf[i..^1]
       break
+    inc(skip)
+  for c in str:
+    if c != '1':
+      break
+    dec(skip)
+  if skip > 0:
+    buf = buf[skip..^1]
   result = buf
