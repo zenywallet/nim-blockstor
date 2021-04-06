@@ -20,6 +20,8 @@ type
 
   PushData* = distinct seq[byte]
 
+  Hex* = distinct string
+
 
 proc toBytes*(x: SomeOrdinal | SomeFloat): seq[byte] =
   when sizeof(x) == 1:
@@ -172,6 +174,8 @@ proc toBytesFromHex*(s: string): seq[byte] =
       result.add(strutils.fromHex[byte](s[i..i+1]))
   else:
     result = @[]
+
+proc toBytes*(x: Hex): seq[byte] {.inline.} = x.string.toBytesFromHex()
 
 proc toReverse*(x: seq[byte]): seq[byte] =
   var b = x
