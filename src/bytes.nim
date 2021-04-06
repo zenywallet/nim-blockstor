@@ -162,6 +162,7 @@ proc toBytesBE*(obj: ref tuple | ref object | ptr tuple | ptr object): seq[byte]
     s.add(b)
   concat(s)
 
+proc BytesBE*(x: SomeOrdinal | SomeFloat): seq[byte] {.inline.} = x.toBytesBE
 proc BytesBE*(args: varargs[seq[byte], toBytesBE]): seq[byte] = concat(args)
 
 proc toBytesFromHex*(s: string): seq[byte] =
