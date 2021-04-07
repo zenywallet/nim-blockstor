@@ -10,3 +10,6 @@
 [submodule "deps/zopfli"]
 	path = deps/zopfli
 	url = https://github.com/google/zopfli
+[submodule "deps/secp256k1"]
+	path = deps/secp256k1
+	url = https://github.com/bitcoin-core/secp256k1
