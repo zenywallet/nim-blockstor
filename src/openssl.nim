@@ -109,7 +109,7 @@ proc SSL_get_error*(s: SSL, ret_code: cint): cint {.importc.}
 proc SSL_get_version*(s: SSL): cstring {.importc.}
 
 # include/openssl/crypto.h
-proc OpenSSL_version(t: int): cstring {.importc.}
+proc OpenSSL_version*(t: int): cstring {.importc.}
 proc OPENSSL_init_crypto*(opts: uint64, settings: OPENSSL_INIT_SETTINGS): cint {.importc.}
 
 # include/openssl/evp.h
