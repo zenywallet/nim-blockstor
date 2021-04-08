@@ -74,6 +74,21 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
       pos = i
     result = output[0..pos]
 
+proc getAddress*(network: Network, pub: seq[byte]): string {.inline.} =
+  network.p2pkh_address(ripemd160hash(pub))
+
+proc getSegwitAddress*(network: Network, pub: seq[byte]): string {.inline.} =
+  network.p2wpkh_address(ripemd160hash(pub))
+
+var defaultNetwork* {.threadvar.}: Network
+
+proc setDefaultNetwork*(network: Network) {.inline.} =
+  defaultNetwork = network
+
+template toAddress*(pub: seq[byte], network: Network = defaultNetwork): string = getAddress(network, pub)
+
+template toSegwitAddress*(pub: seq[byte], network: Network = defaultNetwork): string = getSegwitAddress(network, pub)
+
 proc getAddressHash160*(script: Script | Chunks): tuple[hash160: Hash160, addressType: AddressType] =
   when script is Script:
     var chunks = script.getScriptChunks
