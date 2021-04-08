@@ -933,18 +933,18 @@ when ENABLE_SSL:
         else:
           return
       try:
-        var cert = sha256.digest(readFile(CERT_FILE)).data
-        var priv = sha256.digest(readFile(PRIVKEY_FILE)).data
-        var chain = sha256.digest(readFile(CHAIN_FILE)).data
+        let cert = sha256.digest(readFile(CERT_FILE)).data
+        let priv = sha256.digest(readFile(PRIVKEY_FILE)).data
+        let chain = sha256.digest(readFile(CHAIN_FILE)).data
         if init == false:
           if sslFileHash.cert != cert or
             sslFileHash.priv != priv or
             sslFileHash.chain != chain:
             sslFileChanged = true
             debug "SSL file changed"
-        copyMem(addr sslFileHash.cert[0], addr cert[0], 32)
-        copyMem(addr sslFileHash.priv[0], addr priv[0], 32)
-        copyMem(addr sslFileHash.chain[0], addr chain[0], 32)
+        copyMem(addr sslFileHash.cert[0], unsafeAddr cert[0], 32)
+        copyMem(addr sslFileHash.priv[0], unsafeAddr priv[0], 32)
+        copyMem(addr sslFileHash.chain[0], unsafeAddr chain[0], 32)
       except:
         let e = getCurrentException()
         error "setSslFileHash ", e.name, ": ", e.msg
