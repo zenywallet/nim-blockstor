@@ -41,7 +41,7 @@ proc getNetwork*(networkId: NetworkId): Network =
     bitzeny_test.bech32 = "tz"
     result = bitzeny_test
 
-proc ripemd160hash(pub: seq[byte]): Hash160 =
+proc ripemd160hash*(pub: seq[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
 
 proc check(prefix: uint8, hash160: Hash160): seq[byte] =
