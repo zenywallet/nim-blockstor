@@ -1,7 +1,6 @@
 # Copyright (c) 2021 zenywallet
 
-import os, times, sequtils
-import tables, algorithm
+import times, sequtils, tables
 
 type
   CheckReqs* = ref object
@@ -36,6 +35,8 @@ proc checkReq*(cr: CheckReqs, target: uint32, sec: float = -1): int =
 
 
 when isMainModule:
+  import os, algorithm
+
   var cr = newCheckReqs(10)
 
   for i in 0..<10:
