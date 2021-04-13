@@ -36,6 +36,8 @@ proc toBytes*(o: seq[Tx]): seq[byte] {.inline.} =
     s.add(i.toBytes)
   result = concat(s)
 
+proc toBlockHash*(x: Hex): BlockHash {.inline.} = x.toBytes.toReverse.BlockHash
+
 proc `$`*(o: BlockHash | MerkleHash): string = $toReverse(cast[seq[byte]](o))
 
 proc toBlock*(data: seq[byte]): Block =
