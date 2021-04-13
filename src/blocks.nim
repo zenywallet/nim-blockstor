@@ -21,7 +21,7 @@ type
     txn*: VarInt
     txs*: seq[Tx]
 
-  BlockRaw = ref object
+  BlockRaw* = ref object
     magic: uint32
     size: uint32
     blk: Block
