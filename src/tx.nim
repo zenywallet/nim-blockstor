@@ -69,10 +69,11 @@ proc toTx*(reader: Reader): Tx =
     var scriptLen = reader.getVarInt
     tx.outs.add((value, Script(reader.getBytes(scriptLen))))
   if tx.flags.uint8 == 1'u8:
-    var witnessLen = reader.getVarInt
-    for i in 0..<witnessLen:
-      var witnessSize = reader.getVarInt
-      tx.witnesses.add(Witness(reader.getBytes(witnessSize)))
+    for i in 0..<insLen:
+      var witnessLen = reader.getVarInt
+      for j in 0..<witnessLen:
+        var witnessSize = reader.getVarInt
+        tx.witnesses.add(Witness(reader.getBytes(witnessSize)))
   tx.locktime = reader.getUint32
   tx
 
