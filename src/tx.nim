@@ -39,10 +39,7 @@ proc toBytes*(flags: Flags): seq[byte] =
 
 proc toBytes*(data: Witness | Sig | Script): seq[byte] =
   var b = cast[seq[byte]](data)
-  if b.len > 0:
-    result = concat(varInt(b.len), b)
-  else:
-    result = @[]
+  result = concat(varInt(b.len), b)
 
 proc toBytes*(datas: seq[Witness] | seq[TxIn] | seq[TxOut]): seq[byte] =
   if datas.len > 0:
