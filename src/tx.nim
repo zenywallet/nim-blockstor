@@ -19,7 +19,7 @@ type
     flags*: Flags
     ins*: seq[TxIn]
     outs*: seq[TxOut]
-    witnesses*: seq[Witness]
+    witnesses*: seq[seq[Witness]]
     locktime*: uint32
 
 const SIGHASH_ALL* = 1
@@ -41,11 +41,16 @@ proc toBytes*(data: Witness | Sig | Script): seq[byte] =
   var b = cast[seq[byte]](data)
   result = concat(varInt(b.len), b)
 
-proc toBytes*(datas: seq[Witness] | seq[TxIn] | seq[TxOut]): seq[byte] =
+proc toBytes*(datas: seq[TxIn] | seq[TxOut]): seq[byte] =
   if datas.len > 0:
     result = varInt(datas.len)
     for data in datas:
       result.add(data.toBytes)
+
+proc toBytes*(datas: seq[Witness]): seq[byte] =
+  result = varInt(datas.len)
+  for data in datas:
+    result.add(data.toBytes)
 
 proc `$`*(data: Flags): string = $cast[uint8](data)
 
@@ -71,9 +76,11 @@ proc toTx*(reader: Reader): Tx =
   if tx.flags.uint8 == 1'u8:
     for i in 0..<insLen:
       var witnessLen = reader.getVarInt
+      var witness: seq[Witness]
       for j in 0..<witnessLen:
         var witnessSize = reader.getVarInt
-        tx.witnesses.add(Witness(reader.getBytes(witnessSize)))
+        witness.add(Witness(reader.getBytes(witnessSize)))
+      tx.witnesses.add(witness)
   tx.locktime = reader.getUint32
   tx
 
