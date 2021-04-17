@@ -161,7 +161,6 @@ proc setParams*(cmd: CoreCommand, args: varargs[string, wrapStr]): RpcCommand =
     if params.len > 0:
       params.add(",")
     params.add(v)
-  inc(rpcId)
   var id = getId()
   if params.len > 0:
     result = RpcCommand(id: id, data: "{\"id\":\"" & $id & "\",\"method\":\"" & $cmd & "\",\"params\":[" & $params & "]}")
