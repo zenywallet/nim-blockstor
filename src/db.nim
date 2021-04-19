@@ -126,12 +126,17 @@ type
 proc getTxout*(db: Sophia, id: uint64, n: uint32): DbTxoutResult =
   let key = BytesBE(Prefix.txouts, id, n)
   let d = db.get(key)
-  if d.len >= 29:
+  if d.len == 29:
     var d = d
     let value = d[0].toUint64BE
     let address_hash = d[8].toHash160
     let address_type = d[28]
     result = DbTxoutResult(err: DbStatus.Success, res: (value, address_hash, address_type))
+  elif d.len == 9:
+    var d = d
+    let value = d[0].toUint64BE
+    let address_type = d[^1]
+    result = DbTxoutResult(err: DbStatus.Success, res: (value, Hash160(@[]), address_type))
   else:
     result = DbTxoutResult(err: DbStatus.NotFound)
 
@@ -141,14 +146,22 @@ type
 iterator getTxouts*(db: Sophia, id: uint64): TxoutsResult =
   let key = BytesBE(Prefix.txouts, id)
   for d in db.gets(key):
-    if d.key.len != 13 or d.val.len != 29:
-      break
-    var d = d
-    let n = d.key[8].toUint32BE
-    let value = d.val[0].toUint64BE
-    let address_hash = d.val[8].toHash160
-    let address_type = d.val[28]
-    yield (n, value, address_hash, address_type)
+    if d.key.len != 13:
+      continue
+    if d.val.len == 29:
+      var d = d
+      let n = d.key[8].toUint32BE
+      let value = d.val[0].toUint64BE
+      let address_hash = d.val[8].toHash160
+      let address_type = d.val[28]
+      yield (n, value, address_hash, address_type)
+    elif d.val.len == 9:
+      var d = d
+      let n = d.key[8].toUint32BE
+      let value = d.val[0].toUint64BE
+      let address_hash = Hash160(@[])
+      let address_type = d.val[^1]
+      yield (n, value, address_hash, address_type)
 
 proc delTxout*(db: Sophia, id: uint64, n: uint32) =
   let key = BytesBE(Prefix.txouts, id, n)
