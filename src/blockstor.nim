@@ -4,6 +4,7 @@ import os, times, tables, terminal
 import bytes, tcp, rpc, db
 import address, blocks, tx
 import std/exitprocs
+import algorithm
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
@@ -140,10 +141,17 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
 type
+  ArrayBlockHash = array[32, byte]
+
   MonitorInfo = object
     height: int
-    hash: BlockHash
+    hash: ArrayBlockHash
     blkTime: int64
+
+proc `$`*(data: ArrayBlockHash): string =
+  var b = data
+  algorithm.reverse(b)
+  bytes.toHex(b)
 
 var monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
 
@@ -166,6 +174,13 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
     stdout.flushFile
     sleep(1000)
 
+proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
+  var info = addr monitorInfos[][workerId]
+  info.height = height
+  if cast[seq[byte]](hash).len == 32:
+    copyMem(addr info.hash[0], unsafeAddr cast[ptr seq[byte]](unsafeAddr hash)[][0], sizeof(info.hash))
+  info.blkTime = time
+
 proc nodeWorker(params: WorkerParams) {.thread.} =
   var node = newNode(params.nodeParams)
   var dbInst = params.dbInst
@@ -183,7 +198,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     proc cb(height: int, hash: BlockHash, blk: Block) =
       dbInst.writeBlock(height, hash, blk, seq_id)
       seq_id = seq_id + blk.txs.len.uint64
-      monitorInfos[][params.id] = MonitorInfo(height: height, hash: hash, blkTime: blk.header.time.int64)
+      setMonitorInfo(params.id, height, hash, blk.header.time.int64)
 
     node.start(params.nodeParams, 0, BlockHash(pad(32)), cb)
 
