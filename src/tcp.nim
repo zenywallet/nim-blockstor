@@ -151,6 +151,7 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
   checkSendErr node.sock.send(node.message("version", node.msgVersion()))
 
   var check_count = 0
+  var start_flag = false
   while true:
     var queue = node.messageChannel[].peek()
     if queue < 500 and reqHashes.len < 500 and blockHashes.len > 0:
@@ -224,10 +225,15 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
         stdout.eraseLine
         echo "ignore ", message.header.command
 
-      check_count = 0
+      if not start_flag and (reqHashes.len > 0 or blockHashes.len > 0):
+        start_flag = true
 
     else:
       sleep(100)
-      if reqHashes.len == 0 and blockHashes.len == 0:
+      if start_flag:
+        if reqHashes.len == 0 and blockHashes.len == 0:
+          break
+      else:
+        inc(check_count)
         if check_count >= 200:
           break
