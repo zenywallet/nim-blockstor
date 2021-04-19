@@ -47,7 +47,8 @@ type
     recvThread*: Thread[tuple[sock: SocketHandle, recvBufLen: int, messageChannel: ptr Channel[Message]]]
 
   NodeParams* = tuple[ip: string, port: uint16, protocolVersion: uint32,
-                      messageStart: uint32, networkId: NetworkId]
+                      messageStart: uint32, networkId: NetworkId,
+                      rpcUrl: string, rpcUserPass: string]
 
   BlockParserError* = object of CatchableError
 
@@ -66,8 +67,7 @@ proc message(node: Node, cmd: string, payload: seq[byte] = @[]): seq[byte] =
 
 proc `$`*(ver: Version): string = "0x" & ver.uint32.toBytesBE.toHex
 
-proc newNode*(params: tuple[ip: string, port: uint16, protocolVersion: uint32,
-                          messageStart: uint32, networkId: NetworkId]): Node =
+proc newNode*(params: NodeParams): Node =
   var node = new Node
   node.serverIp = params.ip
   node.port = params.port
