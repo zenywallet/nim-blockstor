@@ -51,11 +51,24 @@ exitprocs.addExitProc(quit)
 
 type
   AddrVal = tuple[hash160: Hash160, addressType: uint8, value: uint64, utxo_count: uint32]
+  AddrValRollback = tuple[hash160: Hash160, value: uint64, utxo_count: uint32]
 
 proc aggregate(addrvals: seq[AddrVal]): seq[AddrVal] =
   var t = initTable[seq[byte], AddrVal]()
   for a in addrvals:
     var key = (a.hash160, a.addressType).toBytes
+    if t.hasKey(key):
+      t[key].value = t[key].value + a.value
+      t[key].utxo_count = t[key].utxo_count + a.utxo_count
+    else:
+      t[key] = a
+  for v in t.values:
+    result.add(v)
+
+proc aggregate(addrvals: seq[AddrValRollback]): seq[AddrValRollback] =
+  var t = initTable[seq[byte], AddrValRollback]()
+  for a in addrvals:
+    var key = a.hash160.toBytes
     if t.hasKey(key):
       t[key].value = t[key].value + a.value
       t[key].utxo_count = t[key].utxo_count + a.utxo_count
@@ -140,6 +153,90 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
         dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
+proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64): tuple[height: int, seq_id: uint64] =
+  var addrins = newSeq[seq[AddrValRollback]](blk.txs.len)
+  var addrouts = newSeq[seq[AddrValRollback]](blk.txs.len)
+
+  var prev_seq_id = seq_id - blk.txs.len.uint64
+  for idx, tx in blk.txs:
+    var addrvals: seq[AddrValRollback]
+    for i in tx.ins:
+      var in_txid = i.tx
+      var n = i.n
+
+      if n != 0xffffffff'u32:
+        var ret_tx = dbInst.getTx(in_txid)
+        if ret_tx.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "id not found " & $in_txid)
+
+        var id = ret_tx.res.id
+        var ret_txout = dbInst.getTxout(id, n)
+        if ret_txout.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "txout not found " & $id)
+
+        dbInst.setUnspent(ret_txout.res.address_hash, id, n, ret_txout.res.value)
+        addrvals.add((ret_txout.res.address_hash, ret_txout.res.value, 1'u32))
+
+    addrins[idx] = addrvals.aggregate
+
+  for idx, tx in blk.txs:
+    var sid = prev_seq_id + idx.uint64
+    var txid = Hash(tx.txidBin)
+
+    var addrvals: seq[AddrValRollback]
+    for n, o in tx.outs:
+      var addrHash = getAddressHash160(o.script)
+      dbInst.delUnspent(addrHash.hash160, sid, n.uint32)
+      dbInst.delTxout(sid, n.uint32)
+      addrvals.add((addrHash.hash160, o.value, 1'u32))
+
+    addrouts[idx] = addrvals.aggregate
+
+    dbInst.delTx(txid)
+    dbInst.delId(sid)
+
+  for idx, tx in blk.txs:
+    var sid = prev_seq_id + idx.uint64
+
+    var addrvals = addrins[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      var ret_addrval = dbInst.getAddrval(hash160)
+      if ret_addrval.err == DbStatus.NotFound:
+        raise newException(BlockParserError, "address not found " & $hash160)
+
+      dbInst.delAddrlog(hash160, sid, 0)
+      dbInst.setAddrval(hash160, ret_addrval.res.value + value, ret_addrval.res.utxo_count + utxo_count)
+
+  for idx, tx in blk.txs:
+    var sid = prev_seq_id + idx.uint64
+
+    var addrvals = addrouts[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      dbInst.delAddrlog(hash160, sid, 1)
+
+      var addrLogExist = false
+      for addrlog in dbInst.getAddrlogs(hash160):
+        addrLogExist = true
+        break
+
+      if addrLogExist:
+        var ret_addrval = dbInst.getAddrval(hash160)
+        if ret_addrval.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "address not found " & $hash160)
+
+        dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
+      else:
+        dbInst.delAddrval(hash160)
+
+  dbInst.delBlockHash(height)
+  result = (height - 1, prev_seq_id)
+
 type
   ArrayBlockHash = array[32, byte]
 
@@ -184,6 +281,66 @@ proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
 proc nodeWorker(params: WorkerParams) {.thread.} =
   var node = newNode(params.nodeParams)
   var dbInst = params.dbInst
+  var height = 0.int
+  var nextSeqId = 0'u64
+  var blkHash = BlockHash(pad(32))
+
+  rpc.setRpcConfig(RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass))
+
+  var retLastBlock = dbInst.getLastBlockHash()
+  if retLastBlock.err == DbStatus.NotFound:
+    # genesis block
+    var retGenesisHash = rpc.getBlockHash.send(0)
+    if retGenesisHash["result"].kind != JString:
+      raise newException(BlockstorError, "genesis block hash not found")
+    let genesisHash = retGenesisHash["result"].getStr.Hex.toBlockHash
+    var retGenesisBlock = rpc.getBlock.send($genesisHash, 0)
+    if retGenesisBlock["result"].kind != JString:
+      raise newException(BlockstorError, "genesis block not found")
+    let genesisBlk = retGenesisBlock["result"].getStr.Hex.toBytes.toBlock
+    dbInst.writeBlock(0, genesisHash, genesisBlk, 0)
+    nextSeqId = genesisBlk.txs.len.uint64
+    blkHash = genesisHash
+  else:
+    # rewrite block
+    var retBlock = rpc.getBlock.send($retLastBlock.res.hash, 0)
+    if retBlock["result"].kind != JString:
+      raise newException(BlockstorError, "last block not found")
+
+    let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
+    height = retLastBlock.res.height
+    nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
+    blkHash = retLastBlock.res.hash
+    dbInst.writeBlock(height, blkHash, blk, nextSeqId)
+
+  # block check
+  template block_check() {.dirty.} =
+    while height > 0:
+      var retRpcHash = rpc.getBlockHash.send(height)
+      if retRpcHash["result"].kind != JString:
+        raise newException(BlockstorError, "rpc block not found height=" & $height)
+      var retDbHash = dbInst.getBlockHash(height)
+      if retDbHash.err != DbStatus.Success:
+        raise newException(BlockstorError, "db block not found height=" & $height)
+
+      var blkRpcHash = retRpcHash["result"].getStr.Hex.toBlockHash
+      var blkDbHash = retDbHash.res.hash
+      if blkRpcHash.toBytes == blkDbHash.toBytes:
+        blkHash = blkDbHash
+        break
+
+      # rollback
+      var retBlock = rpc.getBlock.send($blkDbHash, 0)
+      if retBlock["result"].kind != JString:
+        raise newException(BlockstorError, "rollback block not found hash=" & $blkDbHash)
+
+      let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
+      let retRollback = dbInst.rollbackBlock(height, blkDbHash, blk, nextSeqId)
+      height = retRollback.height
+      nextSeqId = retRollback.seq_id
+      echo "rollback ", height
+
+  block_check()
 
   block tcpMode:
     if not node.connect():
@@ -193,14 +350,35 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     defer:
       node.close()
 
-    var seq_id = 0'u64
-
-    proc cb(height: int, hash: BlockHash, blk: Block) =
-      dbInst.writeBlock(height, hash, blk, seq_id)
-      seq_id = seq_id + blk.txs.len.uint64
+    proc cb(tcpHeight: int, hash: BlockHash, blk: Block) =
+      dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
+      height = tcpHeight
+      nextSeqId = nextSeqId + blk.txs.len.uint64
       setMonitorInfo(params.id, height, hash, blk.header.time.int64)
 
-    node.start(params.nodeParams, 0, BlockHash(pad(32)), cb)
+    node.start(params.nodeParams, height, blkHash, cb)
+
+  block rpcMode:
+    echo "rpc mode"
+    while true:
+      block_check()
+
+      var retHash = rpc.getBlockHash.send(height + 1)
+      while retHash["result"].kind == JString:
+        var blkRpcHash = retHash["result"].getStr.Hex.toBlockHash
+        var retBlock = rpc.getBlock.send($blkRpcHash, 0)
+        if retBlock["result"].kind != JString:
+          raise newException(BlockstorError, "rpc block not found hash=" & $blkRpcHash)
+
+        let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
+        inc(height)
+        dbInst.writeBlock(height, blkRpcHash, blk, nextSeqId)
+        nextSeqId = nextSeqId + blk.txs.len.uint64
+        setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64)
+
+        retHash = rpc.getBlockHash.send(height + 1)
+
+      sleep(1000)
 
 proc startWorker() =
   var monitorThread: Thread[seq[WorkerParams]]

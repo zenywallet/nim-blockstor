@@ -100,8 +100,9 @@ type RpcConfig* = ref object
   rpcUrl*: string      # http://hostname:port/
   rpcUserPass*: string # rpcuser:rpcpassword
 
-var defaultRpcConfig = RpcConfig(rpcUrl: "http://127.0.0.1:9252/",
-                                rpcUserPass: "rpcuser:rpcpassword")
+var defaultRpcConfig {.threadvar.}: RpcConfig
+defaultRpcConfig = RpcConfig(rpcUrl: "http://127.0.0.1:9252/",
+                            rpcUserPass: "rpcuser:rpcpassword")
 
 proc setRpcConfig*(rpcConfig: RpcConfig) =
   defaultRpcConfig = rpcConfig

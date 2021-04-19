@@ -62,6 +62,25 @@ proc getBlockHash*(db: Sophia, height: int): DbBlockHashResult =
   else:
     result = DbBlockHashResult(err: DbStatus.NotFound)
 
+type
+  LastBlockHashResult* = tuple[height: int, hash: BlockHash, time: uint32, start_id: uint64]
+  DbLastBlockHashResult* = DbResult[LastBlockHashResult]
+
+proc getLastBlockHash*(db: Sophia): DbLastBlockHashResult =
+  var startkey = BytesBE(Prefix.blocks, uint32.high)
+  var endkey = BytesBE(Prefix.blocks, uint32.low)
+
+  for d in db.getsRev(startkey, endkey):
+    if d.key.len == 5 and d.val.len == 44:
+      var d = d
+      let height = d.key[1].toUint32BE.int
+      let hash = BlockHash(d.val[0..31])
+      let time = d.val[32].toUint32BE
+      let start_id = d.val[36].toUint64BE
+      return DbLastBlockHashResult(err: DbStatus.Success, res: (height, hash, time, start_id))
+    break
+  return DbLastBlockHashResult(err: DbStatus.NotFound)
+
 proc delBlockHash*(db: Sophia, height: int) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   db.del(key)
