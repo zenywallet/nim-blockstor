@@ -67,7 +67,7 @@ proc open*(sophia: Sophia, dbpath: string) =
   sophia.env = sp_env()
   if sophia.env.isNil:
     raise newException(SophiaErr, "env is nil")
-  checkErr sophia.env.sp_setint("log.enable", int64_t(0))
+  checkErr sophia.env.sp_setint("log.enable", 1)
   var path = splitPath(dbpath)
   checkErr sophia.env.sp_setstring("sophia.path", path.head.cstring, 0)
   checkErr sophia.env.sp_setstring("db", path.tail.cstring, 0)
@@ -80,7 +80,7 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
   var env = sp_env()
   if env.isNil:
     raise newException(SophiaErr, "env is nil")
-  env.checkErr env.sp_setint("log.enable", int64_t(0))
+  env.checkErr env.sp_setint("log.enable", 1)
   env.checkErr env.sp_setstring("sophia.path", dbpath.cstring, 0)
   for dbname in dbnames:
     env.checkErr env.sp_setstring("db", dbname.cstring, 0)
