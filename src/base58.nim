@@ -50,15 +50,18 @@ proc enc*(data: seq[byte]): string =
   result = cast[string](cast[seq[char]](b))
 
 proc dec*(data: string): seq[byte] =
-  let size = int(ceil(data.len.float * log256_58)) + 1
-  var b = newSeqUninitialized[byte](size)
   var zeroLen = 0
 
   for d in data:
     if d != '1':
       break
-    b[zeroLen] = 0'u8
     inc(zeroLen)
+
+  let size = int(ceil((data.len - zeroLen).float * log256_58)) + zeroLen
+  var b = newSeqUninitialized[byte](size)
+
+  for i in 0..<zeroLen:
+    b[i] = 0'u8
 
   var pos = b.len
   for d in data[zeroLen..data.high]:
