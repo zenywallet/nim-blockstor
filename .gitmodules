@@ -16,3 +16,6 @@
 [submodule "deps/wasm-secp256k1"]
 	path = deps/wasm-secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
+[submodule "deps/ed25519"]
+	path = deps/ed25519
+	url = https://github.com/orlp/ed25519
