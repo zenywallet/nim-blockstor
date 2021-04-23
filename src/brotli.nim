@@ -4,7 +4,7 @@ import os
 
 const brotliPath = currentSourcePath().parentDir() / "../deps/brotli"
 
-{.passC: "-I\"" & brotliPath / "c/include/" & "\"".}
+{.passC: "-I\"" & brotliPath / "c/include" & "\"".}
 {.passL: "-lm".}
 
 {.compile: brotliPath / "c/enc/backward_references.c".}

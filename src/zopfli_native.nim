@@ -4,7 +4,7 @@ import os
 
 const zopfliPath = currentSourcePath().parentDir() / "../deps/zopfli"
 
-{.passC: "-I\"" & zopfliPath / "src/zopfli/" & "\"".}
+{.passC: "-I\"" & zopfliPath / "src/zopfli" & "\"".}
 {.compile: zopfliPath / "src/zopfli/deflate.c".}
 {.compile: zopfliPath / "src/zopfli/blocksplitter.c".}
 {.compile: zopfliPath / "src/zopfli/squeeze.c".}
