@@ -136,7 +136,7 @@ type
     of ThreadArgType.WorkerParams:
       workerParams*: tuple[threadId: int, bufLen: int]
 
-  SendResult {.pure.} = enum
+  SendResult* {.pure.} = enum
     Error = -1
     None = 0
     Success = 1
