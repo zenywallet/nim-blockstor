@@ -222,6 +222,7 @@ proc initClient() =
     tmp[i].payloadSize = 0
     when ENABLE_SSL:
       tmp[i].ssl = nil
+    tmp[i].ip = 0
   clients = tmp
 
 proc freeClient() =
@@ -522,6 +523,7 @@ proc waitEventAgain(evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0
 
 proc close(client: ptr Client) =
   debug "close ", client.fd
+  client.ip = 0
   when ENABLE_SSL:
     if not client.ssl.isNil:
       SSL_free(client.ssl)
