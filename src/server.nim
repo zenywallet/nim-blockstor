@@ -1202,7 +1202,7 @@ proc main(arg: ThreadArg) {.thread.} =
   freeClient()
 
 
-proc start*(): seq[Thread[ThreadArg]] =
+proc start*(): seq[Thread[ThreadArg]] {.discardable.} =
   setUlimit(ULIMIT_SIZE)
   createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
   result.add(mainThread)
