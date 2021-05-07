@@ -182,6 +182,11 @@ template debug(x: varargs[string, `$`]) =
 
 template error(x: varargs[string, `$`]) = echo join(x)
 
+template errorQuit(x: varargs[string, `$`]) =
+  var msg = join(x)
+  echo msg
+  raise newException(ServerError, msg)
+
 proc setUlimit(rlim: int): bool {.discardable.} =
   var rlp: RLimit
   var ret = getrlimit(RLIMIT_NOFILE, rlp)
@@ -246,18 +251,15 @@ proc quitServer() =
       ev.events = EPOLLRDHUP
       var retCtl = epoll_ctl(epfd, EPOLL_CTL_ADD, serverSock, addr ev)
       if retCtl != 0:
-        error "error: quit epoll_ctl ret=", retCtl, " ", getErrnoStr()
-        quit(QuitFailure)
+        errorQuit "error: quit epoll_ctl ret=", retCtl, " ", getErrnoStr()
     var retShutdown = serverSock.shutdown(SHUT_RD)
     if retShutdown != 0:
-      error "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
-      quit(QuitFailure)
+      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
     serverSock.close()
   if httpSock != osInvalidSocket:
     var retShutdown = httpSock.shutdown(SHUT_RD)
     if retShutdown != 0:
-      error "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
-      quit(QuitFailure)
+      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
     httpSock.close()
 
 proc abort() =
@@ -1150,14 +1152,12 @@ proc createServer(port: Port): SocketHandle =
   sock.setSockOptInt(SOL_SOCKET, SO_REUSEADDR, 1)
   var retBind = sock.bindAddr(aiList.ai_addr, aiList.ai_addrlen.SockLen)
   if retBind < 0:
-    error "error: bind ret=", retBind, " ", getErrnoStr()
-    quit(QuitFailure)
+    errorQuit "error: bind ret=", retBind, " ", getErrnoStr()
   freeaddrinfo(aiList)
 
   var retListen = sock.listen()
   if retListen < 0:
-    error "error: listen ret=", retListen, " ", getErrnoStr()
-    quit(QuitFailure)
+    errorQuit "error: listen ret=", retListen, " ", getErrnoStr()
   result = sock
 
 proc main(arg: ThreadArg) {.thread.} =
@@ -1169,8 +1169,7 @@ proc main(arg: ThreadArg) {.thread.} =
 
   epfd = epoll_create1(O_CLOEXEC)
   if epfd < 0:
-    error "error: epfd=", epfd, " errno=", errno
-    quit(QuitFailure)
+    errorQuit "error: epfd=", epfd, " errno=", errno
 
   initClient()
 
@@ -1198,13 +1197,10 @@ proc main(arg: ThreadArg) {.thread.} =
   workerChannel.close()
   var retEpfdClose = epfd.close()
   if retEpfdClose != 0:
-    error "error: close epfd=", epfd, " ret=", retEpfdClose, " ", getErrnoStr()
-    quit(QuitFailure)
+    errorQuit "error: close epfd=", epfd, " ret=", retEpfdClose, " ", getErrnoStr()
 
   freeClient()
 
-  if abortFlag:
-    quit(QuitFailure)
 
 proc start*(): seq[Thread[ThreadArg]] =
   setUlimit(ULIMIT_SIZE)
@@ -1213,12 +1209,12 @@ proc start*(): seq[Thread[ThreadArg]] =
 
 proc stop*() {.inline.} = quitServer()
 
-onSignal(SIGINT, SIGTERM):
-  debug "bye from signal ", sig
-  quitServer()
-
 
 when isMainModule:
+  onSignal(SIGINT, SIGTERM):
+    debug "bye from signal ", sig
+    quitServer()
+
   var threads: seq[Thread[ThreadArg]]
   threads = threads.concat(start())
   joinThreads(threads)
