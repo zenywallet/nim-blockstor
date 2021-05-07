@@ -542,7 +542,10 @@ proc close(client: ptr Client) =
 
 var webMain* = proc(client: ptr Client, url: string, headers: Headers): SendResult =
   debug "web url=", url, " headers=", headers
-  var file = getConstFile(url)
+  when DYNAMIC_FILES:
+    var file = getDynamicFile(url)
+  else:
+    var file = getConstFile(url)
   if file.content.len > 0:
     if headers.hasKey("If-None-Match") and headers["If-None-Match"] == file.md5:
       result = client.send(Empty.addHeader(Status304))
@@ -687,6 +690,9 @@ proc worker(arg: ThreadArg) {.thread.} =
     client.reserveRecvBuf(size)
     copyMem(addr client.recvBuf[client.recvCurSize], addr data[0], size)
     client.recvCurSize = client.recvCurSize + size
+
+  when DYNAMIC_FILES:
+    initDynamicFile()
 
   while true:
     block channelBlock:
