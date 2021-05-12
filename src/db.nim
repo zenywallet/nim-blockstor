@@ -28,8 +28,12 @@ type
     of DbStatus.NotFound:
       discard
 
-  DbInst* = Sophia
+  DbInst* = distinct Sophia
   DbInsts* = seq[DbInst]
+
+converter toSophia*(dbInst: DbInst): Sophia = dbInst.Sophia
+converter toDbInst*(sophia: Sophia): DbInst = sophia.DbInst
+converter toDbInsts*(sophias: seq[Sophia]): DbInsts = sophias.DbInsts
 
 proc open*(datapath: string): DbInst =
   var dbInst = new Sophia
@@ -41,7 +45,7 @@ proc opens*(dbpath: string, dbnames: seq[string]): DbInsts = sophia.opens(dbpath
 proc close*(dbInst: DbInst) =
   sophia.close(dbInst)
 
-proc setBlockHash*(db: Sophia, height: int, hash: BlockHash, time: uint32, start_id: uint64) =
+proc setBlockHash*(db: DbInst, height: int, hash: BlockHash, time: uint32, start_id: uint64) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   let val = BytesBE(hash, time, start_id)
   db.put(key, val)
@@ -50,7 +54,7 @@ type
   BlockHashResult* = tuple[hash: BlockHash, time: uint32, start_id: uint64]
   DbBlockHashResult* = DbResult[BlockHashResult]
 
-proc getBlockHash*(db: Sophia, height: int): DbBlockHashResult =
+proc getBlockHash*(db: DbInst, height: int): DbBlockHashResult =
   let key = BytesBE(Prefix.blocks, height.uint32)
   let d = db.get(key)
   if d.len == 44:
@@ -66,7 +70,7 @@ type
   LastBlockHashResult* = tuple[height: int, hash: BlockHash, time: uint32, start_id: uint64]
   DbLastBlockHashResult* = DbResult[LastBlockHashResult]
 
-proc getLastBlockHash*(db: Sophia): DbLastBlockHashResult =
+proc getLastBlockHash*(db: DbInst): DbLastBlockHashResult =
   var startkey = BytesBE(Prefix.blocks, uint32.high)
   var endkey = BytesBE(Prefix.blocks, uint32.low)
 
@@ -81,11 +85,11 @@ proc getLastBlockHash*(db: Sophia): DbLastBlockHashResult =
     break
   return DbLastBlockHashResult(err: DbStatus.NotFound)
 
-proc delBlockHash*(db: Sophia, height: int) =
+proc delBlockHash*(db: DbInst, height: int) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   db.del(key)
 
-proc setTx*(db: Sophia, txid: Hash, height: int, id: uint64) =
+proc setTx*(db: DbInst, txid: Hash, height: int, id: uint64) =
   let key = BytesBE(Prefix.txs, txid)
   let val = BytesBE(height.uint32, id)
   db.put(key, val)
@@ -94,7 +98,7 @@ type
   TxResult* = tuple[height: int, id: uint64]
   DbTxResult* = DbResult[TxResult]
 
-proc getTx*(db: Sophia, txid: Hash): DbTxResult =
+proc getTx*(db: DbInst, txid: Hash): DbTxResult =
   let key = BytesBE(Prefix.txs, txid)
   let d = db.get(key)
   if d.len == 12:
@@ -105,11 +109,11 @@ proc getTx*(db: Sophia, txid: Hash): DbTxResult =
   else:
     result = DbTxResult(err: DbStatus.NotFound)
 
-proc delTx*(db: Sophia, txid: Hash) =
+proc delTx*(db: DbInst, txid: Hash) =
   let key = BytesBE(Prefix.txs, txid)
   db.del(key)
 
-proc setId*(db: Sophia, id: uint64, txid: Hash) =
+proc setId*(db: DbInst, id: uint64, txid: Hash) =
   let key = BytesBE(Prefix.ids, id)
   let val = BytesBE(txid)
   db.put(key, val)
@@ -118,7 +122,7 @@ type
   IdResult* = Hash
   DbIdResult* = DbResult[IdResult]
 
-proc getId*(db: Sophia, id: uint64): DbIdResult =
+proc getId*(db: DbInst, id: uint64): DbIdResult =
   let key = BytesBE(Prefix.ids, id)
   let d = db.get(key)
   if d.len >= 32:
@@ -128,11 +132,11 @@ proc getId*(db: Sophia, id: uint64): DbIdResult =
   else:
     result = DbIdResult(err: DbStatus.NotFound)
 
-proc delId*(db: Sophia, id: uint64) =
+proc delId*(db: DbInst, id: uint64) =
   let key = BytesBE(Prefix.ids, id)
   db.del(key)
 
-proc setTxout*(db: Sophia, id: uint64, n: uint32,
+proc setTxout*(db: DbInst, id: uint64, n: uint32,
               value: uint64, address_hash: Hash160, address_type: uint8) =
   let key = BytesBE(Prefix.txouts, id, n)
   let val = BytesBE(value, address_hash, address_type)
@@ -142,7 +146,7 @@ type
   TxoutResult* = tuple[value: uint64, address_hash: Hash160, address_type: uint8]
   DbTxoutResult* = DbResult[TxoutResult]
 
-proc getTxout*(db: Sophia, id: uint64, n: uint32): DbTxoutResult =
+proc getTxout*(db: DbInst, id: uint64, n: uint32): DbTxoutResult =
   let key = BytesBE(Prefix.txouts, id, n)
   let d = db.get(key)
   if d.len == 29:
@@ -162,7 +166,7 @@ proc getTxout*(db: Sophia, id: uint64, n: uint32): DbTxoutResult =
 type
   TxoutsResult* = tuple[n: uint32, value: uint64, address_hash: Hash160, address_type: uint8]
 
-iterator getTxouts*(db: Sophia, id: uint64): TxoutsResult =
+iterator getTxouts*(db: DbInst, id: uint64): TxoutsResult =
   let key = BytesBE(Prefix.txouts, id)
   for d in db.gets(key):
     if d.key.len != 13:
@@ -182,11 +186,11 @@ iterator getTxouts*(db: Sophia, id: uint64): TxoutsResult =
       let address_type = d.val[^1]
       yield (n, value, address_hash, address_type)
 
-proc delTxout*(db: Sophia, id: uint64, n: uint32) =
+proc delTxout*(db: DbInst, id: uint64, n: uint32) =
   let key = BytesBE(Prefix.txouts, id, n)
   db.del(key)
 
-proc setUnspent*(db: Sophia, address_hash: Hash160, id: uint64,
+proc setUnspent*(db: DbInst, address_hash: Hash160, id: uint64,
                 n: uint32, value: uint64) =
   let key = BytesBE(Prefix.unspents, address_hash, id, n)
   let val = BytesBE(value)
@@ -196,7 +200,7 @@ type
   UnspentResult* = uint64
   DbUnspentResult* = DbResult[UnspentResult]
 
-proc getUnspent*(db: Sophia, address_hash: Hash160, id: uint64,
+proc getUnspent*(db: DbInst, address_hash: Hash160, id: uint64,
                 n: uint32): DbUnspentResult =
   let key = BytesBE(Prefix.unspents, address_hash, id, n)
   let d = db.get(key)
@@ -210,7 +214,7 @@ proc getUnspent*(db: Sophia, address_hash: Hash160, id: uint64,
 type
   UnspentsResult* = tuple[id: uint64, n: uint32, value: uint64]
 
-iterator getUnspents*(db: Sophia, address_hash: Hash160,
+iterator getUnspents*(db: DbInst, address_hash: Hash160,
                     options: tuple = ()): UnspentsResult =
   var low_id: uint64 = uint64.low
   var high_id: uint64 = uint64.high
@@ -257,12 +261,12 @@ iterator getUnspents*(db: Sophia, address_hash: Hash160,
       let value = d.val[0].toUint64BE
       yield (id, n, value)
 
-proc delUnspent*(db: Sophia, address_hash: Hash160, id: uint64,
+proc delUnspent*(db: DbInst, address_hash: Hash160, id: uint64,
                 n: uint32) =
   let key = BytesBE(Prefix.unspents, address_hash, id, n)
   db.del(key)
 
-proc setAddrval*(db: Sophia, address_hash: Hash160, value: uint64, utxo_count: uint32) =
+proc setAddrval*(db: DbInst, address_hash: Hash160, value: uint64, utxo_count: uint32) =
   let key = BytesBE(Prefix.addrvals, address_hash)
   let val = BytesBE(value, utxo_count)
   db.put(key, val)
@@ -271,7 +275,7 @@ type
   AddrvalResult* = tuple[value: uint64, utxo_count: uint32]
   DbAddrvalResult* = DbResult[AddrvalResult]
 
-proc getAddrval*(db: Sophia, address_hash: Hash160): DbAddrvalResult =
+proc getAddrval*(db: DbInst, address_hash: Hash160): DbAddrvalResult =
   let key = BytesBE(Prefix.addrvals, address_hash)
   let d = db.get(key)
   if d.len >= 12:
@@ -282,11 +286,11 @@ proc getAddrval*(db: Sophia, address_hash: Hash160): DbAddrvalResult =
   else:
     result = DbAddrvalResult(err: DbStatus.NotFound)
 
-proc delAddrval*(db: Sophia, address_hash: Hash160) =
+proc delAddrval*(db: DbInst, address_hash: Hash160) =
   let key = BytesBE(Prefix.addrvals, address_hash)
   db.del(key)
 
-proc setAddrlog*(db: Sophia, address_hash: Hash160, id: uint64,
+proc setAddrlog*(db: DbInst, address_hash: Hash160, id: uint64,
                 trans: uint8, value: uint64, address_type: uint8) =
   let key = BytesBE(Prefix.addrlogs, address_hash, id, trans)
   let val = BytesBE(value, address_type)
@@ -296,7 +300,7 @@ type
   AddrlogResult* = tuple[value: uint64, address_type: uint8]
   DbAddrlogResult* = DbResult[AddrlogResult]
 
-proc getAddrlog*(db: Sophia, address_hash: Hash160, id: uint64,
+proc getAddrlog*(db: DbInst, address_hash: Hash160, id: uint64,
                 trans: uint8): DbAddrlogResult =
   let key = BytesBE(Prefix.addrlogs, address_hash, id, trans)
   let d = db.get(key)
@@ -311,7 +315,7 @@ proc getAddrlog*(db: Sophia, address_hash: Hash160, id: uint64,
 type
   AddrlogsResult* = tuple[id: uint64, trans: uint8, value: uint64, address_type: uint8]
 
-iterator getAddrlogs*(db: Sophia, address_hash: Hash160,
+iterator getAddrlogs*(db: DbInst, address_hash: Hash160,
                     options: tuple = ()): AddrlogsResult =
   var low_id: uint64 = uint64.low
   var high_id: uint64 = uint64.high
@@ -360,7 +364,7 @@ iterator getAddrlogs*(db: Sophia, address_hash: Hash160,
       let address_type = d.val[8]
       yield (id, trans, value, address_type)
 
-proc delAddrlog*(db: Sophia, address_hash: Hash160, id: uint64,
+proc delAddrlog*(db: DbInst, address_hash: Hash160, id: uint64,
                 trans: uint8) =
   let key = BytesBE(Prefix.addrlogs, address_hash, id, trans)
   db.del(key)
