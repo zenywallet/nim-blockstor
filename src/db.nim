@@ -10,7 +10,7 @@ type Prefix* {.pure.} = enum
   ids         # id = txid
   txouts      # id, n = value, address_hash, address_type
   unspents    # address_hash, id, n = value
-  addrvals    # address_hash = value, utxo_count
+  addrvals    # address_hash, (address_type) = value, utxo_count
   addrlogs    # address_hash, id, trans (0 - out | 1 - in) = value, address_type
 
 type
