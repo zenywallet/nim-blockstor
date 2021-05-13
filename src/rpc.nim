@@ -236,7 +236,7 @@ when isMainModule:
     echo getBlockchainInfo.send()
     echo getBlockchainInfo.setParams().send()
 
-    var rpcCmds: RpcCommands 
+    var rpcCmds: RpcCommands
     rpcCmds.add(getBlockHash.setParams(0))
     rpcCmds.add(getBlockHash.setParams(1))
     rpcCmds.add(getBlockHash.setParams(2))
