@@ -25,3 +25,6 @@
 [submodule "deps/yespower"]
 	path = deps/yespower
 	url = https://github.com/openwall/yespower
+[submodule "deps/uthash"]
+	path = deps/uthash
+	url = https://github.com/troydhanson/uthash
