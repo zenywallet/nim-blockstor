@@ -63,20 +63,23 @@ template checkErr(env: pointer, err: cint) =
     else:
       raise newException(SophiaErr, "env is nil")
 
-proc open*(sophia: Sophia, dbpath: string) =
+proc open*(sophia: Sophia, dbpath, dbname: string) =
   sophia.env = sp_env()
   if sophia.env.isNil:
     raise newException(SophiaErr, "env is nil")
   checkErr sophia.env.sp_setint("log.enable", 1)
   checkErr sophia.env.sp_setint("scheduler.threads", 4)
-  var path = splitPath(dbpath)
-  checkErr sophia.env.sp_setstring("sophia.path", path.head.cstring, 0)
-  checkErr sophia.env.sp_setstring("db", path.tail.cstring, 0)
-  checkErr sophia.env.sp_setint("db." & path.tail & ".compaction.cache", 128 * 1024 * 1024)
+  checkErr sophia.env.sp_setstring("sophia.path", dbpath.cstring, 0)
+  checkErr sophia.env.sp_setstring("db", dbname.cstring, 0)
+  checkErr sophia.env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
   checkErr sophia.env.sp_open()
-  sophia.db = sophia.env.sp_getobject("db." & path.tail)
+  sophia.db = sophia.env.sp_getobject("db." & dbname)
   if sophia.db.isNil:
     raise newException(SophiaErr, "db is nil")
+
+proc open*(sophia: Sophia, dbpath: string) =
+  var path = splitPath(dbpath)
+  open(sophia, path.head, path.tail)
 
 proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
   var env = sp_env()
