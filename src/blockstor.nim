@@ -47,6 +47,8 @@ var networks: seq[Network]
 for node in nodes:
   networks.add(node.networkId.getNetwork)
 
+var abort = false
+
 type
   AddrVal = tuple[hash160: Hash160, addressType: uint8, value: uint64, utxo_count: uint32]
   AddrValRollback = tuple[hash160: Hash160, value: uint64, utxo_count: uint32]
@@ -348,17 +350,18 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     defer:
       node.close()
 
-    proc cb(tcpHeight: int, hash: BlockHash, blk: Block) =
+    proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool =
       dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
       height = tcpHeight
       nextSeqId = nextSeqId + blk.txs.len.uint64
       setMonitorInfo(params.id, height, hash, blk.header.time.int64)
+      result = not abort
 
     node.start(params.nodeParams, height, blkHash, cb)
 
   block rpcMode:
     echo "rpc mode"
-    while true:
+    while not abort:
       block_check()
 
       var retHash = rpc.getBlockHash.send(height + 1)
@@ -398,6 +401,7 @@ server.start()
 
 onSignal(SIGINT, SIGTERM):
   echo "bye from signal ", sig
+  abort = true
   monitorEnable = false
   server.stop()
   resetAttributes()

@@ -136,8 +136,10 @@ proc send*(sock: SocketHandle, data: seq[byte]): bool =
       inc(retry)
   result = ret > 0
 
+var abort = false
+
 proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: BlockHash,
-            cb: proc(height: int, hash: BlockHash, blk: Block)) =
+            cb: proc(height: int, hash: BlockHash, blk: Block): bool) =
   var height = startHeight
   var blockHashes: seq[BlockHash]
   var reqHashes: seq[BlockHash]
@@ -152,7 +154,7 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
 
   var check_count = 0
   var start_flag = false
-  while true:
+  while not abort:
     var queue = node.messageChannel[].peek()
     if queue < 500 and reqHashes.len < 500 and blockHashes.len > 0:
       var data = node.message("getblocks", (node.protocolVersion.uint32, VarInt(1),
@@ -208,7 +210,8 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
             prevBlkHash = hash
             prevBlkTime = blk.header.time.int64
             inc(height)
-            cb(height, hash, blk)
+            if not cb(height, hash, blk):
+              abort = true
 
       of "reject":
         var reader = newReader(message.body)
@@ -237,3 +240,6 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
         inc(check_count)
         if check_count >= 200:
           break
+
+proc stop*() =
+  abort = true
