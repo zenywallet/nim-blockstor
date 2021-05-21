@@ -3,8 +3,9 @@
 import os, times, tables, terminal
 import bytes, tcp, rpc, db
 import address, blocks, tx
-import std/exitprocs
 import algorithm
+import posix
+import server
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
@@ -42,12 +43,9 @@ var workers: seq[WorkerParams]
 for i, node in nodes:
   workers.add((node, dbInsts[i], i))
 
-proc quit() {.noconv.} =
-  resetAttributes()
-  if dbInsts.len > 0:
-    dbInsts[0].close()
-
-exitprocs.addExitProc(quit)
+var networks: seq[Network]
+for node in nodes:
+  networks.add(node.networkId.getNetwork)
 
 type
   AddrVal = tuple[hash160: Hash160, addressType: uint8, value: uint64, utxo_count: uint32]
@@ -393,6 +391,17 @@ proc startWorker() =
   deallocShared(monitorInfos)
 
 
-when isMainModule:
-  stdout.eraseScreen
-  startWorker()
+stdout.eraseScreen
+
+server.setDbInsts(dbInsts, networks)
+server.start()
+
+onSignal(SIGINT, SIGTERM):
+  echo "bye from signal ", sig
+  monitorEnable = false
+  server.stop()
+  resetAttributes()
+  if dbInsts.len > 0:
+    dbInsts[0].close()
+
+startWorker()
