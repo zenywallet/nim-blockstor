@@ -229,7 +229,7 @@ proc freeClient() =
   var tmp = clients
   clients = nil
   for i in 0..<CLIENT_MAX:
-    var client = tmp[i]
+    var client = addr tmp[i]
     if client.fd != osInvalidSocket.int:
       client.fd.SocketHandle.close()
     if not client.recvBuf.isNil:
