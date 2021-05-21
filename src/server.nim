@@ -209,34 +209,34 @@ proc setUlimit(rlim: int): bool {.discardable.} =
   return true
 
 proc initClient() =
-  var tmp = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
+  var p = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
   for i in 0..<CLIENT_MAX:
-    tmp[i].fd = osInvalidSocket.int
-    tmp[i].recvBuf = nil
-    tmp[i].recvBufSize = 0
-    tmp[i].recvCurSize = 0
-    tmp[i].sendBuf = nil
-    tmp[i].sendBufSize = 0
-    tmp[i].keepAlive = true
-    tmp[i].wsUpgrade = false
-    tmp[i].payloadSize = 0
+    p[i].fd = osInvalidSocket.int
+    p[i].recvBuf = nil
+    p[i].recvBufSize = 0
+    p[i].recvCurSize = 0
+    p[i].sendBuf = nil
+    p[i].sendBufSize = 0
+    p[i].keepAlive = true
+    p[i].wsUpgrade = false
+    p[i].payloadSize = 0
     when ENABLE_SSL:
-      tmp[i].ssl = nil
-    tmp[i].ip = 0
-  clients = tmp
+      p[i].ssl = nil
+    p[i].ip = 0
+  clients = p
 
 proc freeClient() =
-  var tmp = clients
+  var p = clients
   clients = nil
   for i in 0..<CLIENT_MAX:
-    var client = addr tmp[i]
+    var client = addr p[i]
     if client.fd != osInvalidSocket.int:
       client.fd.SocketHandle.close()
     if not client.recvBuf.isNil:
       deallocShared(cast[pointer](client.recvBuf))
     if not client.sendBuf.isNil:
       deallocShared(cast[pointer](client.sendBuf))
-  deallocShared(tmp)
+  deallocShared(p)
 
 proc getErrnoStr(): string =
   case errno
@@ -963,9 +963,9 @@ when ENABLE_SSL:
 
     proc freeSslFileHash() =
       if not sslFileHash.isNil:
-        var tmp = sslFileHash
+        var p = sslFileHash
         sslFileHash = nil
-        deallocShared(tmp)
+        deallocShared(p)
 
     proc checkSslFileHash() {.inline.} = setSslFileHash()
 
