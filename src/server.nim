@@ -54,7 +54,7 @@ when ENABLE_SSL:
   const SSL_AUTO_RELOAD = true
 
 type
-  Client* = object
+  ClientBase* = ref object of RootObj
     fd: int
     recvBuf: ptr UncheckedArray[byte]
     recvBufSize: int
@@ -67,6 +67,9 @@ type
     when ENABLE_SSL:
       ssl: SSL
     ip: uint32
+
+  Client* = object of ClientBase
+    pStream*: pointer
 
   ClientArray = array[CLIENT_MAX, Client]
 
@@ -155,6 +158,80 @@ type
 
   ServerError* = object of CatchableError
 
+template debug(x: varargs[string, `$`]) =
+  when RELEASE_MODE:
+    discard
+  else:
+    echo join(x)
+
+template error(x: varargs[string, `$`]) = echo join(x)
+
+template errorQuit(x: varargs[string, `$`]) =
+  var msg = join(x)
+  echo msg
+  raise newException(ServerError, msg)
+
+proc reallocClientBuf(buf: ptr UncheckedArray[byte], size: int): ptr UncheckedArray[byte] =
+  result = cast[ptr UncheckedArray[byte]](reallocShared(buf, size))
+
+proc addSendBuf(client: ptr Client, data: string) =
+  var nextSize = client.sendBufSize + data.len
+  client.sendBuf = reallocClientBuf(client.sendBuf, nextSize)
+  copyMem(addr client.sendBuf[client.sendBufSize], unsafeAddr data[0], data.len)
+  client.sendBufSize = nextSize
+
+proc send*(client: ptr Client, data: string): SendResult =
+  if not client.sendBuf.isNil:
+    client.addSendBuf(data)
+    return SendResult.Pending
+
+  var sendRet: int
+  var pos = 0
+  var size = data.len
+  while true:
+    var d = cast[cstring](unsafeAddr data[pos])
+    when ENABLE_SSL:
+      if not client.ssl.isNil:
+        sendRet = client.ssl.SSL_write(d, size.cint)
+      else:
+        sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
+    else:
+      sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
+    if sendRet > 0:
+      debug "send sendRet=", sendRet, " size=", size
+      size = size - sendRet
+      if size > 0:
+        pos = pos + sendRet
+        continue
+      return SendResult.Success
+    elif sendRet < 0:
+      if errno == EAGAIN or errno == EWOULDBLOCK:
+        if pos > 0:
+          client.addSendBuf(data[pos..^1])
+        else:
+          client.addSendBuf(data)
+        return SendResult.Pending
+      if errno == EINTR:
+        continue
+      return SendResult.Error
+    else:
+      return SendResult.None
+
+proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
+                          opcode: WebSocketOpCode = WebSocketOpCode.Binary): SendResult =
+  var frame: seq[byte]
+  var dataLen = data.len
+  var finOp = 0x80.byte or opcode.byte
+  if dataLen < 126:
+    frame = BytesBE(finOp, dataLen.byte, data)
+  elif dataLen >= 126 and dataLen <= 0xffff:
+    frame = BytesBE(finOp, 126.byte, dataLen.uint16, data)
+  else:
+    frame = BytesBE(finOp, 127.byte, dataLen.uint64, data)
+  result = client.send(frame.toString)
+
+include stream
+
 var active = true
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
@@ -173,19 +250,6 @@ var acceptThread: Thread[ThreadArg]
 var httpThread: Thread[ThreadArg]
 var monitorThread: Thread[ThreadArg]
 var mainThread: Thread[ThreadArg]
-
-template debug(x: varargs[string, `$`]) =
-  when RELEASE_MODE:
-    discard
-  else:
-    echo join(x)
-
-template error(x: varargs[string, `$`]) = echo join(x)
-
-template errorQuit(x: varargs[string, `$`]) =
-  var msg = join(x)
-  echo msg
-  raise newException(ServerError, msg)
 
 proc setUlimit(rlim: int): bool {.discardable.} =
   var rlp: RLimit
@@ -223,6 +287,8 @@ proc initClient() =
     when ENABLE_SSL:
       p[i].ssl = nil
     p[i].ip = 0
+    when declared(initExClient):
+      initExClient(addr p[i])
   clients = p
 
 proc freeClient() =
@@ -236,6 +302,8 @@ proc freeClient() =
       deallocShared(cast[pointer](client.recvBuf))
     if not client.sendBuf.isNil:
       deallocShared(cast[pointer](client.sendBuf))
+    when declared(freeExClient):
+      freeExClient(client)
   deallocShared(p)
 
 proc getErrnoStr(): string =
@@ -267,9 +335,6 @@ proc abort() =
   debug "abort"
   abortFlag = true
   quitServer()
-
-proc reallocClientBuf(buf: ptr UncheckedArray[byte], size: int): ptr UncheckedArray[byte] =
-  result = cast[ptr UncheckedArray[byte]](reallocShared(buf, size))
 
 proc atomic_compare_exchange_n(p: ptr int, expected: ptr int, desired: int, weak: bool,
                               success_memmodel: int, failure_memmodel: int): bool
@@ -369,48 +434,7 @@ proc sendInstant*(client: ptr Client, data: string) {.inline.} =
   else:
     client.fd.SocketHandle.sendInstant(data)
 
-proc addSendBuf(client: ptr Client, data: string) =
-  var nextSize = client.sendBufSize + data.len
-  client.sendBuf = reallocClientBuf(client.sendBuf, nextSize)
-  copyMem(addr client.sendBuf[client.sendBufSize], unsafeAddr data[0], data.len)
-  client.sendBufSize = nextSize
 
-proc send*(client: ptr Client, data: string): SendResult =
-  if not client.sendBuf.isNil:
-    client.addSendBuf(data)
-    return SendResult.Pending
-
-  var sendRet: int
-  var pos = 0
-  var size = data.len
-  while true:
-    var d = cast[cstring](unsafeAddr data[pos])
-    when ENABLE_SSL:
-      if not client.ssl.isNil:
-        sendRet = client.ssl.SSL_write(d, size.cint)
-      else:
-        sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
-    else:
-      sendRet = client.fd.SocketHandle.send(d, size.cint, 0'i32)
-    if sendRet > 0:
-      debug "send sendRet=", sendRet, " size=", size
-      size = size - sendRet
-      if size > 0:
-        pos = pos + sendRet
-        continue
-      return SendResult.Success
-    elif sendRet < 0:
-      if errno == EAGAIN or errno == EWOULDBLOCK:
-        if pos > 0:
-          client.addSendBuf(data[pos..^1])
-        else:
-          client.addSendBuf(data)
-        return SendResult.Pending
-      if errno == EINTR:
-        continue
-      return SendResult.Error
-    else:
-      return SendResult.None
 
 proc sendFlush(client: ptr Client): SendResult =
   if client.sendBuf.isNil:
@@ -448,19 +472,6 @@ proc sendFlush(client: ptr Client): SendResult =
       return SendResult.Error
     else:
       return SendResult.None
-
-proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
-                          opcode: WebSocketOpCode = WebSocketOpCode.Binary): SendResult =
-  var frame: seq[byte]
-  var dataLen = data.len
-  var finOp = 0x80.byte or opcode.byte
-  if dataLen < 126:
-    frame = BytesBE(finOp, dataLen.byte, data)
-  elif dataLen >= 126 and dataLen <= 0xffff:
-    frame = BytesBE(finOp, 126.byte, dataLen.uint16, data)
-  else:
-    frame = BytesBE(finOp, 127.byte, dataLen.uint64, data)
-  result = client.send(frame.toString)
 
 proc getFrame(data: ptr UncheckedArray[byte],
               size: int): tuple[find: bool, fin: bool, opcode: int8,
@@ -523,6 +534,8 @@ proc waitEventAgain(evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0
 
 proc close(client: ptr Client) =
   debug "close ", client.fd
+  when declared(freeExClient):
+    freeExClient(client)
   client.ip = 0
   when ENABLE_SSL:
     if not client.ssl.isNil:
@@ -542,40 +555,42 @@ proc close(client: ptr Client) =
   client.payloadSize = 0
   client.fd = osInvalidSocket.int
 
-var webMain* = proc(client: ptr Client, url: string, headers: Headers): SendResult =
-  debug "web url=", url, " headers=", headers
-  when DYNAMIC_FILES:
-    var file = getDynamicFile(url)
-  else:
-    var file = getConstFile(url)
-  if file.content.len > 0:
-    if headers.hasKey("If-None-Match") and headers["If-None-Match"] == file.md5:
-      result = client.send(Empty.addHeader(Status304))
+when not declared(webMain):
+  proc webMainDefault(client: ptr Client, url: string, headers: Headers): SendResult =
+    debug "web url=", url, " headers=", headers
+    when DYNAMIC_FILES:
+      var file = getDynamicFile(url)
     else:
-      if headers.hasKey("Accept-Encoding"):
-        var acceptEnc = headers["Accept-Encoding"].split(",")
-        acceptEnc.apply(proc(x: string): string = x.strip)
-        if acceptEnc.contains("br"):
-          return client.send(file.brotli.addHeaderBrotli(file.md5, Status200, file.mime))
-        elif acceptEnc.contains("deflate"):
-          return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
-      return client.send(file.content.addHeader(file.md5, Status200, file.mime))
-  else:
-    return client.send(NotFound.addHeader(Status404))
+      var file = getConstFile(url)
+    if file.content.len > 0:
+      if headers.hasKey("If-None-Match") and headers["If-None-Match"] == file.md5:
+        result = client.send(Empty.addHeader(Status304))
+      else:
+        if headers.hasKey("Accept-Encoding"):
+          var acceptEnc = headers["Accept-Encoding"].split(",")
+          acceptEnc.apply(proc(x: string): string = x.strip)
+          if acceptEnc.contains("br"):
+            return client.send(file.brotli.addHeaderBrotli(file.md5, Status200, file.mime))
+          elif acceptEnc.contains("deflate"):
+            return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
+        return client.send(file.content.addHeader(file.md5, Status200, file.mime))
+    else:
+      return client.send(NotFound.addHeader(Status404))
 
-var streamMain* = proc(client: ptr Client, opcode: WebSocketOpCode,
-                      data: ptr UncheckedArray[byte], size: int): SendResult =
-  debug "ws opcode=", opcode, " size=", size
-  case opcode
-  of WebSocketOpcode.Binary, WebSocketOpcode.Text, WebSocketOpcode.Continue:
-    result = client.wsServerSend(data.toString(size), WebSocketOpcode.Binary)
-  of WebSocketOpcode.Ping:
-    result = client.wsServerSend(data.toString(size), WebSocketOpcode.Pong)
-  of WebSocketOpcode.Pong:
-    debug "pong ", data.toString(size)
-    result = SendResult.Success
-  else: # WebSocketOpcode.Close
-    result = SendResult.None
+when not declared(streamMain):
+  proc streamMainDefault(client: ptr Client, opcode: WebSocketOpCode,
+                        data: ptr UncheckedArray[byte], size: int): SendResult =
+    debug "ws opcode=", opcode, " size=", size
+    case opcode
+    of WebSocketOpcode.Binary, WebSocketOpcode.Text, WebSocketOpcode.Continue:
+      result = client.wsServerSend(data.toString(size), WebSocketOpcode.Binary)
+    of WebSocketOpcode.Ping:
+      result = client.wsServerSend(data.toString(size), WebSocketOpcode.Pong)
+    of WebSocketOpcode.Pong:
+      debug "pong ", data.toString(size)
+      result = SendResult.Success
+    else: # WebSocketOpcode.Close
+      result = SendResult.None
 
 proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, appId: int): SendResult =
   var i = 0
@@ -647,12 +662,23 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, ap
                       "Sec-WebSocket-Version: 13\c\L\c\L"
             client.wsUpgrade = true
             debug "ws upgrade url=", url, " headers=", headers
-            return client.send(res)
+            when declared(streamConnect):
+              var sendRet = client.send(res)
+              if sendRet == SendResult.Success or sendRet == SendResult.Pending:
+                var (sendFlag, sendResult) = client.streamConnect()
+                if sendFlag and sendResult != SendResult.Success:
+                  sendRet = sendResult
+              return sendRet
+            else:
+              return client.send(res)
           else:
             error "error: websocket protocol headers=", headers
             raise newException(ServerError, "websocket protocol error")
 
-        retMain = client.webMain(url, headers)
+        when declared(webMain):
+          retMain = client.webMain(url, headers)
+        else:
+          retMain = client.webMainDefault(url, headers)
         if not keepAlive or (headers.hasKey("Connection") and
                                   headers["Connection"] == "close"):
           client.keepAlive = false
@@ -674,6 +700,8 @@ proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, ap
   return retMain
 
 proc worker(arg: ThreadArg) {.thread.} =
+  when declared(initWorker):
+    initWorker()
   var recvBuf = newSeq[byte](arg.workerParams.bufLen)
 
   proc reserveRecvBuf(client: ptr Client, size: int) =
@@ -781,7 +809,10 @@ proc worker(arg: ThreadArg) {.thread.} =
                     next, size) = getFrame(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 while find:
                   if fin:
-                    var retStream = client.streamMain(WebSocketOpcode(opcode), payload, payloadSize)
+                    when declared(streamMain):
+                      var retStream = client.streamMain(WebSocketOpcode(opcode), payload, payloadSize)
+                    else:
+                      var retStream = client.streamMainDefault(WebSocketOpcode(opcode), payload, payloadSize)
                     retStreamHandler(retStream)
                   else:
                     if not payload.isNil and payloadSize > 0:
@@ -846,9 +877,14 @@ proc worker(arg: ThreadArg) {.thread.} =
                   client.payloadSize = client.payloadSize + payloadSize
                   p = cast[ptr UncheckedArray[byte]](addr client.recvBuf[client.payloadSize])
                 if fin:
-                  var retStream = client.streamMain(WebSocketOpcode(opcode),
-                                                    cast[ptr UncheckedArray[byte]](addr client.recvBuf[0]),
-                                                    client.payloadSize)
+                  when declared(streamMain):
+                    var retStream = client.streamMain(WebSocketOpcode(opcode),
+                                                      cast[ptr UncheckedArray[byte]](addr client.recvBuf[0]),
+                                                      client.payloadSize)
+                  else:
+                    var retStream = client.streamMainDefault(WebSocketOpcode(opcode),
+                                                      cast[ptr UncheckedArray[byte]](addr client.recvBuf[0]),
+                                                      client.payloadSize)
                   retStreamHandler(retStream)
                   client.payloadSize = 0
                   client.recvCurSize = 0
