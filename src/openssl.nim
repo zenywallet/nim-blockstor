@@ -2,9 +2,16 @@
 
 import os
 
-const libOpensslPath = currentSourcePath.parentDir() / "../deps/openssl"
-{.passL: libOpensslPath / "libssl.a".}
-{.passL: libOpensslPath / "libcrypto.a".}
+const USE_LIBRESSL = false
+
+when USE_LIBRESSL:
+  const libresslPath = currentSourcePath.parentDir() / "../deps/libressl"
+  {.passL: libresslPath / "ssl/.libs/libssl.a".}
+  {.passL: libresslPath / "crypto/.libs/libcrypto.a".}
+else:
+  const opensslPath = currentSourcePath.parentDir() / "../deps/openssl"
+  {.passL: opensslPath / "libssl.a".}
+  {.passL: opensslPath / "libcrypto.a".}
 
 type
   # include/internal/conf.h
@@ -81,7 +88,12 @@ proc SSL_CTX_use_PrivateKey_file*(ctx: SSL_CTX, file: cstring, fileType: cint): 
 proc SSL_CTX_use_certificate_file*(ctx: SSL_CTX, file: cstring, fileType: cint): cint {.importc.}
 proc SSL_CTX_use_certificate_chain_file*(ctx: SSL_CTX, file: cstring): cint {.importc.}
 
-proc SSL_CTX_set_options*(ctx: SSL_CTX, op: culong): culong {.importc, discardable.}
+when USE_LIBRESSL:
+  const SSL_CTRL_OPTIONS* = 32
+  template SSL_CTX_set_options*(ctx, op: untyped): untyped =
+    SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, (op), nil)
+else:
+  proc SSL_CTX_set_options*(ctx: SSL_CTX, op: culong): culong {.importc, discardable.}
 
 proc SSL_set_fd*(s: SSL, fd: cint): cint {.importc.}
 proc SSL_free*(ssl: SSL) {.importc.}
