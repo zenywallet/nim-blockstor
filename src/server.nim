@@ -7,8 +7,7 @@ import os
 import bytes, files
 import std/sha1
 import base64
-import openssl
-import times, nimcrypto
+import times
 import stats
 
 const ULIMIT_SIZE = 65536
@@ -47,6 +46,9 @@ else:
   const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
 
 when ENABLE_SSL:
+  import openssl
+  import nimcrypto
+
   const CERT_PATH = "./"
   const CERT_FILE = CERT_PATH / "cert.pem"
   const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
