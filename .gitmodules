@@ -28,3 +28,6 @@
 [submodule "deps/uthash"]
 	path = deps/uthash
 	url = https://github.com/troydhanson/uthash
+[submodule "deps/libressl"]
+	path = deps/libressl
+	url = https://github.com/libressl-portable/portable
