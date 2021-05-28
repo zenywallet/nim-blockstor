@@ -4,7 +4,7 @@ include seed_native
 
 proc cryptSeed*(buf: ptr UncheckedArray[byte], size: int): int {.importc: "crypt_seed".}
 
-when not defined(emscripten):
+when not defined(js):
   proc cryptSeed*(buf: openArray[byte]): int {.inline.} =
     cryptSeed(cast[ptr UncheckedArray[byte]](buf), buf.len)
 
