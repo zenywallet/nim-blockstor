@@ -232,8 +232,6 @@ proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
     frame = BytesBE(finOp, 127.byte, dataLen.uint64, data)
   result = client.send(frame.toString)
 
-include stream
-
 var active = true
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
@@ -343,6 +341,8 @@ proc abort() =
 proc atomic_compare_exchange_n(p: ptr int, expected: ptr int, desired: int, weak: bool,
                               success_memmodel: int, failure_memmodel: int): bool
                               {.importc: "__atomic_compare_exchange_n", nodecl, discardable.}
+
+include stream
 
 proc setClient(fd: int): int =
   var usedCount = 0
