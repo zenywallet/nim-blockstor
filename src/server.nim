@@ -737,6 +737,8 @@ proc worker(arg: ThreadArg) {.thread.} =
     block channelBlock:
       var channelData = workerChannel[].recv()
       if not active:
+        when declared(freeWorker):
+          freeWorker()
         return
       var appId = channelData.appId
       var idx = channelData.idx

@@ -57,6 +57,11 @@ proc initWorker*() =
     deepCopy(streamDbInsts, globalDbInsts)
     deepCopy(networks, globalNetworks)
 
+proc freeWorker*() =
+  if not decBuf.isNil:
+    decBufSize = 0
+    decBuf.deallocShared()
+
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
   var sobj = cast[ptr StreamObj](allocShared0(sizeof(StreamObj)))
