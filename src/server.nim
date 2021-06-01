@@ -1232,6 +1232,9 @@ proc main(arg: ThreadArg) {.thread.} =
     if epfd < 0:
       errorQuit "error: epfd=", epfd, " errno=", errno
 
+    when declared(initStream):
+      initStream()
+
     initClient()
 
     workerChannel = cast[ptr Channel[WorkerChannelParam]](allocShared0(sizeof(Channel[WorkerChannelParam])))

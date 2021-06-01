@@ -33,6 +33,7 @@ var globalDbInsts: DbInsts
 var streamDbInsts {.threadvar.}: DbInsts
 var globalNetworks: seq[Network]
 var networks {.threadvar.}: seq[Network]
+var curStreamId: int
 
 proc setDbInsts*(dbInsts: DbInsts, networks: seq[Network]) =
   globalDbInsts = dbInsts
@@ -62,6 +63,9 @@ proc freeWorker*() =
     decBufSize = 0
     decBuf.deallocShared()
 
+proc initStream*() =
+  curStreamId = 1
+
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
   var sobj = cast[ptr StreamObj](allocShared0(sizeof(StreamObj)))
@@ -75,7 +79,15 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
     raise newException(StreamError, "seed failed")
   sobj.deoxyObj = deoxy.create()
   sobj.stage = StreamStage.Negotiate
-  sobj.streamId = 0
+
+  var curId: int = curStreamId
+  while true:
+    if curId >= int.high:
+      raise newException(ServerNeedRestartError, "Unbelievable! We've reached int64 limit")
+    if atomicCompareExchangeN(addr curStreamId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
+      break
+
+  sobj.streamId = curId.uint64
   client.pStream = sobj
 
   var pubseed = (pub, sobj.seed).toBytes
