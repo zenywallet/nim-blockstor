@@ -159,6 +159,7 @@ type
     Pong = 0xa
 
   ServerError* = object of CatchableError
+  ServerNeedRestartError* = object of CatchableError
 
 template debug(x: varargs[string, `$`]) =
   when RELEASE_MODE:
@@ -233,6 +234,7 @@ proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
   result = client.send(frame.toString)
 
 var active = true
+var restartFlag = false
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
 var httpSock: SocketHandle = osInvalidSocket
@@ -313,8 +315,9 @@ proc getErrnoStr(): string =
   of EADDRINUSE: "errno=EADDRINUSE(" & $errno & ")"
   else: "errno=" & $errno
 
-proc quitServer() =
+proc quitServer(restart: bool = false) =
   debug "quit"
+  restartFlag = restart
   active = false
   if serverSock != osInvalidSocket:
     if epfd >= 0:
@@ -332,6 +335,8 @@ proc quitServer() =
     if retShutdown != 0:
       errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
     httpSock.close()
+
+proc restart*() = quitServer(true)
 
 proc abort() =
   debug "abort"
@@ -928,6 +933,11 @@ proc worker(arg: ThreadArg) {.thread.} =
             client.close()
             break channelBlock
 
+      except ServerNeedRestartError:
+        let e = getCurrentException()
+        error e.name, ": ", e.msg
+        restart()
+
       except:
         client.close()
         let e = getCurrentException()
@@ -1209,48 +1219,53 @@ proc createServer(port: Port): SocketHandle =
   result = sock
 
 proc main(arg: ThreadArg) {.thread.} =
-  serverSock = createServer(Port(HTTPS_PORT))
-  httpSock = createServer(Port(HTTP_PORT))
+  while true:
+    serverSock = createServer(Port(HTTPS_PORT))
+    httpSock = createServer(Port(HTTP_PORT))
 
-  var tcp_rmem = serverSock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
-  debug "RECVBUF=", tcp_rmem
+    var tcp_rmem = serverSock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
+    debug "RECVBUF=", tcp_rmem
 
-  epfd = epoll_create1(O_CLOEXEC)
-  if epfd < 0:
-    errorQuit "error: epfd=", epfd, " errno=", errno
+    epfd = epoll_create1(O_CLOEXEC)
+    if epfd < 0:
+      errorQuit "error: epfd=", epfd, " errno=", errno
 
-  initClient()
+    initClient()
 
-  workerChannel = cast[ptr Channel[WorkerChannelParam]](allocShared0(sizeof(Channel[WorkerChannelParam])))
-  workerChannel[].open()
-  for i in 0..<WORKER_THREAD_NUM:
-    createThread(workerThreads[i], worker, ThreadArg(type: ThreadArgType.WorkerParams,
-                                                    workerParams: (i, tcp_rmem)))
+    workerChannel = cast[ptr Channel[WorkerChannelParam]](allocShared0(sizeof(Channel[WorkerChannelParam])))
+    workerChannel[].open()
+    for i in 0..<WORKER_THREAD_NUM:
+      createThread(workerThreads[i], worker, ThreadArg(type: ThreadArgType.WorkerParams,
+                                                      workerParams: (i, tcp_rmem)))
 
-  createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
-  createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
-  createThread(httpThread, http, ThreadArg(type: ThreadArgType.Void))
-  createThread(monitorThread, monitor, ThreadArg(type: ThreadArgType.Void))
+    createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
+    createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
+    createThread(httpThread, http, ThreadArg(type: ThreadArgType.Void))
+    createThread(monitorThread, monitor, ThreadArg(type: ThreadArgType.Void))
 
-  var waitThreads: seq[Thread[ThreadArg]]
-  waitThreads.add(dispatcherThread)
-  waitThreads.add(acceptThread)
-  waitThreads.add(httpThread)
-  waitThreads.add(monitorThread)
-  joinThreads(waitThreads)
+    var waitThreads: seq[Thread[ThreadArg]]
+    waitThreads.add(dispatcherThread)
+    waitThreads.add(acceptThread)
+    waitThreads.add(httpThread)
+    waitThreads.add(monitorThread)
+    joinThreads(waitThreads)
 
-  for i in 0..<WORKER_THREAD_NUM:
-    workerChannel[].send((0, 0, 0'u32, 0'u64))
-  joinThreads(workerThreads)
+    for i in 0..<WORKER_THREAD_NUM:
+      workerChannel[].send((0, 0, 0'u32, 0'u64))
+    joinThreads(workerThreads)
 
-  workerChannel[].close()
-  workerChannel.deallocShared()
-  var retEpfdClose = epfd.close()
-  if retEpfdClose != 0:
-    errorQuit "error: close epfd=", epfd, " ret=", retEpfdClose, " ", getErrnoStr()
+    workerChannel[].close()
+    workerChannel.deallocShared()
+    var retEpfdClose = epfd.close()
+    if retEpfdClose != 0:
+      errorQuit "error: close epfd=", epfd, " ret=", retEpfdClose, " ", getErrnoStr()
 
-  freeClient()
+    freeClient()
 
+    if restartFlag:
+      active = true
+    else:
+      break
 
 proc start*(): seq[Thread[ThreadArg]] {.discardable.} =
   setUlimit(ULIMIT_SIZE)
