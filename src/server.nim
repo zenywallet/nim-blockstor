@@ -243,7 +243,9 @@ var clIdx = 0
 var events: array[EPOLL_EVENTS_SIZE, EpollEvent]
 var epfd: cint = -1
 
-var workerChannel: Channel[tuple[appId: int, idx: int, events: uint32, evData: uint64]]
+type
+  WorkerChannelParam = tuple[appId: int, idx: int, events: uint32, evData: uint64]
+var workerChannel: ptr Channel[WorkerChannelParam]
 var workerChannelWaitingCount: int = 0
 var workerThreads: array[WORKER_THREAD_NUM, Thread[ThreadArg]]
 
@@ -728,7 +730,7 @@ proc worker(arg: ThreadArg) {.thread.} =
 
   while true:
     block channelBlock:
-      var channelData = workerChannel.recv()
+      var channelData = workerChannel[].recv()
       if not active:
         return
       var appId = channelData.appId
@@ -954,8 +956,8 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
         if reqCount > REQ_LIMIT_DISPATCH_MAX:
           appId = 2
 
-        workerChannel.send((appId, idx, events[i].events, evData))
-        workerChannelWaitingCount = workerChannel.peek()
+        workerChannel[].send((appId, idx, events[i].events, evData))
+        workerChannelWaitingCount = workerChannel[].peek()
     elif nfd < 0:
         if errno == EINTR:
           continue
@@ -1219,7 +1221,8 @@ proc main(arg: ThreadArg) {.thread.} =
 
   initClient()
 
-  workerChannel.open()
+  workerChannel = cast[ptr Channel[WorkerChannelParam]](allocShared0(sizeof(Channel[WorkerChannelParam])))
+  workerChannel[].open()
   for i in 0..<WORKER_THREAD_NUM:
     createThread(workerThreads[i], worker, ThreadArg(type: ThreadArgType.WorkerParams,
                                                     workerParams: (i, tcp_rmem)))
@@ -1237,10 +1240,11 @@ proc main(arg: ThreadArg) {.thread.} =
   joinThreads(waitThreads)
 
   for i in 0..<WORKER_THREAD_NUM:
-    workerChannel.send((0, 0, 0'u32, 0'u64))
+    workerChannel[].send((0, 0, 0'u32, 0'u64))
   joinThreads(workerThreads)
 
-  workerChannel.close()
+  workerChannel[].close()
+  workerChannel.deallocShared()
   var retEpfdClose = epfd.close()
   if retEpfdClose != 0:
     errorQuit "error: close epfd=", epfd, " ret=", retEpfdClose, " ", getErrnoStr()
