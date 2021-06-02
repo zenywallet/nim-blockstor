@@ -7,6 +7,8 @@ import lz4
 import json
 import db, sophia
 import address
+import bytes
+import uthash
 
 const DECODE_BUF_SIZE = 1048576
 
@@ -28,6 +30,67 @@ type
   StreamError* = object of CatchableError
 
 
+type
+  StreamIdTag* {.pure.} = enum
+    Unknown
+
+  StreamIdToTagObj* = object
+    pair*: KVPair[StreamId]
+    tagType*: StreamIdTag
+    size*: cint
+    tag*: UncheckedArray[byte]
+
+  StreamIdToTag* = ptr StreamIdToTagObj
+
+proc newTag*(tag: seq[byte], pair: KVPair[StreamId] = nil,
+            tagType: StreamIdTag = StreamIdTag.Unknown): StreamIdToTag =
+  let p = cast[StreamIdToTag](allocShared0(sizeof(StreamIdToTagObj) + tag.len))
+  p.pair = pair
+  p.tagType = tagType
+  p.size = tag.len.cint
+  copyMem(addr p.tag, unsafeAddr tag[0], tag.len)
+  result = p
+
+proc `$`*(val: StreamIdToTag): string =
+  let tag = (addr val.tag).toBytes(val.size.int)
+  result = "(type: " & $val.tagType & ", tag: " & $tag & ")"
+
+proc freeVal[T](val: T) =
+  when T is StreamIdToTag:
+    val.deallocShared()
+
+loadUthashModules()
+
+# streamId - client
+var clientTableObj: KVHandle[ptr Client] = nil
+var clientTable: ptr KVHandle[ptr Client] = addr clientTableObj
+
+# tags - streamId
+var streamTableObj: KVHandle[StreamId] = nil
+var streamTable: ptr KVHandle[StreamId] = addr streamTableObj
+
+# streamId - tags
+var tagTableObj: KVHandle[StreamIdToTag] = nil
+var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
+
+proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
+  let sb = streamId.toBytes
+  for t in tagTable.items(sb):
+    let tval = (addr t.val.tag).toBytes(t.val.size.int)
+    if tval == tag:
+      return
+  let pair = streamTable.add(tag, streamId)
+  tagTable.add(sb, newTag(tag, pair, tagType))
+
+proc delTag*(streamId: StreamId, tag: seq[byte]) =
+  tagTable.del(streamId.toBytes, proc (x: StreamIdToTag): bool =
+    let tval = (addr x.tag).toBytes(x.size.int)
+    result = tval == tag
+    if result:
+      streamTable.del(x.pair)
+    )
+
+
 var decBuf {.threadvar.}: ptr UncheckedArray[byte]
 var decBufSize {.threadvar.}: int
 
@@ -47,6 +110,13 @@ proc initExClient*(pClient: ptr Client) =
 proc freeExClient*(pClient: ptr Client) =
   var sobj = cast[ptr StreamObj](pClient.pStream)
   if not sobj.isNil:
+    if sobj.streamId > 0:
+      let sb = sobj.streamId.toBytes
+      clientTable.del(sb)
+      tagTable.del(sb, proc (x: StreamIdToTag): bool =
+        streamTable.del(x.pair)
+        result = true
+        )
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     pClient.pStream = nil
@@ -67,6 +137,11 @@ proc freeWorker*() =
 
 proc initStream*() =
   curStreamId = 1
+
+proc freeStream*() =
+  tagTable.clear()
+  streamTable.clear()
+  clientTable.clear()
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
@@ -91,6 +166,8 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
 
   sobj.streamId = curId.StreamId
   client.pStream = sobj
+
+  clientTable[sobj.streamId.toBytes] = client
 
   var pubseed = (pub, sobj.seed).toBytes
   var sendRet = client.wsServerSend(pubseed, WebSocketOpcode.Binary)

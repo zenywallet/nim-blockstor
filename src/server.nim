@@ -1267,6 +1267,9 @@ proc main(arg: ThreadArg) {.thread.} =
 
     freeClient()
 
+    when declared(freeStream):
+      freeStream()
+
     if restartFlag:
       active = true
     else:
