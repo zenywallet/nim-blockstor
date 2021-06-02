@@ -82,6 +82,11 @@ template loadUthashModules*() {.dirty.} =
 
   proc len*(kv: ptr KVHandle): int = kv.hash_count().int
 
+  proc del*[T](kv: ptr KVHandle[T], pair: KVPair[T]) =
+    if not pair.isNil:
+      kv.hash_delete(pair)
+      pair.free()
+
   proc del*[T](kv: ptr KVHandle[T], key: openArray[byte]) =
     var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     while not pair.isNil:
