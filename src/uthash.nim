@@ -91,6 +91,16 @@ template loadUthashModules*() {.dirty.} =
         pair.free()
       pair = next
 
+  proc del*[T](kv: ptr KVHandle[T], key: openArray[byte], pred: proc (x: T): bool) =
+    var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+    while not pair.isNil:
+      let next = cast[KVPair[T]](pair.hh.hh_next)
+      let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
+      if hkey == key and pred(pair.val):
+        kv.hash_delete(pair)
+        pair.free()
+      pair = next
+
   iterator items*[T](kv: ptr KVHandle[T]): tuple[key: seq[byte], val: T] =
     var h = cast[KVPair[T]](kv[])
     while not h.isNil:
