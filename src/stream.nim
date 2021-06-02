@@ -16,12 +16,14 @@ type
     Negotiate
     Ready
 
+  StreamId = uint64
+
   StreamObj = object
     deoxyObj: ptr DeoxyEncrypt
     stage: StreamStage
     seed: DeoxySalt
     prv: Ed25519PrivateKey
-    streamId: uint64
+    streamId: StreamId
 
   StreamError* = object of CatchableError
 
@@ -87,7 +89,7 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
     if atomicCompareExchangeN(addr curStreamId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
       break
 
-  sobj.streamId = curId.uint64
+  sobj.streamId = curId.StreamId
   client.pStream = sobj
 
   var pubseed = (pub, sobj.seed).toBytes
