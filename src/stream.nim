@@ -9,6 +9,7 @@ import db, sophia
 import address
 import bytes
 import uthash
+import ptlock
 
 const DECODE_BUF_SIZE = 1048576
 
@@ -73,22 +74,28 @@ var streamTable: ptr KVHandle[StreamId] = addr streamTableObj
 var tagTableObj: KVHandle[StreamIdToTag] = nil
 var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
 
+var tableLockObj: Pthread_rwlock
+var tableLock: ptr Pthread_rwlock = addr tableLockObj
+
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes
-  for t in tagTable.items(sb):
-    let tval = (addr t.val.tag).toBytes(t.val.size.int)
-    if tval == tag:
-      return
-  let pair = streamTable.add(tag, streamId)
-  tagTable.add(sb, newTag(tag, pair, tagType))
+  withWriteLock tableLock:
+    for t in tagTable.items(sb):
+      let tval = (addr t.val.tag).toBytes(t.val.size.int)
+      if tval == tag:
+        return
+
+    let pair = streamTable.add(tag, streamId)
+    discard tagTable.add(sb, newTag(tag, pair, tagType)) # discardable is not working in template
 
 proc delTag*(streamId: StreamId, tag: seq[byte]) =
-  tagTable.del(streamId.toBytes, proc (x: StreamIdToTag): bool =
-    let tval = (addr x.tag).toBytes(x.size.int)
-    result = tval == tag
-    if result:
-      streamTable.del(x.pair)
-    )
+  withWriteLock tableLock:
+    tagTable.del(streamId.toBytes, proc (x: StreamIdToTag): bool =
+      let tval = (addr x.tag).toBytes(x.size.int)
+      result = tval == tag
+      if result:
+        streamTable.del(x.pair)
+      )
 
 
 var decBuf {.threadvar.}: ptr UncheckedArray[byte]
@@ -112,11 +119,12 @@ proc freeExClient*(pClient: ptr Client) =
   if not sobj.isNil:
     if sobj.streamId > 0:
       let sb = sobj.streamId.toBytes
-      clientTable.del(sb)
-      tagTable.del(sb, proc (x: StreamIdToTag): bool =
-        streamTable.del(x.pair)
-        result = true
-        )
+      withWriteLock tableLock:
+        clientTable.del(sb)
+        tagTable.del(sb, proc (x: StreamIdToTag): bool =
+          streamTable.del(x.pair)
+          result = true
+          )
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     pClient.pStream = nil
@@ -136,12 +144,15 @@ proc freeWorker*() =
     decBuf.deallocShared()
 
 proc initStream*() =
+  ptlockInit(tableLock)
   curStreamId = 1
 
 proc freeStream*() =
-  tagTable.clear()
-  streamTable.clear()
-  clientTable.clear()
+  withWriteLock tableLock:
+    tagTable.clear()
+    streamTable.clear()
+    clientTable.clear()
+  ptlockDestroy(tableLock)
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
@@ -167,7 +178,8 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
   sobj.streamId = curId.StreamId
   client.pStream = sobj
 
-  clientTable[sobj.streamId.toBytes] = client
+  withWriteLock tableLock:
+    clientTable[sobj.streamId.toBytes] = client
 
   var pubseed = (pub, sobj.seed).toBytes
   var sendRet = client.wsServerSend(pubseed, WebSocketOpcode.Binary)
