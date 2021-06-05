@@ -74,8 +74,8 @@ var streamTable: ptr KVHandle[StreamId] = addr streamTableObj
 var tagTableObj: KVHandle[StreamIdToTag] = nil
 var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
 
-var tableLockObj: Pthread_rwlock
-var tableLock: ptr Pthread_rwlock = addr tableLockObj
+var tableLockObj: PthreadLock
+var tableLock: ptr PthreadLock = addr tableLockObj
 
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes

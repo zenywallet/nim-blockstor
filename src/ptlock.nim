@@ -3,6 +3,8 @@
 import posix
 
 type
+  PthreadLock* = Pthread_rwlock
+
   PthreadLockError* = object of CatchableError
 
 
