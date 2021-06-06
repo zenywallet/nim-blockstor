@@ -276,6 +276,8 @@ proc setUlimit(rlim: int): bool {.discardable.} =
   if rlp.rlim_cur < rlim: return false
   return true
 
+include stream
+
 proc initClient() =
   var p = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
   for i in 0..<CLIENT_MAX:
@@ -346,8 +348,6 @@ proc abort() =
 proc atomic_compare_exchange_n(p: ptr int, expected: ptr int, desired: int, weak: bool,
                               success_memmodel: int, failure_memmodel: int): bool
                               {.importc: "__atomic_compare_exchange_n", nodecl, discardable.}
-
-include stream
 
 proc setClient(fd: int): int =
   var usedCount = 0
