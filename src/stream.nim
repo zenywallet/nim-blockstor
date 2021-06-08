@@ -186,24 +186,19 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
 
   result = (true, sendRet)
 
-proc sendCmd(client: ptr Client, json: JsonNode): SendResult =
-  var sobj = cast[ptr StreamObj](client.pStream)
-  var bdata = ($json).toBytes
-  var outdata = newSeq[byte](LZ4_COMPRESSBOUND(bdata.len))
-  var outsize: uint = outdata.len.uint
-  var encLen = sobj.deoxyObj.enc(cast[ptr UncheckedArray[byte]](addr bdata[0]), cast[uint](bdata.len),
+proc sendCmd(client: ptr Client, data: seq[byte]): SendResult =
+  let sobj = cast[ptr StreamObj](client.pStream)
+  var outdata = newSeq[byte](LZ4_COMPRESSBOUND(data.len))
+  let outsize: uint = outdata.len.uint
+  let encLen = sobj.deoxyObj.enc(cast[ptr UncheckedArray[byte]](unsafeAddr data[0]), cast[uint](data.len),
                             cast[ptr UncheckedArray[byte]](addr outdata[0]), outsize)
   if encLen > 0:
     return client.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
   result = SendResult.None
 
-proc sendCmd(client: ptr Client, cmdType: string, data: seq[byte] | string = ""): SendResult =
-  var json: JsonNode
-  if data.len > 0:
-    json = %*{"type": cmdType, "data": data}
-  else:
-    json = %*{"type": cmdType}
-  return client.sendCmd(json)
+proc sendCmd(client: ptr Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
+
+proc sendCmd(client: ptr Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
                 data: ptr UncheckedArray[byte], size: int): SendResult =
@@ -233,7 +228,7 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
         zeroMem(addr sobj.seed[0], sizeof(DeoxySalt))
         zeroMem(addr sobj.prv[0], sizeof(Ed25519PrivateKey))
         sobj.stage = StreamStage.Ready
-        return client.sendCmd("ready")
+        return client.sendCmd(%*{"type": "ready"})
 
     result = SendResult.None
 
