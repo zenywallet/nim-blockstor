@@ -228,6 +228,9 @@ proc invokeWorker() {.thread.} =
 proc streamSend*(tag: seq[byte], json: JsonNode) =
   streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes))
 
+proc streamSend*(tag: string, json: JsonNode) =
+  streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes))
+
 proc streamSend*(streamId: StreamId, json: JsonNode) =
   streamWorkerChannel[].send((streamId, @[], ($json).toBytes))
 
