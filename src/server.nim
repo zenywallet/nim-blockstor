@@ -57,6 +57,7 @@ when ENABLE_SSL:
 
 type
   ClientBase* = ref object of RootObj
+    idx: int
     fd: int
     recvBuf: ptr UncheckedArray[byte]
     recvBufSize: int
@@ -69,6 +70,7 @@ type
     when ENABLE_SSL:
       ssl: SSL
     ip: uint32
+    invoke: bool
 
   Client* = object of ClientBase
     pStream*: pointer
@@ -276,11 +278,28 @@ proc setUlimit(rlim: int): bool {.discardable.} =
   if rlp.rlim_cur < rlim: return false
   return true
 
+proc invokeSendEvent*(client: ptr Client, retry: bool = false): bool =
+  if retry:
+    if not client.invoke:
+      return true
+  else:
+    client.invoke = true
+  var ev: EpollEvent
+  ev.events = EPOLLIN or EPOLLRDHUP or EPOLLOUT
+  ev.data.u64 = client.idx.uint or 0x300000000'u64
+  var ret = epoll_ctl(epfd, EPOLL_CTL_MOD, client.fd.cint, addr ev)
+  if ret < 0:
+    result = false
+  else:
+    client.invoke = false
+    result = true
+
 include stream
 
 proc initClient() =
   var p = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
   for i in 0..<CLIENT_MAX:
+    p[i].idx = i
     p[i].fd = osInvalidSocket.int
     p[i].recvBuf = nil
     p[i].recvBufSize = 0
@@ -293,6 +312,7 @@ proc initClient() =
     when ENABLE_SSL:
       p[i].ssl = nil
     p[i].ip = 0
+    p[i].invoke = false
     when declared(initExClient):
       initExClient(addr p[i])
   clients = p
@@ -532,14 +552,24 @@ proc getFrame(data: ptr UncheckedArray[byte],
   else:
     return (true, fin, opcode, payload, payloadLen, nil, 0)
 
-proc waitEventAgain(evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0) =
+proc waitEventAgain(client: ptr Client, evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0) =
   var ev: EpollEvent
-  ev.events = EPOLLIN or EPOLLRDHUP or exEvents
-  ev.data.u64 = evData
-  var ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd.cint, addr ev)
-  if ret < 0:
-    error "error: epoll_ctl ret=", ret, " errno=", errno
-    abort()
+  if client.invoke:
+    ev.events = EPOLLIN or EPOLLRDHUP or EPOLLOUT
+    ev.data.u64 = client.idx.uint or 0x300000000'u64
+    var ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd.cint, addr ev)
+    if ret < 0:
+      error "error: epoll_ctl ret=", ret, " errno=", errno
+      abort()
+    else:
+      client.invoke = false
+  else:
+    ev.events = EPOLLIN or EPOLLRDHUP or exEvents
+    ev.data.u64 = evData
+    var ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fd.cint, addr ev)
+    if ret < 0:
+      error "error: epoll_ctl ret=", ret, " errno=", errno
+      abort()
 
 proc close(client: ptr Client) =
   debug "close ", client.fd
@@ -600,6 +630,10 @@ when not declared(streamMain):
       result = SendResult.Success
     else: # WebSocketOpcode.Close
       result = SendResult.None
+
+when not declared(invokeSendMain):
+  proc invokeSendMainDefault(client: ptr Client): SendResult =
+    result = SendResult.None
 
 proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, appId: int): SendResult =
   var i = 0
@@ -755,13 +789,27 @@ proc worker(arg: ThreadArg) {.thread.} =
           if (events and EPOLLOUT) > 0:
             var retFlush = client.sendFlush()
             if retFlush == SendResult.Pending:
-              waitEventAgain(evData, clientFd, EPOLLOUT)
+              client.waitEventAgain(evData, clientFd, EPOLLOUT)
               break channelBlock
             if retFlush != SendResult.Success or not client.keepAlive:
               client.close()
               break channelBlock
+          if (events and (EPOLLIN or EPOLLRDHUP)) == 0 and appId != 3:
+            client.waitEventAgain(evData, clientFd)
+            break channelBlock
+
+        if appId == 3:
+          when declared(invokeSendMain):
+            var retInvoke = client.invokeSendMain()
+          else:
+            var retInvoke = client.invokeSendMainDefault()
+
+          if retInvoke == SendResult.Pending:
+            client.waitEventAgain(evData, clientFd, EPOLLOUT)
+            break channelBlock
+          evData = evData and 0xffffffff'u64 # drop AppId
           if (events and (EPOLLIN or EPOLLRDHUP)) == 0:
-            waitEventAgain(evData, clientFd)
+            client.waitEventAgain(evData, clientFd)
             break channelBlock
 
         if appId == 2:
@@ -782,7 +830,7 @@ proc worker(arg: ThreadArg) {.thread.} =
               client.close()
               break channelBlock
           of SendResult.Pending:
-            waitEventAgain(evData, clientFd, EPOLLOUT)
+            client.waitEventAgain(evData, clientFd, EPOLLOUT)
             break channelBlock
           of SendResult.Invalid:
             client.sendInstant(BadRequest.addHeader(Status400))
@@ -837,7 +885,7 @@ proc worker(arg: ThreadArg) {.thread.} =
                   if recvlen == recvBuf.len:
                     break
 
-                waitEventAgain(evData, clientFd, exEvents)
+                client.waitEventAgain(evData, clientFd, exEvents)
                 break channelBlock
 
               elif recvlen >= 4 and recvBuf[recvlen - 4].toUint32 == CLCL:
@@ -852,14 +900,14 @@ proc worker(arg: ThreadArg) {.thread.} =
                 client.addRecvBuf(cast[ptr UncheckedArray[byte]](addr recvBuf[0]), recvlen)
                 if recvlen == recvBuf.len:
                   break
-              waitEventAgain(evData, clientFd)
+              client.waitEventAgain(evData, clientFd)
               break channelBlock
             elif recvlen == 0:
               client.close()
               break channelBlock
             else:
               if errno == EAGAIN or errno == EWOULDBLOCK:
-                waitEventAgain(evData, clientFd)
+                client.waitEventAgain(evData, clientFd)
                 break channelBlock
               if errno == EINTR:
                 continue
@@ -909,7 +957,7 @@ proc worker(arg: ThreadArg) {.thread.} =
               else:
                 client.recvCurSize = client.payloadSize
 
-              waitEventAgain(evData, clientFd, exEvents)
+              client.waitEventAgain(evData, clientFd, exEvents)
               break channelBlock
 
             elif client.recvCurSize >= 4 and client.recvBuf[client.recvCurSize - 4].toUint32 == CLCL:
@@ -921,14 +969,14 @@ proc worker(arg: ThreadArg) {.thread.} =
               retWorkerHandler(retWorker)
             elif recvlen == arg.workerParams.bufLen:
               continue
-            waitEventAgain(evData, clientFd)
+            client.waitEventAgain(evData, clientFd)
             break channelBlock
           elif recvlen == 0:
             client.close()
             break channelBlock
           else:
             if errno == EAGAIN or errno == EWOULDBLOCK:
-              waitEventAgain(evData, clientFd)
+              client.waitEventAgain(evData, clientFd)
               break channelBlock
             if errno == EINTR:
               continue

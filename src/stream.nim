@@ -43,6 +43,15 @@ type
 
   StreamIdToTag* = ptr StreamIdToTagObj
 
+  MsgDataObj* = object
+    size: cint
+    data: UncheckedArray[byte]
+
+  MsgData* = ptr MsgDataObj
+
+  MsgId = uint64
+
+
 proc newTag*(tag: seq[byte], pair: KVPair[StreamId] = nil,
             tagType: StreamIdTag = StreamIdTag.Unknown): StreamIdToTag =
   let p = cast[StreamIdToTag](allocShared0(sizeof(StreamIdToTagObj) + tag.len))
@@ -58,6 +67,8 @@ proc `$`*(val: StreamIdToTag): string =
 
 proc freeVal[T](val: T) =
   when T is StreamIdToTag:
+    val.deallocShared()
+  elif T is MsgData:
     val.deallocShared()
 
 loadUthashModules()
@@ -76,6 +87,23 @@ var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
 
 var tableLockObj: PthreadLock
 var tableLock: ptr PthreadLock = addr tableLockObj
+
+
+# msgId - streamId
+var msgRevTableObj: KVHandle[StreamId] = nil
+var msgRevTable: ptr KVHandle[StreamId] = addr msgRevTableObj
+
+# streamId - pair(key: msgId, val: streamId)
+var msgTableObj: KVHandle[KVPair[StreamId]] = nil
+var msgTable: ptr KVHandle[KVPair[StreamId]] = addr msgTableObj
+
+# msgId - message
+var msgDataTableObj: KVHandle[MsgData] = nil
+var msgDataTable: ptr KVHandle[MsgData] = addr msgDataTableObj
+
+var msgTableLockObj: PthreadLock
+var msgTableLock: ptr PthreadLock = addr msgTableLockObj
+
 
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes
@@ -97,6 +125,26 @@ proc delTag*(streamId: StreamId, tag: seq[byte]) =
         streamTable.del(x.pair)
       )
 
+proc newMsg*(msg: seq[byte]): MsgData =
+  let p = cast[MsgData](allocShared0(sizeof(MsgDataObj) + msg.len))
+  p.size = msg.len.cint
+  copyMem(addr p.data, unsafeAddr msg[0], msg.len)
+  result = p
+
+proc setMsg*(streamId: StreamId, msgId: MsgId) =
+  withWriteLock msgTableLock:
+    let pair = msgRevTable.addRet(msgId.toBytes, streamId)
+    msgTable.add(streamId.toBytes, pair)
+
+proc delMsg*(streamId: StreamId, msgId: MsgId) =
+  withWriteLock msgTableLock:
+    msgTable.del(streamId.toBytes, proc(pair: KVPair[StreamId]): bool =
+      let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
+      result = hkey.toUint64 == msgId.uint64
+      if result:
+        msgRevTable.del(pair)
+      )
+
 
 var decBuf {.threadvar.}: ptr UncheckedArray[byte]
 var decBufSize {.threadvar.}: int
@@ -106,6 +154,82 @@ var streamDbInsts {.threadvar.}: DbInsts
 var globalNetworks: seq[Network]
 var networks {.threadvar.}: seq[Network]
 var curStreamId: int
+var streamWorkerThread: Thread[void]
+var invokeWorkerThread: Thread[void]
+var testMessageGeneratorThread: Thread[void]
+type
+  StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte]]
+var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
+var streamActive = false
+var curMsgId: int
+
+proc streamWorker() {.thread.} =
+  var pendingClient: seq[ptr Client]
+
+  while true:
+    var channelData = streamWorkerChannel[].recv()
+    if not streamActive:
+      break
+
+    if channelData.streamId == 0 and channelData.tag.len == 0:
+      pendingClient.keepItIf(it.invokeSendEvent() == false)
+      if pendingClient.len > 0:
+        debug "pendingClient ", pendingClient.len
+      continue
+
+    var msgId: MsgId = 0
+
+    template getMsgId() {.dirty.} =
+      var curId: int = curMsgId
+      while true:
+        if curId >= int.high:
+          raise newException(ServerNeedRestartError, "Unbelievable! We've reached int64 limit")
+        if atomicCompareExchangeN(addr curMsgId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
+          break
+      msgId = curId.uint64
+
+    template addMsgAndInvoke() {.dirty.} =
+      msgDataTable.add(msgId.toBytes, newMsg(channelData.data))
+      pendingClient = pendingClient.deduplicate()
+      pendingClient.keepItIf(it.invokeSendEvent() == false)
+      if pendingClient.len > 0:
+        debug "pendingClient ", pendingClient.len
+
+    var addNew = false
+    if channelData.streamId > 0:
+      var client = clientTable[channelData.streamId.toBytes]
+      if not client.isNil:
+        getMsgId()
+        setMsg(channelData.streamId, msgId)
+        pendingClient.add(client)
+        addMsgAndInvoke()
+    else:
+      var addNew = false
+      for s in streamTable.items(channelData.tag):
+        var client = clientTable[s.val.toBytes]
+        if not client.isNil:
+          var sobj = cast[ptr StreamObj](client.pStream)
+          if msgId == 0: getMsgId()
+          setMsg(sobj.streamId, msgId)
+          pendingClient.add(client)
+          addNew = true
+      if addNew:
+        addMsgAndInvoke()
+
+proc invokeWorker() {.thread.} =
+  var cnt = 0
+  while streamActive:
+    sleep(200)
+    inc(cnt)
+    if cnt >= 5:
+      cnt = 0
+      streamWorkerChannel[].send((0'u64, @[], @[]))
+
+proc streamSend*(tag: seq[byte], json: JsonNode) =
+  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes))
+
+proc streamSend*(streamId: StreamId, json: JsonNode) =
+  streamWorkerChannel[].send((streamId, @[], ($json).toBytes))
 
 proc setDbInsts*(dbInsts: DbInsts, networks: seq[Network]) =
   globalDbInsts = dbInsts
@@ -146,13 +270,40 @@ proc freeWorker*() =
 proc initStream*() =
   ptlockInit(tableLock)
   curStreamId = 1
+  streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
+  streamWorkerChannel[].open()
+  streamActive = true
+  curMsgId = 1
+  createThread(streamWorkerThread, streamWorker)
+  createThread(invokeWorkerThread, invokeWorker)
+
+  proc testMessageGenerator() {.thread.} =
+    while streamActive:
+      streamSend("testmessage".toBytes, %*{"type": "push", "data": "hello!"})
+      sleep(3000)
+  createThread(testMessageGeneratorThread, testMessageGenerator)
 
 proc freeStream*() =
+  streamActive = false
+  streamWorkerChannel[].send((0'u64, @[], @[]))
+  var threads: seq[Thread[void]]
+  threads.add(testMessageGeneratorThread)
+  threads.add(invokeWorkerThread)
+  threads.add(streamWorkerThread)
+  threads.joinThreads()
+  streamWorkerChannel[].close()
+  streamWorkerChannel.deallocShared()
   withWriteLock tableLock:
     tagTable.clear()
     streamTable.clear()
     clientTable.clear()
   ptlockDestroy(tableLock)
+
+  withWriteLock msgTableLock:
+    msgDataTable.clear()
+    msgRevTable.clear()
+    msgTable.clear()
+  ptlockDestroy(msgTableLock)
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
@@ -213,6 +364,8 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
           var json = parseJson(decBuf.toString(decLen))
           echo json.pretty
 
+          sobj.streamId.setTag("testmessage".toBytes)
+
           return SendResult.Success
         except:
           let e = getCurrentException()
@@ -241,3 +394,28 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
 
   else: # WebSocketOpcode.Close
     result = SendResult.None
+
+proc invokeSendMain(client: ptr Client): SendResult =
+  result = SendResult.None
+  let sobj = cast[ptr StreamObj](client.pStream)
+  let sb = sobj.streamId.toBytes
+  for p in msgTable.items(sb):
+    let hkey = (addr p.val.key.data).toBytes(p.val.key.size.int)
+    var msgId: MsgId = hkey.toUint64
+    var val = msgDataTable[msgId.toBytes]
+    if val.isNil:
+      debug "msg not found msgId=", msgId
+      continue
+    let data = (addr val.data).toBytes(val.size.int)
+    if data.len > 0:
+      result = client.sendCmd(data)
+      delMsg(sobj.streamId, msgId)
+      var refExists = false
+      var mb = msgId.toBytes
+      for m in msgRevTable.items(mb):
+        refExists = true
+        break
+      if not refExists:
+        msgDataTable.del(mb)
+      if result == SendResult.Pending:
+        break
