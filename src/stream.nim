@@ -85,8 +85,8 @@ proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamId
       if tval == tag:
         return
 
-    let pair = streamTable.add(tag, streamId)
-    discard tagTable.add(sb, newTag(tag, pair, tagType)) # discardable is not working in template
+    let pair = streamTable.addRet(tag, streamId)
+    tagTable.add(sb, newTag(tag, pair, tagType))
 
 proc delTag*(streamId: StreamId, tag: seq[byte]) =
   withWriteLock tableLock:

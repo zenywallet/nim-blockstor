@@ -60,7 +60,11 @@ template loadUthashModules*() {.dirty.} =
     pair.val.freeVal()
     pair.deallocShared()
 
-  proc add*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T): KVPair[T] {.discardable.} =
+  proc add*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T) =
+    var keyval = newKVPair[T](key, val)
+    kv.hash_add(keyval)
+
+  proc addRet*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T): KVPair[T] =
     var keyval = newKVPair[T](key, val)
     kv.hash_add(keyval)
     result = keyval
