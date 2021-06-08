@@ -605,13 +605,14 @@ when not declared(webMain):
       if headers.hasKey("If-None-Match") and headers["If-None-Match"] == file.md5:
         result = client.send(Empty.addHeader(Status304))
       else:
-        if headers.hasKey("Accept-Encoding"):
-          var acceptEnc = headers["Accept-Encoding"].split(",")
-          acceptEnc.apply(proc(x: string): string = x.strip)
-          if acceptEnc.contains("br"):
-            return client.send(file.brotli.addHeaderBrotli(file.md5, Status200, file.mime))
-          elif acceptEnc.contains("deflate"):
-            return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
+        when not DYNAMIC_FILES or DYNAMIC_COMPRESS:
+          if headers.hasKey("Accept-Encoding"):
+            var acceptEnc = headers["Accept-Encoding"].split(",")
+            acceptEnc.apply(proc(x: string): string = x.strip)
+            if acceptEnc.contains("br"):
+              return client.send(file.brotli.addHeaderBrotli(file.md5, Status200, file.mime))
+            elif acceptEnc.contains("deflate"):
+              return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
         return client.send(file.content.addHeader(file.md5, Status200, file.mime))
     else:
       return client.send(NotFound.addHeader(Status404))

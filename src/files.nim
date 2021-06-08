@@ -7,6 +7,7 @@ import zip/zlib, brotli
 import bytes
 
 const DYNAMIC_FILES* = false
+const DYNAMIC_COMPRESS* = false
 
 when not DYNAMIC_FILES:
   const srcDir = currentSourcePath().parentDir()
@@ -95,13 +96,19 @@ else:
         if fileSplit.ext.len > 1:
           ext = fileSplit.ext[1..^1]
       try:
-        let data = readFile(requestDir)
-        let mime = mimes.getMimeType(ext)
-        let hash = base64.encode(sha256.digest(data).data)
-        let md5 = base64.encode(data.toMD5())
-        let deflate = compress(data, stream = RAW_DEFLATE)
-        let brotliComp = brotli.comp(data).toString
-        result = (data, deflate, brotliComp, mime, hash, md5)
+        when DYNAMIC_COMPRESS:
+          let data = readFile(requestDir)
+          let mime = mimes.getMimeType(ext)
+          let hash = base64.encode(sha256.digest(data).data)
+          let md5 = base64.encode(data.toMD5())
+          let deflate = compress(data, stream = RAW_DEFLATE)
+          let brotliComp = brotli.comp(data).toString
+          result = (data, deflate, brotliComp, mime, hash, md5)
+        else:
+          let data = readFile(requestDir)
+          let mime = mimes.getMimeType(ext)
+          let md5 = base64.encode(data.toMD5())
+          result = (data, cast[string](nil), cast[string](nil), mime, cast[string](nil), md5)
       except:
         discard
 
