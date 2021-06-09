@@ -4,6 +4,7 @@ import os, times, tables, terminal
 import bytes, tcp, rpc, db
 import address, blocks, tx
 import algorithm
+import mempool
 import posix
 import server
 
@@ -361,9 +362,12 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
   block rpcMode:
     echo "rpc mode"
+    mempool.setParams(params)
+
     while not abort:
       block_check()
 
+      var blockNew = false
       var retHash = rpc.getBlockHash.send(height + 1)
       while retHash["result"].kind == JString:
         var blkRpcHash = retHash["result"].getStr.Hex.toBlockHash
@@ -378,6 +382,9 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
         setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64)
 
         retHash = rpc.getBlockHash.send(height + 1)
+        blockNew = true
+
+      mempool.update(blockNew)
 
       sleep(1000)
 
@@ -408,4 +415,5 @@ onSignal(SIGINT, SIGTERM):
   if dbInsts.len > 0:
     dbInsts[0].close()
 
+mempool.init(nodes.len)
 startWorker()
