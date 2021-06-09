@@ -50,6 +50,9 @@ proc opens*(dbpath: string, dbnames: seq[string]): DbInsts = sophia.opens(dbpath
 proc close*(dbInst: DbInst) =
   sophia.close(dbInst)
 
+proc close*(dbInsts: DbInsts) =
+  sophia.close(cast[seq[Sophia]](dbInsts))
+
 proc setBlockHash*(db: DbInst, height: int, hash: BlockHash, time: uint32, start_id: uint64) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   let val = BytesBE(hash, time, start_id)

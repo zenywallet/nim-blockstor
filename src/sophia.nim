@@ -102,6 +102,11 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
 proc close*(sophia: Sophia) =
   checkErr sophia.env.sp_destroy()
 
+proc close*(sophias: seq[Sophia]) =
+  if sophias.len > 0:
+    let sophia = sophias[0]
+    checkErr sophia.env.sp_destroy()
+
 proc put*(sophia: Sophia, key: openarray[byte], value: openarray[byte]) =
   var o = sophia.db.sp_document()
   if o.isNil:

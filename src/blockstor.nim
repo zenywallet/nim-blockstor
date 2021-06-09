@@ -445,8 +445,7 @@ onSignal(SIGINT, SIGTERM):
   monitorEnable = false
   server.stop()
   resetAttributes()
-  if dbInsts.len > 0:
-    dbInsts[0].close()
+  dbInsts.close()
 
 mempool.init(nodes.len)
 startWorker()
