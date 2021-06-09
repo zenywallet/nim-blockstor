@@ -255,24 +255,53 @@ proc `$`*(data: ArrayBlockHash): string =
 
 var monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
 
+const MONITOR_CONSOLE = false
 var monitorEnable = true
 proc monitor(workers: seq[WorkerParams]) {.thread.} =
-  while monitorEnable:
-    stdout.setCursorPos(0, 0)
-    stdout.eraseLine
-    stdout.styledWriteLine(styleBright, fgCyan, now().format("yyyy-MM-dd HH:mm:ss"))
-    for i, params in workers:
-      var m = monitorInfos[][i]
+  when MONITOR_CONSOLE:
+    while monitorEnable:
+      stdout.setCursorPos(0, 0)
       stdout.eraseLine
-      if m.height > 0:
-        stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId &
-                              " #" & $m.height & " " & $m.hash &
-                              " " & m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"))
-      else:
-        stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId)
-    stdout.setCursorPos(0, terminalHeight() - 1)
-    stdout.flushFile
-    sleep(1000)
+      stdout.styledWriteLine(styleBright, fgCyan, now().format("yyyy-MM-dd HH:mm:ss"))
+      for i, params in workers:
+        var m = monitorInfos[][i]
+        stdout.eraseLine
+        if m.height > 0:
+          stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId &
+                                " #" & $m.height & " " & $m.hash &
+                                " " & m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"))
+        else:
+          stdout.styledWriteLine(styleBright, fgCyan, $params.nodeParams.networkId)
+      stdout.setCursorPos(0, terminalHeight() - 1)
+      stdout.flushFile
+      sleep(1000)
+  else:
+    var prev = newSeq[MonitorInfo](workers.len)
+    var prevLastHeight = -1
+    var rpcConfigs = newSeq[RpcConfig](workers.len)
+    for i, params in workers:
+      rpcConfigs[i] = RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass)
+    while monitorEnable:
+      for i, params in workers:
+        if not params.nodeParams.workerEnable:
+          continue
+        var m = monitorInfos[][i]
+        rpc.setRpcConfig(rpcConfigs[i])
+        var retBlockCount = rpc.getBlockCount.send()
+        if retBlockCount["result"].kind != JInt:
+          raise newException(BlockstorError, "get block count")
+        var lastHeight = retBlockCount["result"].getInt
+        if prev[i].height == m.height and prev[i].hash == m.hash and
+          prev[i].blkTime == m.blkTime and prevLastHeight == lastHeight:
+          continue
+        streamSend("status", %*{"type": "status", "data":
+                  {"network": $params.nodeParams.networkId,
+                  "height": m.height, "hash": $m.hash,
+                  "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                  "lastHeight": lastHeight}})
+        prev[i] = m
+        prevLastHeight = lastHeight
+      sleep(5000)
 
 proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
   var info = addr monitorInfos[][workerId]
@@ -404,7 +433,8 @@ proc startWorker() =
   deallocShared(monitorInfos)
 
 
-stdout.eraseScreen
+when MONITOR_CONSOLE:
+  stdout.eraseScreen
 
 server.setDbInsts(dbInsts, networks)
 server.start()
