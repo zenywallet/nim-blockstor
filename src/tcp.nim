@@ -48,7 +48,8 @@ type
 
   NodeParams* = tuple[ip: string, port: uint16, protocolVersion: uint32,
                       messageStart: uint32, networkId: NetworkId,
-                      rpcUrl: string, rpcUserPass: string]
+                      rpcUrl: string, rpcUserPass: string,
+                      workerEnable: bool]
 
   BlockParserError* = object of CatchableError
 

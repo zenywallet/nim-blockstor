@@ -19,7 +19,8 @@ var node_BitZeny_mainnet = (ip: "127.0.0.1",
                             messageStart: 0xdaa5bef9'u32,
                             networkId: NetworkId.BitZeny_mainnet,
                             rpcUrl: "http://127.0.0.1:9252/",
-                            rpcUserPass: "rpcuser:rpcpassword")
+                            rpcUserPass: "rpcuser:rpcpassword",
+                            workerEnable: true)
 
 var node_BitZeny_testnet = (ip: "127.0.0.1",
                             port: 19253'u16,
@@ -27,7 +28,8 @@ var node_BitZeny_testnet = (ip: "127.0.0.1",
                             messageStart: 0x59454e59'u32,
                             networkId: NetworkId.BitZeny_testnet,
                             rpcUrl: "http://127.0.0.1:19252/",
-                            rpcUserPass: "rpcuser:rpcpassword")
+                            rpcUserPass: "rpcuser:rpcpassword",
+                            workerEnable: true)
 
 
 var nodes: seq[NodeParams]
@@ -394,7 +396,8 @@ proc startWorker() =
   var threads = newSeq[Thread[WorkerParams]](workers.len)
 
   for i, params in workers:
-    createThread(threads[i], nodeWorker, params)
+    if params.nodeParams.workerEnable:
+      createThread(threads[i], nodeWorker, params)
   threads.joinThreads()
   monitorEnable = false
   monitorThread.joinThread()
