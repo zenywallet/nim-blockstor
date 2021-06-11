@@ -1,15 +1,23 @@
 # Copyright (c) 2021 zenywallet
 # nim c -r --forceBuild src/files.nim
 
-import os, macros, strutils, tables, mimetypes
-import nimcrypto, md5, base64
-import zip/zlib, brotli
-import bytes
+import os, strutils, mimetypes
+import md5, base64
 
-const DYNAMIC_FILES* = false
+const DYNAMIC_FILES* = true
 const DYNAMIC_COMPRESS* = false
 
+when not DYNAMIC_FILES or DYNAMIC_COMPRESS:
+  import nimcrypto
+  import bytes
+
+when DYNAMIC_COMPRESS:
+  import zip/zlib
+  import brotli
+
 when not DYNAMIC_FILES:
+  import macros, tables
+
   const srcDir = currentSourcePath().parentDir()
   const publicDir = srcDir / "../public"
 
