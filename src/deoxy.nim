@@ -153,7 +153,7 @@ when USE_LZ4:
       copyMem(addr deoxyEncrypt.decDict[0], addr outdata[outsize - DICT_SIZE], DICT_SIZE)
     elif outsize > 0:
       let size = DICT_SIZE - outsize
-      copyMem(addr deoxyEncrypt.decDict[0], addr deoxyEncrypt.decDict[size], size)
+      copyMem(addr deoxyEncrypt.decDict[0], addr deoxyEncrypt.decDict[outsize], size)
       copyMem(addr deoxyEncrypt.decDict[size], addr outdata[0], outsize)
     else:
       raise newException(DeoxyError, "decompress failed")
