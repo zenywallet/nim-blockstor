@@ -28,3 +28,6 @@ void zopfli_free(void *ptr) {
   free(ptr);
 }
 """.}
+
+proc zopfli_comp*(inbuf: ptr cuchar; insize: csize_t; outbuf: ptr ptr cuchar; outsize: ptr csize_t) {.importc.}
+proc zopfli_free*(p: pointer) {.importc.}
