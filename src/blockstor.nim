@@ -277,7 +277,9 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
       sleep(1000)
   else:
     var prev = newSeq[MonitorInfo](workers.len)
-    var prevLastHeight = -1
+    var prevLastHeight = newSeq[int](workers.len)
+    for i in 0..<workers.len:
+      prevLastHeight[i] = -1
     var rpcConfigs = newSeq[RpcConfig](workers.len)
     for i, params in workers:
       rpcConfigs[i] = RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass)
@@ -292,7 +294,7 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           raise newException(BlockstorError, "get block count")
         var lastHeight = retBlockCount["result"].getInt
         if prev[i].height == m.height and prev[i].hash == m.hash and
-          prev[i].blkTime == m.blkTime and prevLastHeight == lastHeight:
+          prev[i].blkTime == m.blkTime and prevLastHeight[i] == lastHeight:
           continue
         streamSend("status", %*{"type": "status", "data":
                   {"network": $params.nodeParams.networkId,
@@ -300,7 +302,7 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
                   "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
                   "lastHeight": lastHeight}})
         prev[i] = m
-        prevLastHeight = lastHeight
+        prevLastHeight[i] = lastHeight
       sleep(5000)
 
 proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
