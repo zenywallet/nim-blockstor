@@ -297,11 +297,12 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           prev[i].blkTime == m.blkTime and prevLastHeight[i] == lastHeight:
           continue
         if streamActive:
-          streamSend("status", %*{"type": "status", "data":
-                    {"network": $params.nodeParams.networkId,
-                    "height": m.height, "hash": $m.hash,
-                    "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
-                    "lastHeight": lastHeight}})
+          let jsonData = %*{"type": "status", "data":
+                          {"network": $params.nodeParams.networkId,
+                          "height": m.height, "hash": $m.hash,
+                          "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                          "lastHeight": lastHeight}}
+          streamSend("status", jsonData)
           prev[i] = m
           prevLastHeight[i] = lastHeight
       sleep(5000)
