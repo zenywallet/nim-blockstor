@@ -296,13 +296,14 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
         if prev[i].height == m.height and prev[i].hash == m.hash and
           prev[i].blkTime == m.blkTime and prevLastHeight[i] == lastHeight:
           continue
-        streamSend("status", %*{"type": "status", "data":
-                  {"network": $params.nodeParams.networkId,
-                  "height": m.height, "hash": $m.hash,
-                  "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
-                  "lastHeight": lastHeight}})
-        prev[i] = m
-        prevLastHeight[i] = lastHeight
+        if streamActive:
+          streamSend("status", %*{"type": "status", "data":
+                    {"network": $params.nodeParams.networkId,
+                    "height": m.height, "hash": $m.hash,
+                    "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                    "lastHeight": lastHeight}})
+          prev[i] = m
+          prevLastHeight[i] = lastHeight
       sleep(5000)
 
 proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
@@ -421,9 +422,10 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
       sleep(1000)
 
+var monitorThread: Thread[seq[WorkerParams]]
+
 proc startWorker() =
   monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
-  var monitorThread: Thread[seq[WorkerParams]]
   createThread(monitorThread, monitor, workers)
   var threads = newSeq[Thread[WorkerParams]](workers.len)
 
@@ -446,6 +448,7 @@ onSignal(SIGINT, SIGTERM):
   echo "bye from signal ", sig
   abort = true
   monitorEnable = false
+  monitorThread.joinThread()
   server.stop()
   resetAttributes()
   dbInsts.close()

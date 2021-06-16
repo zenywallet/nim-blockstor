@@ -160,7 +160,7 @@ var testMessageGeneratorThread: Thread[void]
 type
   StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte]]
 var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
-var streamActive = false
+var streamActive* = false
 var curMsgId: int
 
 proc streamWorker() {.thread.} =
