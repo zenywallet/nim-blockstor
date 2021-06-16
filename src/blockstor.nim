@@ -253,7 +253,7 @@ proc `$`*(data: ArrayBlockHash): string =
   algorithm.reverse(b)
   bytes.toHex(b)
 
-var monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
+var monitorInfos: ptr UncheckedArray[MonitorInfo]
 
 const MONITOR_CONSOLE = false
 var monitorEnable = true
@@ -422,6 +422,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       sleep(1000)
 
 proc startWorker() =
+  monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
   var monitorThread: Thread[seq[WorkerParams]]
   createThread(monitorThread, monitor, workers)
   var threads = newSeq[Thread[WorkerParams]](workers.len)
