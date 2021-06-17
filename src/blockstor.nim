@@ -253,6 +253,12 @@ proc `$`*(data: ArrayBlockHash): string =
   algorithm.reverse(b)
   bytes.toHex(b)
 
+type
+  LastBlockChekcerParam = object
+    lastHeight: int
+    abort: bool
+
+var lastBlockChekcerParam: ptr UncheckedArray[LastBlockChekcerParam]
 var monitorInfos: ptr UncheckedArray[MonitorInfo]
 
 const MONITOR_CONSOLE = false
@@ -280,22 +286,16 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
     var prevLastHeight = newSeq[int](workers.len)
     for i in 0..<workers.len:
       prevLastHeight[i] = -1
-    var rpcConfigs = newSeq[RpcConfig](workers.len)
-    for i, params in workers:
-      rpcConfigs[i] = RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass)
     while monitorEnable:
       for i, params in workers:
         if not params.nodeParams.workerEnable:
           continue
         var m = monitorInfos[][i]
-        rpc.setRpcConfig(rpcConfigs[i])
-        var retBlockCount = rpc.getBlockCount.send()
-        if retBlockCount["result"].kind != JInt:
-          raise newException(BlockstorError, "get block count")
-        var lastHeight = retBlockCount["result"].getInt
+        let lastHeight = lastBlockChekcerParam[i].lastHeight
         if prev[i].height == m.height and prev[i].hash == m.hash and
           prev[i].blkTime == m.blkTime and prevLastHeight[i] == lastHeight:
           continue
+
         if streamActive:
           let jsonData = %*{"type": "status", "data":
                           {"network": $params.nodeParams.networkId,
@@ -305,7 +305,7 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           streamSend("status", jsonData)
           prev[i] = m
           prevLastHeight[i] = lastHeight
-      sleep(5000)
+      sleep(400)
 
 proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
   var info = addr monitorInfos[][workerId]
@@ -313,6 +313,23 @@ proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
   if cast[seq[byte]](hash).len == 32:
     copyMem(addr info.hash[0], unsafeAddr cast[ptr seq[byte]](unsafeAddr hash)[][0], sizeof(info.hash))
   info.blkTime = time
+
+template updateLastHeight(id: int) {.dirty.} =
+  var retBlockCount = rpc.getBlockCount.send()
+  if retBlockCount["result"].kind != JInt:
+    raise newException(BlockstorError, "get block count")
+  lastBlockChekcerParam[id].lastHeight = retBlockCount["result"].getInt
+
+proc lastBlockChecker(params: WorkerParams) {.thread.} =
+  rpc.setRpcConfig(RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass))
+  var cnt = 0
+  while not abort and not lastBlockChekcerParam[params.id].abort:
+    sleep(200)
+    inc(cnt)
+    if cnt < 25:
+      continue
+    cnt = 0
+    updateLastHeight(params.id)
 
 proc nodeWorker(params: WorkerParams) {.thread.} =
   var node = newNode(params.nodeParams)
@@ -386,6 +403,10 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     defer:
       node.close()
 
+    updateLastHeight(params.id)
+    var lastBlockCheckerThread: Thread[WorkerParams]
+    createThread(lastBlockCheckerThread, lastBlockChecker, params)
+
     proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool =
       dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
       height = tcpHeight
@@ -394,6 +415,9 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       result = not abort
 
     node.start(params.nodeParams, height, blkHash, cb)
+
+    lastBlockChekcerParam[params.id].abort = true
+    lastBlockCheckerThread.joinThread()
 
   block rpcMode:
     echo "rpc mode"
@@ -426,6 +450,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 var monitorThread: Thread[seq[WorkerParams]]
 
 proc startWorker() =
+  lastBlockChekcerParam = cast[ptr UncheckedArray[LastBlockChekcerParam]](allocShared0(sizeof(LastBlockChekcerParam) * workers.len))
   monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
   createThread(monitorThread, monitor, workers)
   var threads = newSeq[Thread[WorkerParams]](workers.len)
@@ -437,6 +462,7 @@ proc startWorker() =
   monitorEnable = false
   monitorThread.joinThread()
   deallocShared(monitorInfos)
+  deallocShared(lastBlockChekcerParam)
 
 
 when MONITOR_CONSOLE:
