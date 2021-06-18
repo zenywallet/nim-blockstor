@@ -261,6 +261,7 @@ type
 
 var lastBlockChekcerParam: ptr UncheckedArray[LastBlockChekcerParam]
 var monitorInfos: ptr UncheckedArray[MonitorInfo]
+var monitorInfosCount: int
 
 const MONITOR_CONSOLE = false
 var monitorEnable = true
@@ -458,6 +459,7 @@ var monitorThread: Thread[seq[WorkerParams]]
 proc startWorker() =
   lastBlockChekcerParam = cast[ptr UncheckedArray[LastBlockChekcerParam]](allocShared0(sizeof(LastBlockChekcerParam) * workers.len))
   monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
+  monitorInfosCount = workers.len
   createThread(monitorThread, monitor, workers)
   var threads = newSeq[Thread[WorkerParams]](workers.len)
 
