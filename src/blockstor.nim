@@ -3,10 +3,10 @@
 import os, times, tables, terminal
 import bytes, tcp, rpc, db
 import address, blocks, tx
-import algorithm
 import mempool
 import posix
 import server
+import monitor
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
@@ -241,31 +241,20 @@ proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq
   result = (height - 1, prev_seq_id)
 
 type
-  ArrayBlockHash = array[32, byte]
-
-  MonitorInfo = object
-    height: int
-    hash: ArrayBlockHash
-    blkTime: int64
+  LastBlockChekcerParam* = object
     lastHeight*: int
+    abort*: bool
 
-proc `$`*(data: ArrayBlockHash): string =
-  var b = data
-  algorithm.reverse(b)
-  bytes.toHex(b)
-
-type
-  LastBlockChekcerParam = object
-    lastHeight: int
-    abort: bool
-
-var lastBlockChekcerParam: ptr UncheckedArray[LastBlockChekcerParam]
-var monitorInfos: ptr UncheckedArray[MonitorInfo]
-var monitorInfosCount: int
+var lastBlockChekcerParam*: ptr UncheckedArray[LastBlockChekcerParam]
+template updateLastHeight(id: int) {.dirty.} =
+  var retBlockCount = rpc.getBlockCount.send()
+  if retBlockCount["result"].kind != JInt:
+    raise newException(BlockstorError, "get block count")
+  lastBlockChekcerParam[id].lastHeight = retBlockCount["result"].getInt
 
 const MONITOR_CONSOLE = false
 var monitorEnable = true
-proc monitor(workers: seq[WorkerParams]) {.thread.} =
+proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
   when MONITOR_CONSOLE:
     while monitorEnable:
       stdout.setCursorPos(0, 0)
@@ -309,21 +298,6 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           prev[i] = m
           prevLastHeight[i] = lastHeight
       sleep(400)
-
-proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64, lastHeight: int = -1) =
-  var info = addr monitorInfos[][workerId]
-  info.height = height
-  if cast[seq[byte]](hash).len == 32:
-    copyMem(addr info.hash[0], unsafeAddr cast[ptr seq[byte]](unsafeAddr hash)[][0], sizeof(info.hash))
-  info.blkTime = time
-  if lastHeight >= 0:
-    info.lastHeight = lastHeight
-
-template updateLastHeight(id: int) {.dirty.} =
-  var retBlockCount = rpc.getBlockCount.send()
-  if retBlockCount["result"].kind != JInt:
-    raise newException(BlockstorError, "get block count")
-  lastBlockChekcerParam[id].lastHeight = retBlockCount["result"].getInt
 
 proc lastBlockChecker(params: WorkerParams) {.thread.} =
   rpc.setRpcConfig(RpcConfig(rpcUrl: params.nodeParams.rpcUrl, rpcUserPass: params.nodeParams.rpcUserPass))
@@ -460,7 +434,7 @@ proc startWorker() =
   lastBlockChekcerParam = cast[ptr UncheckedArray[LastBlockChekcerParam]](allocShared0(sizeof(LastBlockChekcerParam) * workers.len))
   monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
   monitorInfosCount = workers.len
-  createThread(monitorThread, monitor, workers)
+  createThread(monitorThread, monitorMain, workers)
   var threads = newSeq[Thread[WorkerParams]](workers.len)
 
   for i, params in workers:
@@ -474,6 +448,7 @@ proc startWorker() =
   deallocShared(monitorInfos)
   dbInsts.close()
   resetAttributes()
+
 
 when MONITOR_CONSOLE:
   stdout.eraseScreen

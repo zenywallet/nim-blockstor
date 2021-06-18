@@ -1235,7 +1235,7 @@ proc http(arg: ThreadArg) {.thread.} =
       error "error: epoll_ctl ret=", ret, " errno=", errno
       abort()
 
-proc monitor(arg: ThreadArg) {.thread.} =
+proc serverMonitor(arg: ThreadArg) {.thread.} =
   var prevTime = getTime()
   var sec = 0
   while active:
@@ -1296,7 +1296,7 @@ proc main(arg: ThreadArg) {.thread.} =
     createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
     createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
     createThread(httpThread, http, ThreadArg(type: ThreadArgType.Void))
-    createThread(monitorThread, monitor, ThreadArg(type: ThreadArgType.Void))
+    createThread(monitorThread, serverMonitor, ThreadArg(type: ThreadArgType.Void))
 
     var waitThreads: seq[Thread[ThreadArg]]
     waitThreads.add(dispatcherThread)
