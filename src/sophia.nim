@@ -98,6 +98,8 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
       raise newException(SophiaErr, "db is nil")
     result.add(sophia)
   env.checkErr env.sp_open()
+  for dbname in dbnames:
+    echo "index count ", dbname, "=", env.sp_getint("db." & dbname & ".index.count")
 
 proc close*(sophia: Sophia) =
   checkErr sophia.env.sp_destroy()
