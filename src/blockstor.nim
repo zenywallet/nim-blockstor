@@ -461,9 +461,11 @@ proc startWorker() =
   threads.joinThreads()
   monitorEnable = false
   monitorThread.joinThread()
-  deallocShared(monitorInfos)
   deallocShared(lastBlockChekcerParam)
-
+  server.stop()
+  deallocShared(monitorInfos)
+  dbInsts.close()
+  resetAttributes()
 
 when MONITOR_CONSOLE:
   stdout.eraseScreen
@@ -474,11 +476,7 @@ server.start()
 onSignal(SIGINT, SIGTERM):
   echo "bye from signal ", sig
   abort = true
-  monitorEnable = false
-  monitorThread.joinThread()
-  server.stop()
-  resetAttributes()
-  dbInsts.close()
+  tcp.stop()
 
 mempool.init(nodes.len)
 startWorker()
