@@ -1013,9 +1013,10 @@ proc dispatcher(arg: ThreadArg) {.thread.} =
           error "error: epoll_ctl ret=", ret, " errno=", errno
           abort()
 
-        var reqCount = reqStats.checkReq(clients[idx].ip)
-        if reqCount > REQ_LIMIT_DISPATCH_MAX:
-          appId = 2
+        if appId != 3:
+          var reqCount = reqStats.checkReq(clients[idx].ip)
+          if reqCount > REQ_LIMIT_DISPATCH_MAX:
+            appId = 2
 
         workerChannel[].send((appId, idx, events[i].events, evData))
         workerChannelWaitingCount = workerChannel[].peek()
