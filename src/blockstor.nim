@@ -247,6 +247,7 @@ type
     height: int
     hash: ArrayBlockHash
     blkTime: int64
+    lastHeight*: int
 
 proc `$`*(data: ArrayBlockHash): string =
   var b = data
@@ -292,6 +293,7 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           continue
         var m = monitorInfos[][i]
         let lastHeight = lastBlockChekcerParam[i].lastHeight
+        m.lastHeight = lastHeight
         if prev[i].height == m.height and prev[i].hash == m.hash and
           prev[i].blkTime == m.blkTime and prevLastHeight[i] == lastHeight:
           continue
@@ -307,12 +309,14 @@ proc monitor(workers: seq[WorkerParams]) {.thread.} =
           prevLastHeight[i] = lastHeight
       sleep(400)
 
-proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64) =
+proc setMonitorInfo(workerId: int, height: int, hash: BlockHash, time: int64, lastHeight: int = -1) =
   var info = addr monitorInfos[][workerId]
   info.height = height
   if cast[seq[byte]](hash).len == 32:
     copyMem(addr info.hash[0], unsafeAddr cast[ptr seq[byte]](unsafeAddr hash)[][0], sizeof(info.hash))
   info.blkTime = time
+  if lastHeight >= 0:
+    info.lastHeight = lastHeight
 
 template updateLastHeight(id: int) {.dirty.} =
   var retBlockCount = rpc.getBlockCount.send()
@@ -354,6 +358,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     dbInst.writeBlock(0, genesisHash, genesisBlk, 0)
     nextSeqId = genesisBlk.txs.len.uint64
     blkHash = genesisHash
+    setMonitorInfo(params.id, height, blkHash, genesisBlk.header.time.int64, height)
   else:
     # rewrite block
     var retBlock = rpc.getBlock.send($retLastBlock.res.hash, 0)
@@ -365,6 +370,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
     blkHash = retLastBlock.res.hash
     dbInst.writeBlock(height, blkHash, blk, nextSeqId)
+    setMonitorInfo(params.id, height, blkHash, blk.header.time.int64, height)
 
   # block check
   template block_check() {.dirty.} =
@@ -438,7 +444,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
         inc(height)
         dbInst.writeBlock(height, blkRpcHash, blk, nextSeqId)
         nextSeqId = nextSeqId + blk.txs.len.uint64
-        setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64)
+        setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
 
         retHash = rpc.getBlockHash.send(height + 1)
         blockNew = true
