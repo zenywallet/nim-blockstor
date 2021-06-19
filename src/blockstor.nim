@@ -40,7 +40,9 @@ var dbnames: seq[string]
 for node in nodes:
   dbnames.add($node.networkId)
 
+echo "db open"
 var dbInsts = db.opens("data", dbnames)
+echo "db open - done"
 
 var workers: seq[WorkerParams]
 for i, node in nodes:
