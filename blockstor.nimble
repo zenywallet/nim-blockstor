@@ -19,7 +19,7 @@ requires "zip"
 
 
 task debug, "Debug build, and Run":
-  exec "nim c -r --threads:on src/blockstor.nim"
+  exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
 task deps, "Build deps":
   withDir "deps/sophia":

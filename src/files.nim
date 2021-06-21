@@ -4,7 +4,7 @@
 import os, strutils, mimetypes
 import md5, base64
 
-const DYNAMIC_FILES* = true
+const DYNAMIC_FILES* = defined(DYNAMIC_FILES)
 const DYNAMIC_COMPRESS* = false
 
 when not DYNAMIC_FILES or DYNAMIC_COMPRESS:
