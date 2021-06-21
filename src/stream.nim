@@ -10,8 +10,10 @@ import address
 import bytes
 import uthash
 import ptlock
+import monitor
 
 const DECODE_BUF_SIZE = 1048576
+const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
 
 type
   StreamStage {.pure.} = enum
@@ -124,6 +126,14 @@ proc delTag*(streamId: StreamId, tag: seq[byte]) =
       if result:
         streamTable.del(x.pair)
       )
+
+proc setTag*(client: ptr Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
+  var sobj = cast[ptr StreamObj](client.pStream)
+  sobj.streamId.setTag(tag, tagType)
+
+proc delTag*(client: ptr Client, tag: seq[byte]) =
+  var sobj = cast[ptr StreamObj](client.pStream)
+  sobj.streamId.delTag(tag)
 
 proc newMsg*(msg: seq[byte]): MsgData =
   let p = cast[MsgData](allocShared0(sizeof(MsgDataObj) + msg.len))
@@ -354,6 +364,32 @@ proc sendCmd(client: ptr Client, s: string): SendResult {.inline.} = client.send
 
 proc sendCmd(client: ptr Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
+proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
+  result = SendResult.None
+  echo json.pretty
+  if json.hasKey("cmd"):
+    let cmd = json["cmd"].getStr
+    if cmd == "noralist":
+      result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
+    elif cmd == "status-on":
+      client.setTag("status".toBytes)
+    elif cmd == "status-off":
+      client.delTag("status".toBytes)
+    elif cmd == "mempool-on":
+      client.setTag("mempool".toBytes)
+    elif cmd == "mempool-off":
+      client.delTag("mempool".toBytes)
+    elif cmd == "status":
+      for i in 0..<monitorInfosCount:
+        var m = monitorInfos[][i]
+        let jsonData = %*{"type": "status", "data":
+                          {"network": SERVER_LABELS[i],
+                          "height": m.height, "hash": $m.hash,
+                          "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                          "lastHeight": m.lastHeight}}
+        result = client.sendCmd(jsonData)
+
+
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
                 data: ptr UncheckedArray[byte], size: int): SendResult =
   echo "ws opcode=", opcode, " size=", size
@@ -365,7 +401,7 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
       if decLen > 0:
         try:
           var json = parseJson(decBuf.toString(decLen))
-          echo json.pretty
+          result = client.parseCmd(json)
 
           sobj.streamId.setTag("testmessage".toBytes)
 
