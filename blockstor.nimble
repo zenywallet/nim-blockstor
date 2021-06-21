@@ -37,3 +37,27 @@ task deps, "Build deps":
     exec "./autogen.sh"
     exec "./configure"
     exec "make"
+
+task ui, "Build ui":
+  if dirExists("preload_tmp"):
+    exec "rm -rf preload_tmp"
+  exec "mkdir preload_tmp"
+  exec "cp deps/fonts/Play/Play-Regular.ttf preload_tmp/"
+  exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
+  exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
+  exec "nim c -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:arc src/ui.nim"
+  exec """
+if [ -x "$(command -v google-closure-compiler)" ]; then
+  closure_compiler="google-closure-compiler"
+else
+  closure_compiler="java -jar $(ls closure-compiler-*.jar | sort -r | head -n1)"
+fi
+echo "use $closure_compiler"
+$closure_compiler --compilation_level ADVANCED --jscomp_off=checkVars --jscomp_off=checkTypes --jscomp_off=uselessCode --js_output_file=public/ui.js --externs src/ui_externs.js public/ui.js_tmp 2>&1 | cut -c 1-240
+"""
+  exec "nim c -r src/web_index.nim > public/index.html"
+  exec "rm src/web_index"
+  exec "rm public/ui.js_tmp"
+  exec "rm src/ui_externs.js"
+  exec "rm src/ui_loader.js"
+  exec "rm -rf preload_tmp"
