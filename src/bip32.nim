@@ -246,7 +246,7 @@ proc derive*(node: HDNode, index: uint32): HDNode =
     deriveNode.privateKey = privateKey.tweakAdd(node.privateKey)
     deriveNode.publicKey = deriveNode.privateKey.pub
   else:
-    deriveNode.publicKey = privateKey.pub
+    deriveNode.publicKey = node.publicKey.pubObj.tweakAdd(privateKey.toBytes).pub
   result = deriveNode
 
 proc address*(node: HDNode, network: Network = defaultNetwork): string {.inline.} =
