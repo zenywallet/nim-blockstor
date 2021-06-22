@@ -26,6 +26,8 @@ type
     chainCode*: ChainCode
     privateKey*: PrivateKey
     publicKey*: PublicKey
+    versionPub: uint32
+    versionPrv: uint32
 
   EcError* = object of CatchableError
   HdError* = object of CatchableError
@@ -144,7 +146,7 @@ proc verify*(publicKeyObj: PublicKeyObj, hash: openArray[byte], der: openArray[b
 proc verify*(publicKey: PublicKey, hash: openArray[byte], der: openArray[byte]): bool {.inline.} =
   publicKey.pubObj.verify(hash, der)
 
-proc master*(seed: seq[byte]): HDNode =
+proc master*(seed: seq[byte], testnet: bool = false): HDNode =
   var I = sha512.hmac("Bitcoin seed", seed).data
   var privateKey: PrivateKey = I[0..31].toBytes
   var chainCode: ChainCode = I[32..63].toBytes
@@ -155,6 +157,12 @@ proc master*(seed: seq[byte]): HDNode =
   node.chainCode = chainCode
   node.privateKey = privateKey
   node.publicKey = pub(privateKey)
+  if testnet:
+    node.versionPub = VersionTestnetPublic
+    node.versionPrv = VersionTestnetPrivate
+  else:
+    node.versionPub = VersionMainnetPublic
+    node.versionPrv = VersionMainnetPrivate
   result = node
 
 proc addCheck*(data: seq[byte]): seq[byte] = concat(data, sha256d(data)[0..3])
@@ -168,16 +176,16 @@ proc check(data: seq[byte]): bool =
 proc xprv*(node: HDNode): string =
   if node.privateKey.len != 32:
     raise newException(HdError, "xprv privateKey len=" & $node.privateKey.len)
-  var d = (VersionMainnetPrivate, node.depth, node.fingerprint, node.childNumber,
+  var d = (node.versionPrv, node.depth, node.fingerprint, node.childNumber,
           node.chainCode, 0x00'u8, node.privateKey).toBytesBE.addCheck
   base58.enc(d)
 
 proc xpub*(node: HDNode): string =
-  var d = (VersionMainnetPublic, node.depth, node.fingerprint, node.childNumber,
+  var d = (node.versionPub, node.depth, node.fingerprint, node.childNumber,
           node.chainCode, node.publicKey).toBytesBE.addCheck
   base58.enc(d)
 
-proc node*(x: string): HDNode =
+proc node*(x: string, testnet: bool = false): HDNode =
   var d = base58.dec(x)
   if not check(d):
     raise newException(HdError, "invalid serialization format")
@@ -187,13 +195,28 @@ proc node*(x: string): HDNode =
   node.childNumber = d[9].toUint32BE
   node.chainCode = d[13..44]
   var ver = d.toUint32BE
-  if ver == VersionMainnetPublic:
-    node.publicKey = d[45..77]
-  elif ver == VersionMainnetPrivate:
-    node.privateKey = d[46..77]
-    node.publicKey = pub(node.privateKey)
+  if testnet:
+    if ver == VersionTestnetPublic:
+      node.publicKey = d[45..77]
+      node.versionPub = VersionTestnetPublic
+    elif ver == VersionTestnetPrivate:
+      node.privateKey = d[46..77]
+      node.publicKey = pub(node.privateKey)
+      node.versionPub = VersionTestnetPublic
+      node.versionPrv = VersionTestnetPrivate
+    else:
+      raise newException(HdError, "unknown version " & $ver.toBytesBE)
   else:
-    raise newException(HdError, "unknown version " & $ver.toBytesBE)
+    if ver == VersionMainnetPublic:
+      node.publicKey = d[45..77]
+      node.versionPub = VersionMainnetPublic
+    elif ver == VersionMainnetPrivate:
+      node.privateKey = d[46..77]
+      node.publicKey = pub(node.privateKey)
+      node.versionPub = VersionMainnetPublic
+      node.versionPrv = VersionMainnetPrivate
+    else:
+      raise newException(HdError, "unknown version " & $ver.toBytesBE)
   result = node
 
 proc tweakAdd*(privateKey: PrivateKey, tweak: seq[byte]): PrivateKey =
@@ -229,6 +252,8 @@ proc hardened*(node: HDNode, index: uint32): HDNode =
   deriveNode.chainCode = chainCode
   deriveNode.privateKey = privateKey.tweakAdd(node.privateKey)
   deriveNode.publicKey = deriveNode.privateKey.pub
+  deriveNode.versionPub = node.versionPub
+  deriveNode.versionPrv = node.versionPrv
   result = deriveNode
 
 proc derive*(node: HDNode, index: uint32): HDNode =
@@ -247,6 +272,8 @@ proc derive*(node: HDNode, index: uint32): HDNode =
     deriveNode.publicKey = deriveNode.privateKey.pub
   else:
     deriveNode.publicKey = node.publicKey.pubObj.tweakAdd(privateKey.toBytes).pub
+  deriveNode.versionPub = node.versionPub
+  deriveNode.versionPrv = node.versionPrv
   result = deriveNode
 
 proc address*(node: HDNode, network: Network = defaultNetwork): string {.inline.} =
