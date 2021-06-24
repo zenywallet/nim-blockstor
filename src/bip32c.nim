@@ -5,6 +5,8 @@ import address
 import bip32
 import tables
 
+{.used.}
+
 type
   HDNodeHandle* = pointer
 
