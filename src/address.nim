@@ -10,6 +10,7 @@ type
     wif*: uint8
     bech32*: string
     bech32Extra*: seq[string]
+    testnet*: bool
 
   NetworkId* {.pure.} = enum
     BitZeny_mainnet
@@ -31,6 +32,7 @@ proc getNetwork*(networkId: NetworkId): Network =
     bitzeny.wif = 128'u8
     bitzeny.bech32 = "sz"
     bitzeny.bech32Extra = @["bz"]
+    bitzeny.testnet = false
     result = bitzeny
 
   of NetworkId.BitZeny_testnet:
@@ -39,6 +41,7 @@ proc getNetwork*(networkId: NetworkId): Network =
     bitzeny_test.scriptPrefix = 196'u8
     bitzeny_test.wif = 239'u8
     bitzeny_test.bech32 = "tz"
+    bitzeny_test.testnet = true
     result = bitzeny_test
 
 proc ripemd160hash*(pub: seq[byte]): Hash160 =
