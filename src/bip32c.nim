@@ -6,7 +6,7 @@ import bip32
 import tables
 
 type
-  HDNodeHandle = pointer
+  HDNodeHandle* = pointer
 
 
 var hdNodes {.threadvar.}: Table[HDNodeHandle, HDNode]
@@ -23,7 +23,7 @@ proc bip32_free_all*() {.exportc.} =
 proc bip32_hdnode_free*(h: HDNodeHandle) {.exportc.} =
   hdNodes.del(h)
 
-proc bip32_string_free(s: cstring) {.exportc.} =
+proc bip32_string_free*(s: cstring) {.exportc.} =
   stringRefs.del(cast[pointer](s))
 
 proc bip32_master*(seed: ptr UncheckedArray[byte], size: cint, testnet: bool = false): HDNodeHandle {.exportc.} =
