@@ -45,7 +45,7 @@ task ui, "Build ui":
   exec "cp deps/fonts/Play/Play-Regular.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
-  exec "nim c -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:arc src/ui.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
   closure_compiler="google-closure-compiler"
@@ -58,6 +58,20 @@ $closure_compiler --compilation_level ADVANCED --jscomp_off=checkVars --jscomp_o
   exec "nim c -r src/web_index.nim > public/index.html"
   exec "rm src/web_index"
   exec "rm public/ui.js_tmp"
+  exec "rm src/ui_externs.js"
+  exec "rm src/ui_loader.js"
+  exec "rm -rf preload_tmp"
+
+task uidebug, "Build ui for debug":
+  if dirExists("preload_tmp"):
+    exec "rm -rf preload_tmp"
+  exec "mkdir preload_tmp"
+  exec "cp deps/fonts/Play/Play-Regular.ttf preload_tmp/"
+  exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
+  exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
+  exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -r src/web_index.nim > public/index.html"
+  exec "rm src/web_index"
   exec "rm src/ui_externs.js"
   exec "rm src/ui_loader.js"
   exec "rm -rf preload_tmp"
