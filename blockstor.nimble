@@ -55,7 +55,7 @@ fi
 echo "use $closure_compiler"
 $closure_compiler --compilation_level ADVANCED --jscomp_off=checkVars --jscomp_off=checkTypes --jscomp_off=uselessCode --js_output_file=public/ui.js --externs src/ui_externs.js public/ui.js_tmp 2>&1 | cut -c 1-240
 """
-  exec "nim c -r src/web_index.nim > public/index.html"
+  exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
   exec "rm public/ui.js_tmp"
   exec "rm src/ui_externs.js"
@@ -70,7 +70,7 @@ task uidebug, "Build ui for debug":
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:arc src/ui.nim"
-  exec "nim c -r src/web_index.nim > public/index.html"
+  exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
   exec "rm src/ui_externs.js"
   exec "rm src/ui_loader.js"
