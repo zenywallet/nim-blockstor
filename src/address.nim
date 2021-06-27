@@ -83,6 +83,19 @@ proc getAddress*(network: Network, pub: seq[byte]): string {.inline.} =
 proc getSegwitAddress*(network: Network, pub: seq[byte]): string {.inline.} =
   network.p2wpkh_address(ripemd160hash(pub))
 
+proc getAddress*(network: Network, hash160: Hash160, addressType: AddressType): string =
+  case addressType:
+  of P2PKH:
+    result = network.p2pkh_address(hash160)
+  of P2SH:
+    result = network.p2sh_address(hash160)
+  of P2SH_P2WPKH:
+    result = network.p2sh_p2wpkh_address(hash160)
+  of P2WPKH:
+    result = network.p2wpkh_address(hash160)
+  else:
+    result = ""
+
 var defaultNetwork* {.threadvar.}: Network
 
 proc setDefaultNetwork*(network: Network) {.inline.} =
