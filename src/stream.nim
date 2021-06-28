@@ -205,7 +205,6 @@ proc streamWorker() {.thread.} =
       if pendingClient.len > 0:
         debug "pendingClient ", pendingClient.len
 
-    var addNew = false
     if channelData.streamId > 0:
       var client = clientTable[channelData.streamId.toBytes]
       if not client.isNil:
