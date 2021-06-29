@@ -381,7 +381,7 @@ proc delAddrlog*(db: DbInst, address_hash: Hash160, id: uint64,
 when isMainModule:
   import sequtils
 
-  var db = open("data/block")
+  var db = open("data_test/block")
 
   proc quit() {.noconv.} =
     db.close()
