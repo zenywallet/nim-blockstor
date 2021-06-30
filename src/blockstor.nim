@@ -111,7 +111,9 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
       var in_txid = i.tx
       var n = i.n
 
-      if n != 0xffffffff'u32:
+      if n == 0xffffffff'u32:
+        dbInst.setMinedId(seq_id + idx.uint64, height)
+      else:
         var ret_tx = dbInst.getTx(in_txid)
         if ret_tx.err == DbStatus.NotFound:
           raise newException(BlockParserError, "id not found " & $in_txid)
@@ -169,7 +171,9 @@ proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq
       var in_txid = i.tx
       var n = i.n
 
-      if n != 0xffffffff'u32:
+      if n == 0xffffffff'u32:
+        dbInst.delMinedId(seq_id + idx.uint64)
+      else:
         var ret_tx = dbInst.getTx(in_txid)
         if ret_tx.err == DbStatus.NotFound:
           raise newException(BlockParserError, "id not found " & $in_txid)

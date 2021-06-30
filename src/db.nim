@@ -12,6 +12,7 @@ type Prefix* {.pure.} = enum
   unspents    # address_hash, id, n = value
   addrvals    # address_hash, (address_type) = value, utxo_count
   addrlogs    # address_hash, id, trans (0 - out | 1 - in) = value, address_type
+  minedids    # id = height
 
 type
   DbStatus* {.pure.} = enum
@@ -375,6 +376,29 @@ iterator getAddrlogs*(db: DbInst, address_hash: Hash160,
 proc delAddrlog*(db: DbInst, address_hash: Hash160, id: uint64,
                 trans: uint8) =
   let key = BytesBE(Prefix.addrlogs, address_hash, id, trans)
+  db.del(key)
+
+proc setMinedId*(db: DbInst, id: uint64, height: int) =
+  let key = BytesBE(Prefix.minedids, id)
+  let val = BytesBE(height.uint32)
+  db.put(key, val)
+
+type
+  MinedIdResult* = int
+  DbMinedIdResult* = DbResult[MinedIdResult]
+
+proc getMinedId*(db: DbInst, id: uint64): DbMinedIdResult =
+  let key = BytesBE(Prefix.minedids, id)
+  let d = db.get(key)
+  if d.len == 4:
+    var d = d
+    let height = d[0].toUint32BE.int
+    result = DbMinedIdResult(err: DbStatus.Success, res: height)
+  else:
+    result = DbMinedIdResult(err: DbStatus.NotFound)
+
+proc delMinedId*(db: DbInst, id: uint64) =
+  let key = BytesBE(Prefix.minedids, id)
   db.del(key)
 
 
