@@ -43,7 +43,7 @@ extern "C" void streamRecv(char* data, int size) {
     }
 }
 
-static void ShowConnectStatusOverlay(bool* p_open)
+static ImGuiWindowFlags PrepareOverlay()
 {
     const float PAD = 10.0f;
     static int corner = 3;
@@ -62,14 +62,29 @@ static void ShowConnectStatusOverlay(bool* p_open)
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
     window_flags |= ImGuiWindowFlags_NoMove;
     ImGui::SetNextWindowBgAlpha(0.35f);
-    if (ImGui::Begin("Connect status", p_open, window_flags))
+    return window_flags;
+}
+
+static void ShowConnectStatusOverlay(bool* p_open)
+{
+    ImGuiWindowFlags window_flags = PrepareOverlay();
+    if (ImGui::Begin("Status Overlay", p_open, window_flags))
     {
         if (streamActive) {
             ImGui::Text("Connected");
-
         } else {
             ImGui::Text("Disconnected");
         }
+    }
+    ImGui::End();
+}
+
+static void ShowFramerateOverlay(bool* p_open)
+{
+    ImGuiWindowFlags window_flags = PrepareOverlay();
+    if (ImGui::Begin("Status Overlay", p_open, window_flags))
+    {
+        ImGuiIO& io = ImGui::GetIO();
         auto framerate = io.Framerate;
         ImGui::Text("%.3f ms / %.1f FPS", 1000.0f / framerate, framerate);
     }
@@ -83,6 +98,7 @@ static void main_loop(void *arg)
 
     static bool show_demo_window = true;
     static bool show_connect_status_overlay = true;
+    static bool show_framerate_overlay = true;
     static bool show_nora_servers_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -101,6 +117,9 @@ static void main_loop(void *arg)
     }
     if (show_connect_status_overlay) {
         ShowConnectStatusOverlay(&show_connect_status_overlay);
+    }
+    if (show_framerate_overlay) {
+        ShowFramerateOverlay(&show_framerate_overlay);
     }
 
     {
@@ -131,6 +150,8 @@ static void main_loop(void *arg)
         if (ImGui::Button("Nora Servers")) {
             show_nora_servers_window = true;
         }
+        ImGui::Checkbox("Connection status", &show_connect_status_overlay);
+        ImGui::Checkbox("Frame rate", &show_framerate_overlay);
         ImGui::End();
     }
 
