@@ -450,11 +450,10 @@ proc invokeSendMain(client: ptr Client): SendResult =
       delMsg(sobj.streamId, msgId)
       var refExists = false
       var mb = msgId.toBytes
-      withWriteLock tableLock:
-        for m in msgRevTable.items(mb):
-          refExists = true
-          break
-        if not refExists:
-          msgDataTable.del(mb)
+      for m in msgRevTable.items(mb):
+        refExists = true
+        break
+      if not refExists:
+        msgDataTable.del(mb)
       if result == SendResult.Pending:
         break
