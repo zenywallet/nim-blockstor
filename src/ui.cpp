@@ -83,6 +83,7 @@ static void main_loop(void *arg)
 
     static bool show_demo_window = true;
     static bool show_connect_status_overlay = true;
+    static bool show_nora_servers_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -124,26 +125,36 @@ static void main_loop(void *arg)
                 statusRequested = true;
             }
         }
+    }
 
+    if (ImGui::Begin("Tools")) {
+        if (ImGui::Button("Nora Servers")) {
+            show_nora_servers_window = true;
+        }
+        ImGui::End();
+    }
+
+    if (show_nora_servers_window) {
         ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
-        ImGui::Begin("Nora Servers");
-        ImGui::PushFont(monoFont);
-        if (noraList.size() > 0) {
-            for (auto& node : noraList) {
-                std::string node_s = node.get<std::string>();
-                ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-                if (ImGui::CollapsingHeader(node_s.c_str())) {
-                    auto status = nodeStatus[node_s];
-                    if (!status.empty()) {
-                        for (auto& el : status.items()) {
-                            std::string s = el.key() + ": " + el.value().dump();
-                            ImGui::Text(s.c_str());
+        if (ImGui::Begin("Nora Servers", &show_nora_servers_window)) {
+            ImGui::PushFont(monoFont);
+            if (noraList.size() > 0) {
+                for (auto& node : noraList) {
+                    std::string node_s = node.get<std::string>();
+                    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+                    if (ImGui::CollapsingHeader(node_s.c_str())) {
+                        auto status = nodeStatus[node_s];
+                        if (!status.empty()) {
+                            for (auto& el : status.items()) {
+                                std::string s = el.key() + ": " + el.value().dump();
+                                ImGui::Text(s.c_str());
+                            }
                         }
                     }
                 }
             }
+            ImGui::PopFont();
         }
-        ImGui::PopFont();
         ImGui::End();
     }
 
