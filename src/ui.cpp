@@ -96,7 +96,7 @@ static void main_loop(void *arg)
     IM_UNUSED(arg);
     ImGuiIO& io = ImGui::GetIO();
 
-    static bool show_demo_window = true;
+    static bool show_demo_window = false;
     static bool show_connect_status_overlay = true;
     static bool show_framerate_overlay = true;
     static bool show_nora_servers_window = false;
@@ -152,6 +152,10 @@ static void main_loop(void *arg)
         }
         ImGui::Checkbox("Connection status", &show_connect_status_overlay);
         ImGui::Checkbox("Frame rate", &show_framerate_overlay);
+        ImGui::Separator();
+        if (ImGui::Button("ImGui Demo")) {
+            show_demo_window = true;
+        }
         ImGui::End();
     }
 
