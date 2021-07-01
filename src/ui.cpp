@@ -70,10 +70,9 @@ static void ShowConnectStatusOverlay(bool* p_open)
         } else {
             ImGui::Text("Disconnected");
         }
-
+        auto framerate = io.Framerate;
+        ImGui::Text("%.3f ms / %.1f FPS", 1000.0f / framerate, framerate);
     }
-    auto framerate = ImGui::GetIO().Framerate;
-    ImGui::Text("%.3f ms / %.1f FPS", 1000.0f / framerate, framerate);
     ImGui::End();
 }
 
