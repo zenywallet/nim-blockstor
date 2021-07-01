@@ -142,18 +142,16 @@ proc newMsg*(msg: seq[byte]): MsgData =
   result = p
 
 proc setMsg*(streamId: StreamId, msgId: MsgId) =
-  withWriteLock msgTableLock:
-    let pair = msgRevTable.addRet(msgId.toBytes, streamId)
-    msgTable.add(streamId.toBytes, pair)
+  let pair = msgRevTable.addRet(msgId.toBytes, streamId)
+  msgTable.add(streamId.toBytes, pair)
 
 proc delMsg*(streamId: StreamId, msgId: MsgId) =
-  withWriteLock msgTableLock:
-    msgTable.del(streamId.toBytes, proc(pair: KVPair[StreamId]): bool =
-      let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
-      result = hkey.toUint64 == msgId.uint64
-      if result:
-        msgRevTable.del(pair)
-      )
+  msgTable.del(streamId.toBytes, proc(pair: KVPair[StreamId]): bool =
+    let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
+    result = hkey.toUint64 == msgId.uint64
+    if result:
+      msgRevTable.del(pair)
+    )
 
 
 var decBuf {.threadvar.}: ptr UncheckedArray[byte]
@@ -209,7 +207,8 @@ proc streamWorker() {.thread.} =
       var client = clientTable[channelData.streamId.toBytes]
       if not client.isNil:
         getMsgId()
-        setMsg(channelData.streamId, msgId)
+        withWriteLock msgTableLock:
+          setMsg(channelData.streamId, msgId)
         pendingClient.add(client)
         addMsgAndInvoke()
     else:
@@ -219,7 +218,8 @@ proc streamWorker() {.thread.} =
         if not client.isNil:
           var sobj = cast[ptr StreamObj](client.pStream)
           if msgId == 0: getMsgId()
-          setMsg(sobj.streamId, msgId)
+          withWriteLock msgTableLock:
+            setMsg(sobj.streamId, msgId)
           pendingClient.add(client)
           addNew = true
       if addNew:
@@ -437,23 +437,24 @@ proc invokeSendMain(client: ptr Client): SendResult =
   result = SendResult.None
   let sobj = cast[ptr StreamObj](client.pStream)
   let sb = sobj.streamId.toBytes
-  for p in msgTable.items(sb):
-    let hkey = (addr p.val.key.data).toBytes(p.val.key.size.int)
-    var msgId: MsgId = hkey.toUint64
-    var val = msgDataTable[msgId.toBytes]
-    if val.isNil:
-      debug "msg not found msgId=", msgId
-      continue
-    let data = (addr val.data).toBytes(val.size.int)
-    if data.len > 0:
-      result = client.sendCmd(data)
-      delMsg(sobj.streamId, msgId)
-      var refExists = false
-      var mb = msgId.toBytes
-      for m in msgRevTable.items(mb):
-        refExists = true
-        break
-      if not refExists:
-        msgDataTable.del(mb)
-      if result == SendResult.Pending:
-        break
+  withWriteLock msgTableLock:
+    for p in msgTable.items(sb):
+      let hkey = (addr p.val.key.data).toBytes(p.val.key.size.int)
+      var msgId: MsgId = hkey.toUint64
+      var val = msgDataTable[msgId.toBytes]
+      if val.isNil:
+        debug "msg not found msgId=", msgId
+        continue
+      let data = (addr val.data).toBytes(val.size.int)
+      if data.len > 0:
+        result = client.sendCmd(data)
+        delMsg(sobj.streamId, msgId)
+        var refExists = false
+        var mb = msgId.toBytes
+        for m in msgRevTable.items(mb):
+          refExists = true
+          break
+        if not refExists:
+          msgDataTable.del(mb)
+        if result == SendResult.Pending:
+          break
