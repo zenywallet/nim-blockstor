@@ -16,6 +16,8 @@ using json = nlohmann::json;
 
 SDL_Window*     g_Window = NULL;
 SDL_GLContext   g_GLContext = NULL;
+ImFont* mainFont = NULL;
+ImFont* monoFont = NULL;
 
 json noraList;
 json nodeStatus;
@@ -126,6 +128,7 @@ static void main_loop(void *arg)
 
         ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
         ImGui::Begin("Nora Servers");
+        ImGui::PushFont(monoFont);
         if (noraList.size() > 0) {
             for (auto& node : noraList) {
                 std::string node_s = node.get<std::string>();
@@ -141,6 +144,7 @@ static void main_loop(void *arg)
                 }
             }
         }
+        ImGui::PopFont();
         ImGui::End();
     }
 
@@ -195,7 +199,8 @@ extern "C" int guimain()
     const char* glsl_version = "#version 100";
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
+    mainFont = io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
+    monoFont = io.Fonts->AddFontFromFileTTF("ShareTechMono-Regular.ttf", 20.0f);
 
     emscripten_set_main_loop_arg(main_loop, NULL, 0, true);
     return 0;
