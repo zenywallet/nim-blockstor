@@ -287,7 +287,7 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
       for i, params in workers:
         if not params.nodeParams.workerEnable:
           continue
-        var m = monitorInfos[][i]
+        var m = addr monitorInfos[][i]
         let lastHeight = lastBlockChekcerParam[i].lastHeight
         m.lastHeight = lastHeight
         if prev[i].height == m.height and prev[i].hash == m.hash and
@@ -301,7 +301,7 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
                           "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
                           "lastHeight": lastHeight}}
           streamSend("status", jsonData)
-          prev[i] = m
+          prev[i] = m[]
           prevLastHeight[i] = lastHeight
       sleep(400)
 
