@@ -285,10 +285,12 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
         if not params.nodeParams.workerEnable:
           continue
         var m = addr monitorInfos[][i]
-        let lastHeight = lastBlockChekcerParam[i].lastHeight
-        m.lastHeight = lastHeight
+        if not lastBlockChekcerParam[i].abort:
+          m.lastHeight = lastBlockChekcerParam[i].lastHeight
+        if m.lastHeight < m.height:
+          m.lastHeight = m.height
         if prev[i].height == m.height and prev[i].hash == m.hash and
-          prev[i].blkTime == m.blkTime and prev[i].lastHeight == lastHeight:
+          prev[i].blkTime == m.blkTime and prev[i].lastHeight == m.lastHeight:
           continue
 
         if streamActive:
