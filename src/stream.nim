@@ -384,7 +384,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         let jsonData = %*{"type": "status", "data":
                           {"network": SERVER_LABELS[i],
                           "height": m.height, "hash": $m.hash,
-                          "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                          "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}
         result = client.sendCmd(jsonData)
 

@@ -297,7 +297,7 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
           let jsonData = %*{"type": "status", "data":
                           {"network": $params.nodeParams.networkId,
                           "height": m.height, "hash": $m.hash,
-                          "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
+                          "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}
           streamSend("status", jsonData)
           prev[i] = m[]
