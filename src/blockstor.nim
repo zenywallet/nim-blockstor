@@ -298,7 +298,7 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
                           {"network": $params.nodeParams.networkId,
                           "height": m.height, "hash": $m.hash,
                           "blkTime": m.blkTime.fromUnix.format("yyyy-MM-dd HH:mm:ss"),
-                          "lastHeight": lastHeight}}
+                          "lastHeight": m.lastHeight}}
           streamSend("status", jsonData)
           prev[i] = m[]
       sleep(400)
