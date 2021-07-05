@@ -15,6 +15,7 @@ requires "nim >= 1.2.0"
 requires "nimcrypto"
 requires "libcurl"
 requires "zip"
+requires "templates"
 
 
 
