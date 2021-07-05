@@ -23,6 +23,7 @@ task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
 task deps, "Build deps":
+  exec "nim c -r src/sophia_patch.nim"
   withDir "deps/sophia":
     if fileExists("sophia/std/ss_lz4filter.c"):
       exec "rm sophia/std/ss_lz4filter.c"
