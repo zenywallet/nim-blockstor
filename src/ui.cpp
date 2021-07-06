@@ -11,6 +11,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <ctime>
+#include <iomanip>
 
 using json = nlohmann::json;
 
@@ -41,6 +43,24 @@ extern "C" void streamRecv(char* data, int size) {
         auto data = j["data"];
         nodeStatus[data["network"].get<std::string>()] = data;
     }
+}
+
+std::string getTime(int64_t tval)
+{
+    std::time_t tt = tval;
+    std::tm* t = std::gmtime(&tt);
+    std::stringstream ss;
+    ss << std::put_time(t, "%Y-%m-%d %X");
+    return ss.str();
+}
+
+std::string getLocalTime(int64_t tval)
+{
+    std::time_t tt = tval;
+    std::tm* t = std::localtime(&tt);
+    std::stringstream ss;
+    ss << std::put_time(t, "%Y-%m-%d %X");
+    return ss.str();
 }
 
 static ImGuiWindowFlags PrepareOverlay()
@@ -170,9 +190,46 @@ static void main_loop(void *arg)
                     if (ImGui::CollapsingHeader(node_s.c_str())) {
                         auto status = nodeStatus[node_s];
                         if (!status.empty()) {
-                            for (auto& el : status.items()) {
-                                std::string s = el.key() + ": " + el.value().dump();
-                                ImGui::Text(s.c_str());
+                            if (!status["blkTime"].empty()) {
+                                int64_t tval = status["blkTime"].get<int64_t>();
+                                std::string blkTimeStr = "Block Time: " + getLocalTime(tval);
+                                ImGui::Text(blkTimeStr.c_str());
+                            }
+                            if (!status["hash"].empty()) {
+                                std::string hashStr = "Hash: " + status["hash"].get<std::string>();
+                                ImGui::Text(hashStr.c_str());
+                            }
+                            if (!status["height"].empty()) {
+                                if (!status["lastHeight"].empty()) {
+                                    int64_t height = status["height"].get<int64_t>();
+                                    int64_t last_height = status["lastHeight"].get<int64_t>();
+                                    std::string heightStr = "Height: " +
+                                        std::to_string(height) + " / " +
+                                        std::to_string(last_height);
+                                    ImGui::Text(heightStr.c_str());
+                                    if (last_height > 0) {
+                                        float progress = static_cast<double>(height) / static_cast<double>(last_height);
+                                        if (height < last_height && progress > 0.994f) {
+                                            progress = 0.994f;
+                                        }
+                                        ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f));
+                                        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+                                        if (height == last_height) {
+                                            ImGui::Text("Synced");
+                                        } else {
+                                            ImGui::Text("Syncing");
+                                        }
+                                    } else {
+                                        ImGui::ProgressBar(0.0f, ImVec2(0.0f, 0.0f));
+                                        ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
+                                        ImGui::Text("Not syncing");
+                                    }
+                                } else {
+                                    std::string heightStr = "Height: " +
+                                        std::to_string(status["height"].get<int64_t>());
+                                    ImGui::Text(heightStr.c_str());
+                                }
+
                             }
                         }
                     }
