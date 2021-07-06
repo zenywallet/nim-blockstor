@@ -33,7 +33,7 @@ body {
 #overlap {
   z-index: 100;
   position: absolute;
-  top: 4px;
+  bottom: 4px;
   left: 4px;
   color: white;
   pointer-events: none;
@@ -42,7 +42,7 @@ body {
 #status {
   z-index: 100;
   position: absolute;
-  bottom: 4px;
+  top: 4px;
   left: 4px;
   color: white;
   pointer-events: none;

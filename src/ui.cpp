@@ -166,7 +166,10 @@ static void main_loop(void *arg)
         }
     }
 
-    if (ImGui::Begin("Tools")) {
+    ImVec2 toolPos;
+    ImVec2 toolSize;
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
+    if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
         if (ImGui::Button("Nora Servers")) {
             show_nora_servers_window = true;
         }
@@ -176,11 +179,14 @@ static void main_loop(void *arg)
         if (ImGui::Button("ImGui Demo")) {
             show_demo_window = true;
         }
+        toolSize = ImGui::GetWindowSize();
+        toolPos = ImGui::GetWindowPos();
         ImGui::End();
     }
 
     if (show_nora_servers_window) {
-        ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(toolPos.x + toolSize.x, toolPos.y), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(700, 350), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Nora Servers", &show_nora_servers_window)) {
             ImGui::PushFont(monoFont);
             if (noraList.size() > 0) {
