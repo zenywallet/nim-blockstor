@@ -49,6 +49,7 @@ task ui, "Build ui":
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -r src/ui_patch.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
   closure_compiler="google-closure-compiler"
@@ -74,6 +75,7 @@ task uidebug, "Build ui for debug":
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -r src/ui_patch.nim"
   exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
   exec "rm src/ui_externs.js"

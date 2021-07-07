@@ -142,6 +142,7 @@ static void main_loop(void *arg)
         ShowFramerateOverlay(&show_framerate_overlay);
     }
 
+
     {
         static bool noralistRequested = false;
         static bool statusOnRequested = false;
@@ -255,6 +256,43 @@ static void main_loop(void *arg)
     SDL_GL_SwapWindow(g_Window);
 }
 
+static const char* GetClipboardTextFn_Impl(void* user_data)
+{
+    static std::string cliptext;
+
+    char* clipchar = NULL;
+    clipchar = (char*)EM_ASM_INT({
+        var clipboard = deoxy.clipboard;
+        clipboard.focus();
+        clipboard.select();
+        document.execCommand('paste');
+        var s = clipboard.value.slice();
+        var len = lengthBytesUTF8(s) + 1;
+        var buf = _malloc(len);
+        stringToUTF8(s, buf, len);
+        return buf;
+    });
+    if (clipchar != NULL) {
+        cliptext = std::string(clipchar);
+        free(clipchar);
+
+        return cliptext.c_str();
+    }
+
+    return NULL;
+}
+
+static void SetClipboardTextFn_Impl(void* user_data, const char* text)
+{
+    EM_ASM({
+        var clipboard = deoxy.clipboard;
+        clipboard.value = UTF8ToString($0);
+        clipboard.focus();
+        clipboard.select();
+        document.execCommand('copy');
+    }, text);
+}
+
 extern "C" int guimain()
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
@@ -299,7 +337,26 @@ extern "C" int guimain()
 
     mainFont = io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
     monoFont = io.Fonts->AddFontFromFileTTF("ShareTechMono-Regular.ttf", 20.0f);
+    io.GetClipboardTextFn = GetClipboardTextFn_Impl;
+    io.SetClipboardTextFn = SetClipboardTextFn_Impl;
+
+    EM_ASM({
+        var clipboard = document.getElementById('clipboard');
+        if(!clipboard) {
+            clipboard = document.createElement('textarea');
+            clipboard.setAttribute('id', 'clipboard');
+            clipboard.setAttribute('raws', 1);
+            clipboard.setAttribute('tabindex', -1);
+            clipboard.setAttribute('spellcheck', false);
+            clipboard.setAttribute('readyOnly', '');
+            document.body.appendChild(clipboard);
+        }
+        clipboard.focus();
+        document.execCommand('paste');  // workaround first take
+        deoxy.clipboard = clipboard;
+    });
 
     emscripten_set_main_loop_arg(main_loop, NULL, 0, true);
+
     return 0;
 }
