@@ -171,15 +171,11 @@ static void main_loop(void *arg)
     ImVec2 toolSize;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
     if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
-        if (ImGui::Button("Nora Servers")) {
-            show_nora_servers_window = true;
-        }
+        ImGui::Checkbox("Nora Servers", &show_nora_servers_window);
         ImGui::Checkbox("Connection status", &show_connect_status_overlay);
         ImGui::Checkbox("Frame rate", &show_framerate_overlay);
         ImGui::Separator();
-        if (ImGui::Button("ImGui Demo")) {
-            show_demo_window = true;
-        }
+        ImGui::Checkbox("ImGui Demo", &show_demo_window);
         toolSize = ImGui::GetWindowSize();
         toolPos = ImGui::GetWindowPos();
         ImGui::End();
