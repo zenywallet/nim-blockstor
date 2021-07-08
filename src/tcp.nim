@@ -9,6 +9,8 @@ import address
 when not compileOption("threads"):
   {.error: "requires --threads:on option.".}
 
+const SEND_PING* = defined(SEND_PING)
+
 type
   Version = distinct uint32
 
@@ -146,6 +148,8 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
   var reqHashes: seq[BlockHash]
   var prevBlkHash: BlockHash
   var prevBlkTime: int64
+  when SEND_PING:
+    var prevSendTime: float = epochTime()
 
   proc checkSendErr(flag: bool) =
     if not flag:
@@ -171,6 +175,16 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
       blockHashes = @[]
       var getdataMsg = node.message("getdata", (VarInt(n), invs).toBytes)
       checkSendErr node.sock.send(getdataMsg)
+      when SEND_PING:
+        prevSendTime = epochTime()
+    else:
+      when SEND_PING:
+        let curEpochTime = epochTime()
+        if curEpochTime - prevSendTime > 180.0:
+          checkSendErr node.sock.send(node.message("ping", curEpochTime.uint64.toBytes))
+          prevSendTime = curEpochTime
+      else:
+        discard
 
     if queue > 0:
       var message = node.messageChannel[].recv()
