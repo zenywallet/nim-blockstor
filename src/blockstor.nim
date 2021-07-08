@@ -465,5 +465,7 @@ onSignal(SIGINT, SIGTERM):
   abort = true
   tcp.stop()
 
+signal(SIGPIPE, SIG_IGN)
+
 mempool.init(nodes.len)
 startWorker()
