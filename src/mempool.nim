@@ -261,6 +261,9 @@ proc update*(reset: bool) =
       let (txid, tx) = txNew
       for n, txout in tx.outs:
         let addrHash = txout.script.getAddressHash160
+        if addrHash.addressType == AddressType.Unknown:
+          info "INFO: mempool unknown address chunks=", txout.script.getScriptChunks
+          continue
         let mpTxTxout = newMempoolTxTxout(n.uint32, txout.value, addrHash.hash160, addrHash.addressType)
         withWriteLock kvLock:
           kvTxTxouts.add(txid.toBytes, mpTxTxout)
