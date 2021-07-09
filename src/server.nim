@@ -29,31 +29,30 @@ const REQ_LIMIT_HTTPS_ACCEPT_MAX = 120
 const REQ_LIMIT_HTTP_ACCEPT_PERIOD = 60
 const REQ_LIMIT_HTTP_ACCEPT_MAX = 120
 
-const RELEASE_MODE = defined(release)
-when RELEASE_MODE:
-  const ENABLE_SSL = true
+const ENABLE_SSL = defined(ENABLE_SSL)
+when ENABLE_SSL:
+  import openssl
+  import nimcrypto
+
   const HTTP_PORT = 80
   const HTTPS_PORT = 443
   const HTTP_HOST_NAME = "localhost"
   const HTTPS_HOST_NAME = "localhost"
   const REDIRECT_URL = "https://" & HTTPS_HOST_NAME
-else:
-  const ENABLE_SSL = false
-  const HTTP_PORT = 8080
-  const HTTPS_PORT = 8000
-  const HTTP_HOST_NAME = "localhost:8080"
-  const HTTPS_HOST_NAME = "localhost:8000"
-  const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
-
-when ENABLE_SSL:
-  import openssl
-  import nimcrypto
+  const DEBUG_LOG = false
 
   const CERT_PATH = "./"
   const CERT_FILE = CERT_PATH / "cert.pem"
   const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
   const CHAIN_FILE = CERT_PATH / "fullchain.pem"
   const SSL_AUTO_RELOAD = true
+else:
+  const HTTP_PORT = 8080
+  const HTTPS_PORT = 8000
+  const HTTP_HOST_NAME = "localhost:8080"
+  const HTTPS_HOST_NAME = "localhost:8000"
+  const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
+  const DEBUG_LOG = true
 
 type
   ClientBase* = ref object of RootObj
@@ -164,7 +163,7 @@ type
   ServerNeedRestartError* = object of CatchableError
 
 template debug(x: varargs[string, `$`]) =
-  when RELEASE_MODE:
+  when DEBUG_LOG:
     discard
   else:
     echo join(x)
