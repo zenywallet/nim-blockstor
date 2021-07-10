@@ -403,6 +403,8 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
     lastBlockChekcerParam[params.id].abort = true
     lastBlockCheckerThread.joinThread()
+    if abort:
+      return
 
   block rpcMode:
     echo "rpc mode"
@@ -424,6 +426,8 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
         dbInst.writeBlock(height, blkRpcHash, blk, nextSeqId)
         nextSeqId = nextSeqId + blk.txs.len.uint64
         setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
+        if abort:
+          return
 
         retHash = rpc.getBlockHash.send(height + 1)
         blockNew = true
