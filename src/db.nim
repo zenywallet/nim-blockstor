@@ -54,6 +54,12 @@ proc close*(dbInst: DbInst) =
 proc close*(dbInsts: DbInsts) =
   sophia.close(cast[seq[Sophia]](dbInsts))
 
+proc backupRun*(dbInst: DbInst) =
+  sophia.backupRun(dbInst)
+
+proc backupRun*(dbInsts: DbInsts) =
+  sophia.backupRun(dbInsts[0])
+
 proc setBlockHash*(db: DbInst, height: int, hash: BlockHash, time: uint32, start_id: uint64) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   let val = BytesBE(hash, time, start_id)

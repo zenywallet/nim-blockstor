@@ -67,6 +67,7 @@ proc open*(sophia: Sophia, dbpath, dbname: string) =
   sophia.env = sp_env()
   if sophia.env.isNil:
     raise newException(SophiaErr, "env is nil")
+  checkErr sophia.env.sp_setstring("backup.path", "backup".cstring, 0)
   checkErr sophia.env.sp_setint("log.enable", 1)
   checkErr sophia.env.sp_setint("scheduler.threads", 4)
   checkErr sophia.env.sp_setstring("sophia.path", dbpath.cstring, 0)
@@ -85,9 +86,11 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
   var env = sp_env()
   if env.isNil:
     raise newException(SophiaErr, "env is nil")
+  env.checkErr env.sp_setstring("backup.path", "backup".cstring, 0)
   env.checkErr env.sp_setint("log.enable", 1)
   env.checkErr env.sp_setint("scheduler.threads", 4)
   env.checkErr env.sp_setstring("sophia.path", dbpath.cstring, 0)
+
   for dbname in dbnames:
     env.checkErr env.sp_setstring("db", dbname.cstring, 0)
     env.checkErr env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
@@ -98,6 +101,7 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
       raise newException(SophiaErr, "db is nil")
     result.add(sophia)
   env.checkErr env.sp_open()
+
   for dbname in dbnames:
     echo "index count ", dbname, "=", env.sp_getint("db." & dbname & ".index.count")
 
@@ -108,6 +112,9 @@ proc close*(sophias: seq[Sophia]) =
   if sophias.len > 0:
     let sophia = sophias[0]
     checkErr sophia.env.sp_destroy()
+
+proc backupRun*(sophia: Sophia) =
+  checkErr sophia.env.sp_setint("backup.run", 0)
 
 proc put*(sophia: Sophia, key: openarray[byte], value: openarray[byte]) =
   var o = sophia.db.sp_document()
