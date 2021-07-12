@@ -327,7 +327,8 @@ proc update*(reset: bool) =
                 info "INFO: mempool spent " & $txin.tx & " " & $txin.n
 
             let mpAddrSpent = newMempoolAddrSpent(txout.val.address_type, txin.tx, txin.n, txout.val.value, txid)
-            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, txout.val.value, txout.key.Hash160, txout.val.address_type)
+            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, txout.val.value,
+                                              txout.val.address_hash.toBytes.Hash160, txout.val.address_type)
             withWriteLock kvLock:
               kvAddrSpents.add(txout.key, mpAddrSpent)
               kvTxSpents.add(txidBytes, mpTxSpent)
