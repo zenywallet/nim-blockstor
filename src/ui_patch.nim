@@ -5,7 +5,7 @@ import os, strutils
 const uiFile = currentSourcePath().parentDir() / "../public/ui.js"
 const uiFileTmp = currentSourcePath().parentDir() / "../public/ui.js_tmp"
 
-var patchString = "if(eventTypeId != 2 || e.key != 'v' || (!e.ctrlKey && !e.metaKey)) "
+var patchString = "if(!(eventTypeId == 2 && e.key == 'v' && (e.ctrlKey || e.metaKey))) "
 
 proc patch(file: string) =
   var s = readFile(file)
