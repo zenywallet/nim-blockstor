@@ -258,6 +258,10 @@ template updateLastHeight(id: int) {.dirty.} =
     raise newException(BlockstorError, "get block count")
   lastBlockChekcerParam[id].lastHeight = retBlockCount["result"].getInt
 
+proc doAbort() =
+  abort = true
+  tcp.stop()
+
 const MONITOR_CONSOLE = false
 var monitorEnable = true
 proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
@@ -467,8 +471,7 @@ server.start()
 
 onSignal(SIGINT, SIGTERM):
   echo "bye from signal ", sig
-  abort = true
-  tcp.stop()
+  doAbort()
 
 signal(SIGPIPE, SIG_IGN)
 
