@@ -286,62 +286,63 @@ proc update*(reset: bool) =
       let txidBytes = txid.toBytes
       for txin in tx.ins:
         let retTx = dbInst.getTx(txin.tx)
-        if retTx.err != DbStatus.Success:
-          raise newException(MempoolError, "tx not found")
-        let retTxout = dbInst.getTxout(retTx.res.id, txin.n)
-        if retTxout.err == DbStatus.Success:
-          let (value, address_hash, address_type) = retTxout.res
-          let mpAddrSpent = newMempoolAddrSpent(address_type.AddressType, txin.tx, txin.n, value, txid)
-          let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, value, address_hash, address_type.AddressType)
-          withWriteLock kvLock:
-            kvAddrSpents.add(address_hash.toBytes, mpAddrSpent)
-            kvTxSpents.add(txidBytes, mpTxSpent)
+        if retTx.err == DbStatus.Success:
+          let retTxout = dbInst.getTxout(retTx.res.id, txin.n)
+          if retTxout.err == DbStatus.Success:
+            let (value, address_hash, address_type) = retTxout.res
+            let mpAddrSpent = newMempoolAddrSpent(address_type.AddressType, txin.tx, txin.n, value, txid)
+            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, value, address_hash, address_type.AddressType)
+            withWriteLock kvLock:
+              kvAddrSpents.add(address_hash.toBytes, mpAddrSpent)
+              kvTxSpents.add(txidBytes, mpTxSpent)
 
-          let addrkey = (address_hash, address_type).toBytes
-          if addrsSendTable.hasKey(addrkey):
-            addrsSendTable[addrkey] = addrsSendTable[addrkey] + value
-          else:
-            addrsSendTable[addrkey] = value
-
+            let addrkey = (address_hash, address_type).toBytes
+            if addrsSendTable.hasKey(addrkey):
+              addrsSendTable[addrkey] = addrsSendTable[addrkey] + value
+            else:
+              addrsSendTable[addrkey] = value
+            continue
         else:
-          var findTxout = false
-          var txouts: seq[tuple[key: seq[byte], val: MempoolTxTxout]]
-          withReadLock kvLock:
-            for txout in kvTxTxouts.items(txin.tx.toBytes):
-              if txout.val.n == txin.n:
-                txouts.add(txout)
+          info "INFO: tx not found " & $txin.tx & " in " & $txid
 
-          for txout in txouts:
+        var findTxout = false
+        var txouts: seq[tuple[key: seq[byte], val: MempoolTxTxout]]
+        withReadLock kvLock:
+          for txout in kvTxTxouts.items(txin.tx.toBytes):
             if txout.val.n == txin.n:
-              var doubleSpending = false
+              txouts.add(txout)
 
-              withReadLock kvLock:
-                for s in kvAddrSpents.items(txout.key):
-                  if s.val.n == txin.n:
-                    doubleSpending = true
-                    break
-                if doubleSpending:
-                  info "INFO: mempool double spending " & $txin.tx & " " & $txin.n
-                else:
-                  info "INFO: mempool spent " & $txin.tx & " " & $txin.n
+        for txout in txouts:
+          if txout.val.n == txin.n:
+            var doubleSpending = false
 
-              let mpAddrSpent = newMempoolAddrSpent(txout.val.address_type, txin.tx, txin.n, txout.val.value, txid)
-              let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, txout.val.value, txout.key.Hash160, txout.val.address_type)
-              withWriteLock kvLock:
-                kvAddrSpents.add(txout.key, mpAddrSpent)
-                kvTxSpents.add(txidBytes, mpTxSpent)
-
-              let addrkey = (txout.key, txout.val.address_type).toBytes
-              if addrsSendTable.hasKey(addrkey):
-                addrsSendTable[addrkey] = addrsSendTable[addrkey] + txout.val.value
+            withReadLock kvLock:
+              for s in kvAddrSpents.items(txout.key):
+                if s.val.n == txin.n:
+                  doubleSpending = true
+                  break
+              if doubleSpending:
+                info "INFO: mempool double spending " & $txin.tx & " " & $txin.n
               else:
-                addrsSendTable[addrkey] = txout.val.value
+                info "INFO: mempool spent " & $txin.tx & " " & $txin.n
 
-              findTxout = true
-              break
+            let mpAddrSpent = newMempoolAddrSpent(txout.val.address_type, txin.tx, txin.n, txout.val.value, txid)
+            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, txout.val.value, txout.key.Hash160, txout.val.address_type)
+            withWriteLock kvLock:
+              kvAddrSpents.add(txout.key, mpAddrSpent)
+              kvTxSpents.add(txidBytes, mpTxSpent)
 
-          if not findTxout:
-            error "ERROR: mempool txout not found " & $txin.tx & " " & $txin.n
+            let addrkey = (txout.key, txout.val.address_type).toBytes
+            if addrsSendTable.hasKey(addrkey):
+              addrsSendTable[addrkey] = addrsSendTable[addrkey] + txout.val.value
+            else:
+              addrsSendTable[addrkey] = txout.val.value
+
+            findTxout = true
+            break
+
+        if not findTxout:
+          error "ERROR: mempool txout not found " & $txin.tx & " " & $txin.n
 
       txsAddrSendTable[txid.toBytes] = addrsSendTable
 
