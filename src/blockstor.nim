@@ -455,6 +455,7 @@ proc startWorker() =
   server.stop()
   deallocShared(monitorInfos)
   dbInsts.close()
+  echo "db closed"
   resetAttributes()
 
 
