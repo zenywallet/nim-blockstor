@@ -10,6 +10,8 @@ import monitor
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
+  WrapperParams = tuple[threadFunc: proc(params: WorkerParams) {.thread.}, params: WorkerParams]
+  WrapperMultiParams = tuple[threadFunc: proc(params: seq[WorkerParams]) {.thread.}, params: seq[WorkerParams]]
 
   BlockstorError* = object of CatchableError
 
@@ -262,6 +264,14 @@ proc doAbort() =
   abort = true
   tcp.stop()
 
+proc threadWrapper(wrapperParams: WrapperParams | WrapperMultiParams) {.thread.} =
+  try:
+    wrapperParams.threadFunc(wrapperParams.params)
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
+    doAbort()
+
 const MONITOR_CONSOLE = false
 var monitorEnable = true
 proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
@@ -393,8 +403,8 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       node.close()
 
     updateLastHeight(params.id)
-    var lastBlockCheckerThread: Thread[WorkerParams]
-    createThread(lastBlockCheckerThread, lastBlockChecker, params)
+    var lastBlockCheckerThread: Thread[WrapperParams]
+    createThread(lastBlockCheckerThread, threadWrapper, (lastBlockChecker, params))
 
     proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool =
       dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
@@ -440,18 +450,18 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
       sleep(1000)
 
-var monitorThread: Thread[seq[WorkerParams]]
+var monitorThread: Thread[WrapperMultiParams]
 
 proc startWorker() =
   lastBlockChekcerParam = cast[ptr UncheckedArray[LastBlockChekcerParam]](allocShared0(sizeof(LastBlockChekcerParam) * workers.len))
   monitorInfos = cast[ptr UncheckedArray[MonitorInfo]](allocShared0(sizeof(MonitorInfo) * workers.len))
   monitorInfosCount = workers.len
-  createThread(monitorThread, monitorMain, workers)
-  var threads = newSeq[Thread[WorkerParams]](workers.len)
+  createThread(monitorThread, threadWrapper, (monitorMain, workers))
+  var threads = newSeq[Thread[WrapperParams]](workers.len)
 
   for i, params in workers:
     if params.nodeParams.workerEnable:
-      createThread(threads[i], nodeWorker, params)
+      createThread(threads[i], threadWrapper, (nodeWorker, params))
   threads.joinThreads()
   monitorEnable = false
   monitorThread.joinThread()
