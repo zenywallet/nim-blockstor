@@ -333,7 +333,7 @@ proc update*(reset: bool) =
               kvAddrSpents.add(txout.key, mpAddrSpent)
               kvTxSpents.add(txidBytes, mpTxSpent)
 
-            let addrkey = (txout.key, txout.val.address_type).toBytes
+            let addrkey = (txout.val.address_hash, txout.val.address_type).toBytes
             if addrsSendTable.hasKey(addrkey):
               addrsSendTable[addrkey] = addrsSendTable[addrkey] + txout.val.value
             else:
