@@ -143,7 +143,7 @@ proc freeVal[T](val: T) =
   when T is MempoolAddrSpent |
             MempoolAddrTxout |
             MempoolTxAddr |
-            MempoolTxTxout|
+            MempoolTxTxout |
             MempoolTxSpent:
     val.deallocShared()
   else:
