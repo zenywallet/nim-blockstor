@@ -324,6 +324,7 @@ extern "C" int guimain()
     io.IniFilename = NULL;
     io.ConfigInputTextCursorBlink = true;
     io.ConfigWindowsResizeFromEdges = true;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui::StyleColorsDark();
 
