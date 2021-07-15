@@ -15,6 +15,7 @@ export uthash
 # txaddrs = txid = address_hash, address_type, trans (0 - out | 1 - in), val
 # txtxouts = txid = n, value, address_hash, address_type
 # txspents = txid_out = txid, n, value, address_hash, address_type
+# unconfs - address_hash, address_type = val_out, val_in
 
 type
   HashArray* = array[32, byte]
@@ -57,12 +58,20 @@ type
     address_hash*: Hash160Array
     address_type*: AddressType
 
+  MempoolUnconfObj* = object
+    # address_hash*: Hash160Array - key
+    # address_type*: AddressType - key
+    value_out*: uint64
+    value_in*: uint64
+
   MempoolAddrSpent* = ptr MempoolAddrSpentObj
   MempoolAddrTxout* = ptr MempoolAddrTxoutObj
 
   MempoolTxAddr* = ptr MempoolTxAddrObj
   MempoolTxTxout* = ptr MempoolTxTxoutObj
   MempoolTxSpent* = ptr MempoolTxSpentObj
+
+  MempoolUnconf* = ptr MempoolUnconfObj
 
   MempoolError* = object of CatchableError
 
@@ -139,12 +148,19 @@ proc newMempoolTxSpent(txid: Hash, n: uint32, value: uint64, address_hash: Hash1
   p.address_type = address_type
   result = p
 
+proc newMempoolUnconf(value_out: uint64, value_in: uint64): MempoolUnconf =
+  let p = cast[MempoolUnconf](allocShared0(sizeof(MempoolUnconfObj)))
+  p.value_out = value_out
+  p.value_in = value_in
+  result = p
+
 proc freeVal[T](val: T) =
   when T is MempoolAddrSpent |
             MempoolAddrTxout |
             MempoolTxAddr |
             MempoolTxTxout |
-            MempoolTxSpent:
+            MempoolTxSpent |
+            MempoolUnconf:
     val.deallocShared()
   else:
     discard
@@ -169,6 +185,7 @@ var kvAddrTxouts {.threadvar.}: ptr KVHandle[MempoolAddrTxout]
 var kvTxAddrs {.threadvar.}: ptr KVHandle[MempoolTxAddr]
 var kvTxTxouts {.threadvar.}: ptr KVHandle[MempoolTxTxout]
 var kvTxSpents {.threadvar.}: ptr KVHandle[MempoolTxSpent]
+var kvUnconfs {.threadvar.}: ptr KVHandle[MempoolUnconf]
 
 const MAX_TXS_GET_ONCE = 100
 
@@ -179,6 +196,7 @@ type
     kvTxAddrsHandle: KVHandle[MempoolTxAddr]
     kvTxTxoutsHandle: KVHandle[MempoolTxTxout]
     kvTxSpentsHandle: KVHandle[MempoolTxSpent]
+    kvUnconfsHandle: KVHandle[MempoolUnconf]
 
   KVs* = object
     kvAddrSpents*: ptr KVHandle[MempoolAddrSpent]
@@ -186,6 +204,7 @@ type
     kvTxAddrs*: ptr KVHandle[MempoolTxAddr]
     kvTxTxouts*: ptr KVHandle[MempoolTxTxout]
     kvTxSpents*: ptr KVHandle[MempoolTxSpent]
+    kvUnconfs*: ptr KVHandle[MempoolUnconf]
 
 var kvHandles: ptr UncheckedArray[KVHandles]
 var kvs*: ptr UncheckedArray[KVs]
@@ -204,6 +223,7 @@ proc init*(mempoolNumber: int) =
     kvs[i].kvTxAddrs = addr kvHandles[i].kvTxAddrsHandle
     kvs[i].kvTxTxouts = addr kvHandles[i].kvTxTxoutsHandle
     kvs[i].kvTxSpents = addr kvHandles[i].kvTxSpentsHandle
+    kvs[i].kvUnconfs = addr kvHandles[i].kvUnconfsHandle
   kvsLen = mempoolNumber
 
 proc deinit*() =
@@ -220,6 +240,7 @@ proc setParams*(mempoolParams: MempoolParams) =
   kvTxAddrs = kvs[poolId].kvTxAddrs
   kvTxTxouts = kvs[poolId].kvTxTxouts
   kvTxSpents = kvs[poolId].kvTxSpents
+  kvUnconfs = kvs[poolId].kvUnconfs
 
 proc update*(reset: bool) =
   if reset:
@@ -229,6 +250,7 @@ proc update*(reset: bool) =
       kvTxAddrs.clear()
       kvTxTxouts.clear()
       kvTxSpents.clear()
+      kvUnconfs.clear()
     txsTable.clear()
 
   var mpool = rpc.getRawMemPool.send()
@@ -359,6 +381,11 @@ proc update*(reset: bool) =
         let mpTxAddr = newMempoolTxAddr(address_hash, address_type, 0'u8, v)
         withWriteLock kvLock:
           kvTxAddrs.add(txidBytes, mpTxAddr)
+          if kvUnconfs[k].isNil:
+            kvUnconfs[k] = newMempoolUnconf(v, 0)
+          else:
+            let uc = kvUnconfs[k]
+            kvUnconfs[k] = newMempoolUnconf(uc.value_out + v, uc.value_in)
 
       let addrsRecvTable = txsAddrRecvTable[txidBytes]
       for k, v in addrsRecvTable.pairs:
@@ -367,6 +394,11 @@ proc update*(reset: bool) =
         let mpTxAddr = newMempoolTxAddr(address_hash, address_type, 1'u8, v)
         withWriteLock kvLock:
           kvTxAddrs.add(txidBytes, mpTxAddr)
+          if kvUnconfs[k].isNil:
+            kvUnconfs[k] = newMempoolUnconf(0, v)
+          else:
+            let uc = kvUnconfs[k]
+            kvUnconfs[k] = newMempoolUnconf(uc.value_out, uc.value_in + v)
 
 proc `%`*(obj: MempoolAddrSpentObj | MempoolAddrTxoutObj |
           MempoolTxAddrObj | MempoolTxTxoutObj | MempoolTxSpentObj): JsonNode =
@@ -412,3 +444,9 @@ proc unconfs*(poolId: int): JsonNode =
     else:
       jtxouts[addrHash] = %[txout.val[]]
   result = j
+
+proc unconfs*(poolId: int, addrHash: Hash160, addrType: AddressType): MempoolUnconf =
+  let kvUnconfs = kvs[poolId].kvUnconfs
+  let addrkey = (addrHash, addrType).toBytes
+  withReadLock kvLock:
+    result = kvUnconfs[addrkey]
