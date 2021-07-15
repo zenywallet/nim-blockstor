@@ -7,6 +7,7 @@ import mempool
 import posix
 import server
 import monitor
+import utils
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
@@ -173,6 +174,112 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
       else:
         dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
+
+proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64) =
+  dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
+
+  var addrouts = newSeq[seq[AddrVal]](blk.txs.len)
+  var addrins = newSeq[seq[AddrVal]](blk.txs.len)
+  var streamAddrs = initTable[seq[byte], tuple[value: uint64, utxo_count: uint32]]()
+
+  if blk.txs.len != blk.txn.int:
+    raise newException(BlockParserError, "txn conflict")
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+    var txid = Hash(tx.txidBin)
+    dbInst.setId(sid, txid)
+    var addrvals: seq[AddrVal]
+    var dustCount = 0
+    for n, o in tx.outs:
+      if o.value <= 546: # dust is less than 546, 546 is not
+        if dustCount >= 2:
+          break
+        inc(dustCount)
+    if dustCount >= 2:
+      dbInst.setTx(txid, height, sid, 1.uint8)
+    else:
+      dbInst.setTx(txid, height, sid)
+      for n, o in tx.outs:
+        var addrHash = getAddressHash160(o.script)
+        dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
+        dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
+        addrvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
+
+    addrouts[idx] = addrvals.aggregate
+
+  for idx, tx in blk.txs:
+    var addrvals: seq[AddrVal]
+    for i in tx.ins:
+      var in_txid = i.tx
+      var n = i.n
+
+      if n == 0xffffffff'u32:
+        dbInst.setMinedId(seq_id + idx.uint64, height)
+      else:
+        var ret_tx = dbInst.getTx(in_txid)
+        if ret_tx.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "id not found " & $in_txid)
+        if ret_tx.res.skip == 1:
+          echo "skip tx " & $in_txid
+          continue
+
+        var id = ret_tx.res.id
+        var ret_txout = dbInst.getTxout(id, n)
+        if ret_txout.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "txout not found " & $id)
+
+        dbInst.delUnspent(ret_txout.res.address_hash, id, n)
+        addrvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
+
+    addrins[idx] = addrvals.aggregate
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+
+    var addrvals = addrouts[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      var ret_addrval = dbInst.getAddrval(hash160)
+      if ret_addrval.err == DbStatus.NotFound:
+        dbInst.setAddrval(hash160, value, utxo_count)
+        if addressType != AddressType.Unknown.uint8:
+          streamAddrs[(hash160, addressType).toBytes] = (value, utxo_count)
+      else:
+        let val = ret_addrval.res.value + value
+        let cnt = ret_addrval.res.utxo_count + utxo_count
+        dbInst.setAddrval(hash160, val, cnt)
+        if addressType != AddressType.Unknown.uint8:
+          streamAddrs[(hash160, addressType).toBytes] = (val, cnt)
+      dbInst.setAddrlog(hash160, sid, 1, value, addressType)
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+
+    var addrvals = addrins[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      var ret_addrval = dbInst.getAddrval(hash160)
+      if ret_addrval.err == DbStatus.NotFound:
+        raise newException(BlockParserError, "address not found " & $hash160)
+      else:
+        let val = ret_addrval.res.value - value
+        let cnt = ret_addrval.res.utxo_count - utxo_count
+        dbInst.setAddrval(hash160, val, cnt)
+        if addressType != AddressType.Unknown.uint8:
+          streamAddrs[(hash160, addressType).toBytes] = (val, cnt)
+      dbInst.setAddrlog(hash160, sid, 0, value, addressType)
+
+  for k, v in streamAddrs.pairs:
+    let jsonData =  %*{"val": v.value.toJson, "utxo_count": v.utxo_count}
+    streamSend(k, jsonData)
+    echo "streamSend tag=", k, " ", jsonData
 
 proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64): tuple[height: int, seq_id: uint64] =
   var addrins = newSeq[seq[AddrValRollback]](blk.txs.len)
@@ -454,7 +561,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
         let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
         inc(height)
-        dbInst.writeBlock(height, blkRpcHash, blk, nextSeqId)
+        dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId)
         nextSeqId = nextSeqId + blk.txs.len.uint64
         setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
         if abort:
