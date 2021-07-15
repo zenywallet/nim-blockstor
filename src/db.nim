@@ -6,7 +6,7 @@ import blocks
 type Prefix* {.pure.} = enum
   params = 0  # param_id = value
   blocks      # height = hash, time, start_id
-  txs         # txid = height, id
+  txs         # txid = height, id, (skip)
   ids         # id = txid
   txouts      # id, n = value, address_hash, address_type
   unspents    # address_hash, id, n = value
@@ -104,23 +104,24 @@ proc delBlockHash*(db: DbInst, height: int) =
   let key = BytesBE(Prefix.blocks, height.uint32)
   db.del(key)
 
-proc setTx*(db: DbInst, txid: Hash, height: int, id: uint64) =
+proc setTx*(db: DbInst, txid: Hash, height: int, id: uint64, skip: uint8 = 0) =
   let key = BytesBE(Prefix.txs, txid)
-  let val = BytesBE(height.uint32, id)
+  let val = BytesBE(height.uint32, id, skip.uint8)
   db.put(key, val)
 
 type
-  TxResult* = tuple[height: int, id: uint64]
+  TxResult* = tuple[height: int, id: uint64, skip: uint8]
   DbTxResult* = DbResult[TxResult]
 
 proc getTx*(db: DbInst, txid: Hash): DbTxResult =
   let key = BytesBE(Prefix.txs, txid)
   let d = db.get(key)
-  if d.len == 12:
+  if d.len == 13:
     var d = d
     let height = d[0].toUint32BE.int
     let id = d[4].toUint64BE
-    result = DbTxResult(err: DbStatus.Success, res: (height, id))
+    let skip = d[12].uint8
+    result = DbTxResult(err: DbStatus.Success, res: (height, id, skip))
   else:
     result = DbTxResult(err: DbStatus.NotFound)
 

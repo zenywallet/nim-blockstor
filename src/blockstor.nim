@@ -97,15 +97,22 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
     var sid = seq_id + idx.uint64
     var txid = Hash(tx.txidBin)
     dbInst.setId(sid, txid)
-    dbInst.setTx(txid, height, sid)
     var addrvals: seq[AddrVal]
+    var dustCount = 0
     for n, o in tx.outs:
-      if o.value == 0:
-        continue
-      var addrHash = getAddressHash160(o.script)
-      dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
-      dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
-      addrvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
+      if o.value <= 546: # dust is less than 546, 546 is not
+        if dustCount >= 2:
+          break
+        inc(dustCount)
+    if dustCount >= 2:
+      dbInst.setTx(txid, height, sid, 1.uint8)
+    else:
+      dbInst.setTx(txid, height, sid)
+      for n, o in tx.outs:
+        var addrHash = getAddressHash160(o.script)
+        dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
+        dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
+        addrvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
 
     addrouts[idx] = addrvals.aggregate
 
@@ -121,6 +128,9 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
         var ret_tx = dbInst.getTx(in_txid)
         if ret_tx.err == DbStatus.NotFound:
           raise newException(BlockParserError, "id not found " & $in_txid)
+        if ret_tx.res.skip == 1:
+          echo "skip tx " & $in_txid
+          continue
 
         var id = ret_tx.res.id
         var ret_txout = dbInst.getTxout(id, n)
@@ -181,6 +191,9 @@ proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq
         var ret_tx = dbInst.getTx(in_txid)
         if ret_tx.err == DbStatus.NotFound:
           raise newException(BlockParserError, "id not found " & $in_txid)
+        if ret_tx.res.skip == 1:
+          echo "skip tx " & $in_txid
+          continue
 
         var id = ret_tx.res.id
         var ret_txout = dbInst.getTxout(id, n)
