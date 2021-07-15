@@ -100,6 +100,8 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
     dbInst.setTx(txid, height, sid)
     var addrvals: seq[AddrVal]
     for n, o in tx.outs:
+      if o.value == 0:
+        continue
       var addrHash = getAddressHash160(o.script)
       dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
       dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
@@ -196,6 +198,8 @@ proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq
 
     var addrvals: seq[AddrValRollback]
     for n, o in tx.outs:
+      if o.value == 0:
+        continue
       var addrHash = getAddressHash160(o.script)
       dbInst.delUnspent(addrHash.hash160, sid, n.uint32)
       dbInst.delTxout(sid, n.uint32)
