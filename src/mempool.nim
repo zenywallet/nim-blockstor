@@ -260,6 +260,8 @@ proc update*(reset: bool) =
       var addrsRecvTable = newTable[seq[byte], uint64]()
       let (txid, tx) = txNew
       for n, txout in tx.outs:
+        if txout.value == 0:
+          continue
         let addrHash = txout.script.getAddressHash160
         if addrHash.addressType == AddressType.Unknown:
           info "INFO: mempool unknown address chunks=", txout.script.getScriptChunks
