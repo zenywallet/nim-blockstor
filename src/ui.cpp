@@ -20,6 +20,11 @@ SDL_Window*     g_Window = NULL;
 SDL_GLContext   g_GLContext = NULL;
 ImFont* mainFont = NULL;
 ImFont* monoFont = NULL;
+ImFont* iconFont = NULL;
+#define TI_WAND "\xee\x98\x80"
+#define TI_FILES "\xee\x9a\xa3"
+#define TI_CLIPBOARD "\xee\x9a\xb4"
+#define TI_ERASER "\xee\x9a\xa5"
 
 json noraList;
 json nodeStatus;
@@ -332,7 +337,11 @@ extern "C" int guimain()
     const char* glsl_version = "#version 100";
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    static const ImWchar icons_ranges[] = { 0xe600, 0xe75f, 0 };
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
     mainFont = io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
+    iconFont = io.Fonts->AddFontFromFileTTF("themify.ttf", 16.0f, &icons_config, icons_ranges);
     monoFont = io.Fonts->AddFontFromFileTTF("ShareTechMono-Regular.ttf", 20.0f);
     io.GetClipboardTextFn = GetClipboardTextFn_Impl;
     io.SetClipboardTextFn = SetClipboardTextFn_Impl;
