@@ -183,8 +183,8 @@ static void main_loop(void *arg)
         ImGui::Checkbox("ImGui Demo", &show_demo_window);
         toolSize = ImGui::GetWindowSize();
         toolPos = ImGui::GetWindowPos();
-        ImGui::End();
     }
+    ImGui::End();
 
     if (show_nora_servers_window) {
         ImGui::SetNextWindowPos(ImVec2(toolPos.x + toolSize.x, toolPos.y), ImGuiCond_Once);
