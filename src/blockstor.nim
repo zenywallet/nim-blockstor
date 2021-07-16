@@ -175,7 +175,7 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
         dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
-proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64) =
+proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64, network: Network, nid: uint16) =
   dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
 
   var addrouts = newSeq[seq[AddrVal]](blk.txs.len)
@@ -247,13 +247,13 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
       if ret_addrval.err == DbStatus.NotFound:
         dbInst.setAddrval(hash160, value, utxo_count)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType).toBytes] = (value, utxo_count)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (value, utxo_count)
       else:
         let val = ret_addrval.res.value + value
         let cnt = ret_addrval.res.utxo_count + utxo_count
         dbInst.setAddrval(hash160, val, cnt)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType).toBytes] = (val, cnt)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt)
       dbInst.setAddrlog(hash160, sid, 1, value, addressType)
 
   for idx, tx in blk.txs:
@@ -273,11 +273,15 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
         let cnt = ret_addrval.res.utxo_count - utxo_count
         dbInst.setAddrval(hash160, val, cnt)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType).toBytes] = (val, cnt)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
   for k, v in streamAddrs.pairs:
-    let jsonData =  %*{"val": v.value.toJson, "utxo_count": v.utxo_count}
+    let hash160 = k[0..19].Hash160
+    let addressType = k[20].AddressType
+    let jsonData =  %*{"type": "addr", "data": {"nid": nid,
+                      "addr": network.getAddress(hash160, addressType),
+                      "val": v.value.toJson, "utxo_count": v.utxo_count}}
     streamSend(k, jsonData)
     echo "streamSend tag=", k, " ", jsonData
 
@@ -547,6 +551,8 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
   block rpcMode:
     echo "rpc mode"
     mempool.setParams(params)
+    let network: Network = params.nodeParams.networkId.getNetwork
+    let nid = params.nodeParams.networkId.uint16
 
     while not abort:
       block_check()
@@ -561,7 +567,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
         let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
         inc(height)
-        dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId)
+        dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
         nextSeqId = nextSeqId + blk.txs.len.uint64
         setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
         if abort:
