@@ -7,6 +7,9 @@ import lz4
 import os
 import system
 import strutils
+import seed
+import bip32c
+import base58c
 
 const srcPath = currentSourcePath().parentDir()
 const imguiPath = srcPath / "../deps/imgui"
