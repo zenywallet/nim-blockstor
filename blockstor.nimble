@@ -49,7 +49,7 @@ task ui, "Build ui":
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
-  exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
@@ -76,7 +76,7 @@ task uidebug, "Build ui for debug":
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
-  exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:arc src/ui.nim"
+  exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
   exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
