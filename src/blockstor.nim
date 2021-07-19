@@ -297,7 +297,7 @@ proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq
       var n = i.n
 
       if n == 0xffffffff'u32:
-        dbInst.delMinedId(seq_id + idx.uint64)
+        dbInst.delMinedId(prev_seq_id + idx.uint64)
       else:
         var ret_tx = dbInst.getTx(in_txid)
         if ret_tx.err == DbStatus.NotFound:
