@@ -62,28 +62,34 @@ type
   AddrValRollback = tuple[hash160: Hash160, value: uint64, utxo_count: uint32]
 
 proc aggregate(addrvals: seq[AddrVal]): seq[AddrVal] =
-  var t = initTable[seq[byte], AddrVal]()
+  var t = initTable[seq[byte], ref AddrVal]()
   for a in addrvals:
     var key = (a.hash160, a.addressType).toBytes
     if t.hasKey(key):
-      t[key].value = t[key].value + a.value
-      t[key].utxo_count = t[key].utxo_count + a.utxo_count
+      var tkey = t[key]
+      tkey.value = tkey.value + a.value
+      tkey.utxo_count = tkey.utxo_count + a.utxo_count
     else:
-      t[key] = a
+      var ra = new AddrVal
+      ra[] = a
+      t[key] = ra
   for v in t.values:
-    result.add(v)
+    result.add(v[])
 
 proc aggregate(addrvals: seq[AddrValRollback]): seq[AddrValRollback] =
-  var t = initTable[seq[byte], AddrValRollback]()
+  var t = initTable[seq[byte], ref AddrValRollback]()
   for a in addrvals:
     var key = a.hash160.toBytes
     if t.hasKey(key):
-      t[key].value = t[key].value + a.value
-      t[key].utxo_count = t[key].utxo_count + a.utxo_count
+      var tkey = t[key]
+      tkey.value = tkey.value + a.value
+      tkey.utxo_count = tkey.utxo_count + a.utxo_count
     else:
-      t[key] = a
+      var ra = new AddrValRollback
+      ra[] = a
+      t[key] = ra
   for v in t.values:
-    result.add(v)
+    result.add(v[])
 
 proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64) =
   dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
