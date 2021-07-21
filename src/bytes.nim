@@ -288,10 +288,12 @@ proc `$`*(len: Pad): string = "Pad(" & $cast[int](len) & ")"
 
 proc `$`*(fstr: FixedStr): string = "FixedStr(\"" & fstr.data & "\", " & $fstr.size & ")"
 
-proc `$`*(data: Hash | Hash160): string =
+proc `$`*(data: Hash): string =
   var b = cast[seq[byte]](data)
   algorithm.reverse(b)
   bytes.toHex(b)
+
+proc `$`*(data: Hash160): string = data.toBytes.toHex
 
 proc `$`*(p: PushData): string =
   var op: string
