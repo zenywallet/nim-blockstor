@@ -47,6 +47,10 @@ proc getNetwork*(networkId: NetworkId): Network =
 proc ripemd160hash*(pub: seq[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
 
+proc checkSum(hash160Prefix: seq[byte]): seq[byte] =
+  let hashd = sha256d(hash160Prefix)
+  result = hashd[0..3]
+
 proc check(prefix: uint8, hash160: Hash160): seq[byte] =
   let hash160Prefix = (prefix, hash160).toBytes
   let hashd = sha256d(hash160Prefix)
@@ -167,6 +171,15 @@ proc getAddresses*(network: Network, script: Script | Chunks): seq[string] =
         result.add(network.p2pkh_address(ripemd160hash(chunk.data)))
       elif chunk.data.len == 20:
         result.add(network.p2pkh_address(Hash160(chunk.data)))
+
+proc checkAddress*(address: string): bool =
+  result = false
+  var binaddr = base58.dec(address)
+  if binaddr.len == 25: # prefix(1), hash160(20), checksum(4)
+    let ck = binaddr[^4..^1]
+    let test_ck = checkSum(binaddr[0..^5])
+    if ck == test_ck:
+      result = true
 
 proc getHash160*(address: string): Hash160 =
   var binaddr = base58.dec(address)
