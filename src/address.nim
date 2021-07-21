@@ -235,6 +235,23 @@ proc getScript*(network: Network, address: string): seq[byte] =
       if address.startsWith(bech32):
         result = p2wpkh_script(address, bech32)
 
+proc getHash160AddressType*(network: Network, address: string): tuple[hash160: Hash160, addressType: AddressType] =
+  var binaddr = base58.dec(address)
+  if binaddr.len == 25:
+    if binaddr[0] == network.pubKeyPrefix:
+      result = (binaddr[1..^5].Hash160, AddressType.P2PKH)
+    elif binaddr[0] == network.scriptPrefix:
+      result = (binaddr[1..^5].Hash160, AddressType.P2SH)
+  elif address.startsWith(network.bech32):
+    let s = p2wpkh_script(address, network.bech32)
+    result = (s[1..^1].Hash160, AddressType.P2WPKH)
+  else:
+    for bech32 in network.bech32Extra:
+      if address.startsWith(bech32):
+        let s = p2wpkh_script(address, network.bech32)
+        result = (s[1..^1].Hash160, AddressType.P2WPKH)
+
+
 when isMainModule:
   var bitzeny_test = getNetwork(NetworkId.BitZeny_testnet)
   var hash160_p2pkh = bitzeny_test.getHash160("mnfJyrnDZSDnaNUkognbRsbQNUanoNHArK")
