@@ -6,7 +6,7 @@ const uiFile = currentSourcePath().parentDir() / "../public/ui.js"
 const uiFileTmp = currentSourcePath().parentDir() / "../public/ui.js_tmp"
 
 var patchString = "if(!(eventTypeId == 2 && ((e.key == 'v' && (e.ctrlKey || e.metaKey)) || " &
-                  "e.key == 'F11' || e.key == 'F12' || e.key == 'Escape'))) "
+                  "e.key == 'F5' || e.key == 'F11' || e.key == 'F12' || e.key == 'Escape'))) "
 
 proc patch(file: string) =
   var s = readFile(file)
