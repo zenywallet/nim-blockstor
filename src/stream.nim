@@ -11,6 +11,7 @@ import bytes
 import uthash
 import ptlock
 import monitor
+import utils
 
 const DECODE_BUF_SIZE = 1048576
 const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
@@ -366,9 +367,78 @@ proc sendCmd(client: ptr Client, json: JsonNode): SendResult {.inline.} = client
 proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
   result = SendResult.None
   echo json.pretty
+
   if json.hasKey("cmd"):
-    let cmd = json["cmd"].getStr
-    if cmd == "noralist":
+    var cmd = json["cmd"].getStr
+    var cmd0 = cmd
+    var onFlag = false
+    var offFlag = false
+    if cmd.endsWith("-on"):
+      onFlag = true
+      cmd0 = cmd[0..^4]
+    elif cmd.endsWith("-off"):
+      offFlag = true
+      cmd0 = cmd[0..^5]
+    if cmd0 == "addr":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      let astr = reqData["addr"].getStr
+      if nid > streamDbInsts.high or nid < streamDbInsts.low:
+        raise newException(StreamError, "invalid nid")
+      if onFlag:
+        let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
+        client.setTag((hash160, addressType, nid.uint16).toBytes)
+      elif offFlag:
+        let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
+        client.delTag((hash160, addressType, nid.uint16).toBytes)
+        return
+      var resJson: JsonNode
+      if json.hasKey("ref"):
+        resJson = %*{"type": "addr", "data": {}, "ref": json["ref"]}
+      else:
+        resJson = %*{"type": "addr", "data": {}}
+      var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+      if aval.err == DbStatus.Success:
+        resJson["data"] = %*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count}
+      else:
+        resJson["data"] = %*{"nid": nid, "addr": astr}
+      result = client.sendCmd(resJson)  # Send by tag is always after this sending.
+    elif cmd0 == "addrs":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      let astr = reqData["addr"].getStr
+      if nid > streamDbInsts.high or nid < streamDbInsts.low:
+        raise newException(StreamError, "invalid nid")
+      if offFlag:
+        let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
+        client.delTag((hash160, addressType, nid.uint16).toBytes)
+        return
+      var resJson: JsonNode
+      if json.hasKey("ref"):
+        resJson = %*{"type": "addrs", "data": [], "ref": json["ref"]}
+      else:
+        resJson = %*{"type": "addrs", "data": []}
+      var resData = resJson["data"]
+      if onFlag:
+        for a in reqData["addrs"]:
+          var astr = a.getStr
+          let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
+          client.setTag((hash160, addressType, nid.uint16).toBytes)
+          var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+          if aval.err == DbStatus.Success:
+            resData.add(%*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count})
+          else:
+            resData.add(%*{"nid": nid, "addr": astr})
+      else:
+        for a in reqData["addrs"]:
+          var astr = a.getStr
+          var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+          if aval.err == DbStatus.Success:
+            resData.add(%*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count})
+          else:
+            resData.add(%*{"nid": nid, "addr": astr})
+      result = client.sendCmd(resJson)
+    elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
     elif cmd == "status-on":
       client.setTag("status".toBytes)
