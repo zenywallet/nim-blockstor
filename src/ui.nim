@@ -10,6 +10,7 @@ import strutils
 import seed
 import bip32c
 import base58c
+import address_c
 
 const srcPath = currentSourcePath().parentDir()
 const imguiPath = srcPath / "../deps/imgui"
