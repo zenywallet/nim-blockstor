@@ -26,6 +26,8 @@ ImFont* iconFont = NULL;
 #define TI_CLIPBOARD "\xee\x9a\xb4"
 #define TI_ERASER "\xee\x9a\xa5"
 
+static const char* NetworkIds[] = {"BitZeny_mainnet", "BitZeny_testnet"};
+
 json noraList;
 json nodeStatus;
 json winBip44;
@@ -510,14 +512,13 @@ static void ShowBip44Window(bool* p_open, int wid)
         ImGui::SetNextItemOpen(true, ImGuiCond_Once);
         if (ImGui::CollapsingHeader("Addresses")) {
             ImGuiComboFlags comb_flags = 0;
-            const char* items[] = {"BitZeny_mainnet", "BitZeny_testnet"};
             const bool items_testnet[] = {false, true};
-            const char* combo_preview_value = items[network_idx];
+            const char* combo_preview_value = NetworkIds[network_idx];
             ImGui::PushItemWidth(300);
             if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
-                for (int n = 0; n < IM_ARRAYSIZE(items); n++) {
+                for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                     const bool is_selected = (network_idx == n);
-                    if (ImGui::Selectable(items[n], is_selected)) {
+                    if (ImGui::Selectable(NetworkIds[n], is_selected)) {
                         network_idx = n;
                         param["bip44update"] = true;
                         param["nid"] = network_idx;
