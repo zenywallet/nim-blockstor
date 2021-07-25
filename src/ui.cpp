@@ -887,6 +887,7 @@ extern "C" int guimain()
         deoxy.clipboard = clipboard;
     });
 
+    bip32_init();
     emscripten_set_main_loop_arg(main_loop, NULL, 0, true);
 
     return 0;
