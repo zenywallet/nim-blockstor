@@ -31,6 +31,8 @@ static const char* NetworkIds[] = {"BitZeny_mainnet", "BitZeny_testnet"};
 json noraList;
 json nodeStatus;
 json winBip44;
+json winAddress;
+json addrInfos;
 
 extern "C" bool streamActive;
 
@@ -50,10 +52,19 @@ extern "C" void streamRecv(char* data, int size) {
     } else if(j["type"] == "status") {
         auto data = j["data"];
         nodeStatus[data["network"].get<std::string>()] = data;
+    } else if(j["type"] == "addr") {
+        addrInfos["pending"].push_back(j["data"]);
     }
 }
 
 #define HDNodeHandle void*
+enum AddressType {
+    Unknown,
+    P2PKH,
+    P2SH,
+    P2SH_P2WPKH,
+    P2WPKH
+};
 extern "C" {
     void bip32_init();
     void bip32_free_all();
@@ -75,6 +86,11 @@ extern "C" {
     char* base58_enc_from_hex(char* hex);
     int base58_dec(char* s, char* buf, int size);
     char* base58_dec_to_hex(char* s);
+
+    void address_init();
+    char* get_address(int nid, char* hash160, int size, uint8_t address_type);
+    char* get_address_from_hex(int nid, char* hash160_hex, uint8_t address_type);
+    bool* check_address(char* address);
 }
 
 std::string getTime(int64_t tval)
@@ -106,6 +122,19 @@ std::string hexStr(unsigned char *data, int len)
     s[2 * i + 1] = hexmap[data[i] & 0x0F];
   }
   return s;
+}
+
+std::string convCoin(std::string valstr)
+{
+    int len = valstr.length();
+    if (len <= 0) {
+        return "";
+    } else if (len > 8) {
+        return valstr.substr(0, len - 8) + "." + valstr.substr(len - 8, 8);
+    } else if (len < 8) {
+        valstr.insert(0, 8 - len, '0');
+    }
+    return "0." + valstr;
 }
 
 static ImGuiWindowFlags PrepareOverlay()
@@ -619,6 +648,227 @@ static void ShowBip44Window(bool* p_open, int wid)
     ImGui::End();
 }
 
+static void ShowAddressWindow(bool* p_open, int wid)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    std::string wid_s = std::to_string(wid);
+    json& param = winAddress["windows"][wid_s];
+    std::string address = param["address"].get<std::string>();
+    std::string address_hex = param["address_hex"].get<std::string>();
+    bool valid = param["valid"].get<bool>();
+    int prefix = param["prefix"].get<int>();
+    int network_idx = param["nid"].get<int>();
+    std::string addr1 = param["addr1"].get<std::string>();
+    std::string addr3 = param["addr3"].get<std::string>();
+    std::string addr4 = param["addr4"].get<std::string>();
+    bool update = false;
+    std::string title;
+    if (winAddress["samewin"]) {
+        title = "Addresses";
+    } else {
+        title = "Address - " + wid_s + "##ta" + wid_s;
+    }
+    if (ImGui::Begin(title.c_str(), p_open)) {
+        std::string header;
+        std::string amount;
+        if (address.length() > 0) {
+            if (addrInfos.find(address) != addrInfos.end() &&
+                addrInfos[address].find("val") != addrInfos[address].end() &&
+                addrInfos[address]["unused"].get<int>() == 0) {
+                amount = convCoin(addrInfos[address]["val"].dump());
+                header = "" + address + " " + amount + "##ha" + wid_s;
+            } else {
+                header = "" + address + "##ha" + wid_s;
+            }
+        } else {
+            header = "Address##ha" + wid_s;
+        }
+        if (amount.length() > 0) {
+            ImGui::PushFont(monoFont);
+        } else {
+            ImGui::PushFont(mainFont);
+        }
+        ImGui::SetNextItemOpen(param["addropen"].get<bool>());
+        if (ImGui::CollapsingHeader(header.c_str())) {
+            param["addropen"] = true;
+            ImGui::PopFont();
+            ImGuiComboFlags comb_flags = 0;
+            const char* combo_value = NetworkIds[network_idx];
+            ImGui::PushItemWidth(300);
+            if (ImGui::BeginCombo(("Network##na" + wid_s).c_str(), combo_value, comb_flags)) {
+                for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
+                    const bool is_selected = (network_idx == n);
+                    if (ImGui::Selectable(NetworkIds[n], is_selected)) {
+                        network_idx = n;
+                        param["nid"] = network_idx;
+                        update = true;
+                    }
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
+
+            char address_str[257];
+            copyString(address, address_str, sizeof(address_str));
+            ImGui::PushItemWidth(466.0f);
+            ImGui::PushFont(monoFont);
+            if (ImGui::InputText(("Address  ##ia" + wid_s).c_str(), address_str, IM_ARRAYSIZE(address_str))) {
+                address = std::string(address_str);
+                address_hex = base58_dec_to_hex(address_str);
+                param["address"] = address;
+                param["address_hex"] = address_hex;
+                if (check_address((char*)address.c_str())) {
+                    valid = true;
+                } else {
+                    valid = false;
+                }
+                param["valid"] = valid;
+                update = true;
+            }
+            ImGui::PopFont();
+            ImGui::PopItemWidth();
+
+            ImGui::Separator();
+
+            if (addrInfos.find(address) != addrInfos.end()) {
+                int unused = addrInfos[address]["unused"].get<int>();
+                if (unused == 0) {
+                    ImGui::Text("status:"); ImGui::SameLine();
+                    ImGui::Text("used");
+                    ImGui::Text("amount:"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(amount.c_str());
+                    ImGui::PopFont();
+                    ImGui::Text("utxo count:"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(std::to_string(addrInfos[address]["utxo_count"].get<uint32_t>()).c_str());
+                    ImGui::PopFont();
+                } else if (unused == 1) {
+                    ImGui::Text("status:"); ImGui::SameLine();
+                    ImGui::Text("unused");
+                    ImGui::Text("amount:");
+                    ImGui::Text("utxo count:");
+                }
+            } else {
+                ImGui::Text("status:");
+                ImGui::Text("amount:");
+                ImGui::Text("utxo count:");
+            }
+
+            if (ImGui::TreeNode(("Address detail##da" + wid_s).c_str())) {
+                ImGui::Text("hex:"); ImGui::SameLine();
+                ImGui::PushFont(monoFont);
+                ImGui::Text(address_hex.c_str());
+                ImGui::PopFont();
+                if (address_hex.length() > 0) {
+                    ImGui::Text("size (bytes):"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(std::to_string(address_hex.length() / 2).c_str());
+                    ImGui::PopFont();
+                }
+                if (valid) {
+                    ImGui::Text("prefix:"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(("0x" + address_hex.substr(0, 2) + " (" + std::to_string(prefix) + ")").c_str());
+                    ImGui::PopFont();
+                    ImGui::Text("hash160:"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(address_hex.substr(2, 40).c_str());
+                    ImGui::PopFont();
+                    ImGui::Text("checksum:"); ImGui::SameLine();
+                    ImGui::PushFont(monoFont);
+                    ImGui::Text(address_hex.substr(42, 8).c_str());
+                    ImGui::PopFont();
+                } else {
+                    ImGui::Text("prefix:");
+                    ImGui::Text("hash160:");
+                    ImGui::Text("checksum:");
+                }
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode(("Related addresses##ra" + wid_s).c_str())) {
+                ImGui::Text("p2pkh:"); ImGui::SameLine();
+                ImGui::PushFont(monoFont);
+                ImGui::Text(addr1.c_str());
+                ImGui::PopFont();
+                ImGui::Text("p2sh-p2wpkh:"); ImGui::SameLine();
+                ImGui::PushFont(monoFont);
+                ImGui::Text(addr3.c_str());
+                ImGui::PopFont();
+                ImGui::Text("p2wpkh:"); ImGui::SameLine();
+                ImGui::PushFont(monoFont);
+                ImGui::Text(addr4.c_str());
+                ImGui::PopFont();
+                ImGui::TreePop();
+            }
+        } else {
+            param["addropen"] = false;
+            ImGui::PopFont();
+        }
+
+        if (update) {
+            update = false;
+            std::string prev_address = param["prev_address"].get<std::string>();
+            int prev_nid = param["prev_nid"].get<int>();
+            if (prev_address.length() > 0 && addrInfos.find(prev_address) != addrInfos.end()) {
+                if (addrInfos[prev_address]["ref_count"].get<int>() > 1) {
+                    addrInfos[prev_address]["ref_count"] = addrInfos[prev_address]["ref_count"].get<int>() - 1;
+                } else {
+                    addrInfos.erase(prev_address);
+                    std::string s = "{\"cmd\":\"addr-off\",\"data\":{\"nid\":" +
+                                    std::to_string(prev_nid) + ",\"addr\":\"" + prev_address + "\"}}";
+                    streamSend(s.c_str(), s.length());
+                }
+                param["prev_address"] = "";
+            }
+            if (valid) {
+                prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
+               if (addrInfos.find(address) == addrInfos.end()) {
+                    addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": [], "utxos": [], "ref_count": 1})"_json;
+                    std::string s = "{\"cmd\":\"addr-on\",\"data\":{\"nid\":" +
+                                    std::to_string(network_idx) + ",\"addr\":\"" + address + "\"}}";
+                    streamSend(s.c_str(), s.length());
+                } else {
+                    addrInfos[address]["ref_count"] = addrInfos[address]["ref_count"].get<int>() + 1;
+                }
+                param["prev_address"] = address;
+                param["prev_nid"] = network_idx;
+
+                std::string hash160str = address_hex.substr(2, 40);
+                addr1 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2PKH);
+                addr3 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2SH_P2WPKH);
+                addr4 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2WPKH);
+                param["addr1"] = addr1;
+                param["addr3"] = addr3;
+                param["addr4"] = addr4;
+            } else {
+                prefix = -1;
+            }
+            param["prefix"] = prefix;
+        }
+
+        while (!addrInfos["pending"].empty()) {
+            auto ainfo = addrInfos["pending"].at(0);
+            std::string addr = ainfo["addr"].get<std::string>();
+            if (addrInfos.find(addr) != addrInfos.end()) {
+                if (ainfo.find("val") == ainfo.end()) {
+                    addrInfos[addr]["unused"] = 1;
+                } else {
+                    addrInfos[addr]["unused"] = 0;
+                    addrInfos[addr]["val"] = ainfo["val"];
+                    addrInfos[addr]["utxo_count"] = ainfo["utxo_count"];
+                }
+            }
+            addrInfos["pending"].erase(0);
+        }
+    }
+    ImGui::End();
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -628,6 +878,7 @@ static void main_loop(void *arg)
     static bool show_connect_status_overlay = true;
     static bool show_framerate_overlay = true;
     static bool show_nora_servers_window = false;
+    static bool show_same_address_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -680,6 +931,14 @@ static void main_loop(void *arg)
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
     if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
         ImGui::Checkbox("Nora Servers", &show_nora_servers_window);
+        if (ImGui::Button("Address")) {
+            if (winAddress["wid"].empty()) {
+                winAddress = R"({"wid": 0, "windows": {}, "del": [], "samewin": false})"_json;
+            }
+            int wid = winAddress["wid"].get<int>() + 1;
+            winAddress["wid"] = wid;
+            winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true})"_json;
+        }
         if (ImGui::Button("BIP44")) {
             if (winBip44["wid"].empty()) {
                 winBip44 = R"({"wid": 0, "windows": {}, "del": []})"_json;
@@ -691,6 +950,9 @@ static void main_loop(void *arg)
         ImGui::Separator();
         ImGui::Checkbox("Connection status", &show_connect_status_overlay);
         ImGui::Checkbox("Frame rate", &show_framerate_overlay);
+        if (ImGui::Checkbox("Addresses in the same window", &show_same_address_window)) {
+            winAddress["samewin"] = show_same_address_window;
+        }
         ImGui::Separator();
         ImGui::Checkbox("ImGui Demo", &show_demo_window);
         toolSize = ImGui::GetWindowSize();
@@ -772,6 +1034,34 @@ static void main_loop(void *arg)
         winBip44["windows"].erase(el.get<std::string>());
     }
     winBip44["del"].clear();
+
+    for (auto& el : winAddress["windows"].items()) {
+        int wid = std::stoi(el.key());
+        bool flag = true;
+        ShowAddressWindow(&flag, wid);
+        if (!flag) {
+            winAddress["del"].push_back(el.key());
+        }
+    }
+    for (auto& el : winAddress["del"]) {
+        std::string key = el.get<std::string>();
+        json& param = winAddress["windows"][el.get<std::string>()];
+        std::string prev_address = param["prev_address"].get<std::string>();
+        int prev_nid = param["prev_nid"].get<int>();
+        if (prev_address.length() > 0 && addrInfos.find(prev_address) != addrInfos.end()) {
+            if (addrInfos[prev_address]["ref_count"].get<int>() > 1) {
+                addrInfos[prev_address]["ref_count"] = addrInfos[prev_address]["ref_count"].get<int>() - 1;
+            } else {
+                addrInfos.erase(prev_address);
+                std::string s = "{\"cmd\":\"addr-off\",\"data\":{\"nid\":" + std::to_string(prev_nid) +
+                                ",\"addr\":\"" + prev_address + "\"}}";
+                streamSend(s.c_str(), s.length());
+            }
+            param["prev_address"] = "";
+        }
+        winAddress["windows"].erase(key);
+    }
+    winAddress["del"].clear();
 
     ImGui::Render();
     SDL_GL_MakeCurrent(g_Window, g_GLContext);
@@ -888,6 +1178,7 @@ extern "C" int guimain()
     });
 
     bip32_init();
+    address_init();
     emscripten_set_main_loop_arg(main_loop, NULL, 0, true);
 
     return 0;
