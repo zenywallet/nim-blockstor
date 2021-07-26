@@ -676,9 +676,9 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 addrInfos[address].find("val") != addrInfos[address].end() &&
                 addrInfos[address]["unused"].get<int>() == 0) {
                 amount = convCoin(addrInfos[address]["val"].dump());
-                header = "" + address + " " + amount + "##ha" + wid_s;
+                header = address + " " + amount + "##ha" + wid_s;
             } else {
-                header = "" + address + "##ha" + wid_s;
+                header = address + "##ha" + wid_s;
             }
         } else {
             header = "Address##ha" + wid_s;
