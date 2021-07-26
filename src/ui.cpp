@@ -928,7 +928,7 @@ static void main_loop(void *arg)
 
     ImVec2 toolPos;
     ImVec2 toolSize;
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
         ImGui::Checkbox("Nora Servers", &show_nora_servers_window);
         if (ImGui::Button("Address")) {
@@ -961,7 +961,7 @@ static void main_loop(void *arg)
     ImGui::End();
 
     if (show_nora_servers_window) {
-        ImGui::SetNextWindowPos(ImVec2(toolPos.x + toolSize.x, toolPos.y), ImGuiCond_Once);
+        ImGui::SetNextWindowPos(ImVec2(toolPos.x + toolSize.x, toolPos.y), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(700, 350), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Nora Servers", &show_nora_servers_window)) {
             ImGui::PushFont(monoFont);
