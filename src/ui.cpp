@@ -683,7 +683,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
         } else {
             header = "Address##ha" + wid_s;
         }
-        if (amount.length() > 0) {
+        if (address.length() > 0) {
             ImGui::PushFont(monoFont);
         } else {
             ImGui::PushFont(mainFont);
