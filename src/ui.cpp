@@ -662,6 +662,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
     std::string addr3 = param["addr3"].get<std::string>();
     std::string addr4 = param["addr4"].get<std::string>();
     bool update = false;
+    if (param["update"].get<bool>() && streamActive) {
+        update = true;
+        param["update"] = false;
+    }
     std::string title;
     if (winAddress["samewin"]) {
         title = "Addresses";
@@ -701,7 +705,11 @@ static void ShowAddressWindow(bool* p_open, int wid)
                     if (ImGui::Selectable(NetworkIds[n], is_selected)) {
                         network_idx = n;
                         param["nid"] = network_idx;
-                        update = true;
+                        if (streamActive) {
+                            update = true;
+                        } else {
+                            param["update"] = true;
+                        }
                     }
                     if (is_selected) {
                         ImGui::SetItemDefaultFocus();
@@ -726,7 +734,11 @@ static void ShowAddressWindow(bool* p_open, int wid)
                     valid = false;
                 }
                 param["valid"] = valid;
-                update = true;
+                if (streamActive) {
+                    update = true;
+                } else {
+                    param["update"] = true;
+                }
             }
             ImGui::PopFont();
             ImGui::PopItemWidth();
@@ -937,7 +949,7 @@ static void main_loop(void *arg)
             }
             int wid = winAddress["wid"].get<int>() + 1;
             winAddress["wid"] = wid;
-            winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true})"_json;
+            winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
         }
         if (ImGui::Button("BIP44")) {
             if (winBip44["wid"].empty()) {
