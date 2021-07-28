@@ -33,6 +33,33 @@ json nodeStatus;
 json winBip44;
 json winAddress;
 json addrInfos;
+json winTools;
+
+bool dirtySettingsFlag = false;
+float dirtySettingsTimer = 0.0f;
+float settingSsavingRate = 5.0f;
+bool loadSettingsFlag = true;
+
+void MarkSettingsDirty()
+{
+    if (dirtySettingsTimer <= 0.0f) {
+        dirtySettingsTimer = settingSsavingRate;
+    }
+}
+
+bool CheckSettingsDirty(ImGuiIO& io)
+{
+    if (dirtySettingsTimer > 0.0f)
+    {
+        dirtySettingsTimer -= io.DeltaTime;
+        if (dirtySettingsTimer <= 0.0f)
+        {
+            dirtySettingsFlag = true;
+            dirtySettingsTimer = 0.0f;
+        }
+    }
+    return dirtySettingsFlag;
+}
 
 extern "C" bool streamActive;
 
@@ -211,6 +238,47 @@ static bool checkHexStr(std::string& s)
         }
     }
     return true;
+}
+
+EM_JS(void, db_set, (const char* tag, const char* data), {
+    localStorage[UTF8ToString(tag)] = UTF8ToString(data);
+});
+
+EM_JS(char*, db_get, (const char* tag), {
+    var data = localStorage[UTF8ToString(tag)];
+    if(!data) {
+        return null;
+    }
+    var len = lengthBytesUTF8(data) + 1;
+    var p = _malloc(len);
+    stringToUTF8(data, p, len);
+    return p;
+});
+
+EM_JS(void, db_del, (const char* tag), {
+    localStorage.removeItem(UTF8ToString(tag));
+});
+
+EM_JS(void, db_clear, (), {
+    localStorage.clear();
+});
+
+std::string db_get_string(const char* tag) {
+    char* str = db_get(tag);
+    if (str != nullptr) {
+        std::string ret_string(str);
+        free(str);
+        return ret_string;
+    }
+    return "";
+}
+
+json db_get_json(const char* tag) {
+    std::string ret_string = db_get_string(tag);
+    if (!ret_string.empty()) {
+        return json::parse(ret_string);
+    }
+    return json{};
 }
 
 static void ShowBip44Window(bool* p_open, int wid)
@@ -710,6 +778,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         } else {
                             param["update"] = true;
                         }
+                        MarkSettingsDirty();
                     }
                     if (is_selected) {
                         ImGui::SetItemDefaultFocus();
@@ -739,6 +808,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 } else {
                     param["update"] = true;
                 }
+                MarkSettingsDirty();
             }
             ImGui::PopFont();
             ImGui::PopItemWidth();
@@ -899,6 +969,45 @@ static void main_loop(void *arg)
         ImGui_ImplSDL2_ProcessEvent(&event);
     }
 
+    if (loadSettingsFlag) {
+        loadSettingsFlag = false;
+        winBip44 = db_get_json("winBip44");
+        winAddress = db_get_json("winAddress");
+        winTools = db_get_json("winTools");
+        std::string settings = db_get_string("settings");
+        ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
+        if (winTools.find("nora_chk") != winTools.end()) {
+            show_nora_servers_window = winTools["nora_chk"].get<bool>();
+        }
+        if (winTools.find("connect_chk") != winTools.end()) {
+            show_connect_status_overlay = winTools["connect_chk"].get<bool>();
+        }
+        if (winTools.find("frate_chk") != winTools.end()) {
+            show_framerate_overlay = winTools["frate_chk"].get<bool>();
+        }
+        if (winTools.find("demo_chk") != winTools.end()) {
+            show_demo_window = winTools["demo_chk"].get<bool>();
+        }
+        if (winAddress.find("samewin") != winAddress.end()) {
+            show_same_address_window = winAddress["samewin"].get<bool>();
+        }
+        for (auto& el : winAddress["windows"].items()) {
+            winAddress["windows"][el.key()]["update"] = true;
+        }
+    }
+    if (CheckSettingsDirty(io) || io.WantSaveIniSettings) {
+        std::cout << "save" << std::endl;
+        dirtySettingsFlag = false;
+        io.WantSaveIniSettings = false;
+        db_set("winBip44", winBip44.dump().c_str());
+        db_set("winAddress", winAddress.dump().c_str());
+        db_set("winTools", winTools.dump().c_str());
+        size_t out_size;
+        const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
+        std::string settings(s, out_size);
+        db_set("settings", settings.c_str());
+    }
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(g_Window);
     ImGui::NewFrame();
@@ -942,7 +1051,10 @@ static void main_loop(void *arg)
     ImVec2 toolSize;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
-        ImGui::Checkbox("Nora Servers", &show_nora_servers_window);
+        if (ImGui::Checkbox("Nora Servers", &show_nora_servers_window)) {
+            winTools["nora_chk"] = show_nora_servers_window;
+            MarkSettingsDirty();
+        }
         if (ImGui::Button("Address")) {
             if (winAddress["wid"].empty()) {
                 winAddress = R"({"wid": 0, "windows": {}, "del": [], "samewin": false})"_json;
@@ -960,13 +1072,33 @@ static void main_loop(void *arg)
             winBip44["windows"][std::to_string(wid)] = R"({"nid": 0, "testnet": false, "prev_testnet": false, "seed": "", "prev_seed": "", "xprv": "", "xpub": "", "animate": false, "progress": 0, "b44p": 44, "b44c": 123, "b44a": 0, "bip44update": false, "bip44_0": [], "bip44_1": [], "bip44xprv": "", "bip44xpub": "", "bip44_idx0": 0, "bip44_idx1": 0, "seedbit": 1, "seedvalid": false, "seederr": false})"_json;
         }
         ImGui::Separator();
-        ImGui::Checkbox("Connection status", &show_connect_status_overlay);
-        ImGui::Checkbox("Frame rate", &show_framerate_overlay);
-        if (ImGui::Checkbox("Addresses in the same window", &show_same_address_window)) {
-            winAddress["samewin"] = show_same_address_window;
+        if (ImGui::Button("Save window")) {
+            dirtySettingsFlag = true;
+        }
+        if (ImGui::Button("Reset window")) {
+            db_clear();
+            EM_ASM({
+                location.reload();
+            });
         }
         ImGui::Separator();
-        ImGui::Checkbox("ImGui Demo", &show_demo_window);
+        if (ImGui::Checkbox("Connection status", &show_connect_status_overlay)) {
+            winTools["connect_chk"] = show_connect_status_overlay;
+            MarkSettingsDirty();
+        }
+        if (ImGui::Checkbox("Frame rate", &show_framerate_overlay)) {
+            winTools["frate_chk"] = show_framerate_overlay;
+            MarkSettingsDirty();
+        }
+        if (ImGui::Checkbox("Addresses in the same window", &show_same_address_window)) {
+            winAddress["samewin"] = show_same_address_window;
+            MarkSettingsDirty();
+        }
+        ImGui::Separator();
+        if (ImGui::Checkbox("ImGui Demo", &show_demo_window)) {
+            winTools["demo_chk"] = show_demo_window;
+            MarkSettingsDirty();
+        }
         toolSize = ImGui::GetWindowSize();
         toolPos = ImGui::GetWindowPos();
     }
