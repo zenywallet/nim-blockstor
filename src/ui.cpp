@@ -1026,7 +1026,6 @@ static void main_loop(void *arg)
     {
         static bool noralistRequested = false;
         static bool statusOnRequested = false;
-        static bool statusRequested = false;
 
         if (streamActive) {
             if (!noralistRequested) {
@@ -1038,11 +1037,6 @@ static void main_loop(void *arg)
                 std::string s = "{\"cmd\": \"status-on\"}";
                 streamSend(s.c_str(), s.length());
                 statusOnRequested = true;
-            }
-            if (!statusRequested) {
-                std::string s = "{\"cmd\": \"status\"}";
-                streamSend(s.c_str(), s.length());
-                statusRequested = true;
             }
         }
     }

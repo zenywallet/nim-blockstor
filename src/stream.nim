@@ -440,15 +440,12 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       result = client.sendCmd(resJson)
     elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
-    elif cmd == "status-on":
-      client.setTag("status".toBytes)
-    elif cmd == "status-off":
-      client.delTag("status".toBytes)
-    elif cmd == "mempool-on":
-      client.setTag("mempool".toBytes)
-    elif cmd == "mempool-off":
-      client.delTag("mempool".toBytes)
-    elif cmd == "status":
+    elif cmd0 == "status":
+      if onFlag:
+        client.setTag("status".toBytes)
+      elif offFlag:
+        client.delTag("status".toBytes)
+        return
       for i in 0..<monitorInfosCount:
         var m = monitorInfos[][i]
         let jsonData = %*{"type": "status", "data":
@@ -457,6 +454,10 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
                           "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}
         result = client.sendCmd(jsonData)
+    elif cmd == "mempool-on":
+      client.setTag("mempool".toBytes)
+    elif cmd == "mempool-off":
+      client.delTag("mempool".toBytes)
 
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
