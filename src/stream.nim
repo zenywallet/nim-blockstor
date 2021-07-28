@@ -54,6 +54,11 @@ type
 
   MsgId = uint64
 
+  ParseCmdSwitch {.pure.} = enum
+    None
+    On
+    Off
+
 
 proc newTag*(tag: seq[byte], pair: KVPair[StreamId] = nil,
             tagType: StreamIdTag = StreamIdTag.Unknown): StreamIdToTag =
@@ -371,13 +376,12 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
   if json.hasKey("cmd"):
     var cmd = json["cmd"].getStr
     var cmd0 = cmd
-    var onFlag = false
-    var offFlag = false
+    var cmdSwitch: ParseCmdSwitch = ParseCmdSwitch.None
     if cmd.endsWith("-on"):
-      onFlag = true
+      cmdSwitch = ParseCmdSwitch.On
       cmd0 = cmd[0..^4]
     elif cmd.endsWith("-off"):
-      offFlag = true
+      cmdSwitch = ParseCmdSwitch.Off
       cmd0 = cmd[0..^5]
     if cmd0 == "addr":
       let reqData = json["data"]
@@ -385,10 +389,10 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let astr = reqData["addr"].getStr
       if nid > streamDbInsts.high or nid < streamDbInsts.low:
         raise newException(StreamError, "invalid nid")
-      if onFlag:
+      if cmdSwitch == ParseCmdSwitch.On:
         let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
         client.setTag((hash160, addressType, nid.uint16).toBytes)
-      elif offFlag:
+      elif cmdSwitch == ParseCmdSwitch.Off:
         let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
         client.delTag((hash160, addressType, nid.uint16).toBytes)
         return
@@ -409,7 +413,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let astr = reqData["addr"].getStr
       if nid > streamDbInsts.high or nid < streamDbInsts.low:
         raise newException(StreamError, "invalid nid")
-      if offFlag:
+      if cmdSwitch == ParseCmdSwitch.Off:
         let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
         client.delTag((hash160, addressType, nid.uint16).toBytes)
         return
@@ -419,7 +423,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       else:
         resJson = %*{"type": "addrs", "data": []}
       var resData = resJson["data"]
-      if onFlag:
+      if cmdSwitch == ParseCmdSwitch.On:
         for a in reqData["addrs"]:
           var astr = a.getStr
           let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
@@ -441,9 +445,9 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
     elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
     elif cmd0 == "status":
-      if onFlag:
+      if cmdSwitch == ParseCmdSwitch.On:
         client.setTag("status".toBytes)
-      elif offFlag:
+      elif cmdSwitch == ParseCmdSwitch.Off:
         client.delTag("status".toBytes)
         return
       for i in 0..<monitorInfosCount:
