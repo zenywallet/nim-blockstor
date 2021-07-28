@@ -375,15 +375,14 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
 
   if json.hasKey("cmd"):
     var cmd = json["cmd"].getStr
-    var cmd0 = cmd
     var cmdSwitch: ParseCmdSwitch = ParseCmdSwitch.None
     if cmd.endsWith("-on"):
       cmdSwitch = ParseCmdSwitch.On
-      cmd0 = cmd[0..^4]
+      cmd = cmd[0..^4]
     elif cmd.endsWith("-off"):
       cmdSwitch = ParseCmdSwitch.Off
-      cmd0 = cmd[0..^5]
-    if cmd0 == "addr":
+      cmd = cmd[0..^5]
+    if cmd == "addr":
       let reqData = json["data"]
       let nid = reqData["nid"].getInt
       let astr = reqData["addr"].getStr
@@ -407,7 +406,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       else:
         resJson["data"] = %*{"nid": nid, "addr": astr}
       result = client.sendCmd(resJson)  # Send by tag is always after this sending.
-    elif cmd0 == "addrs":
+    elif cmd == "addrs":
       let reqData = json["data"]
       let nid = reqData["nid"].getInt
       let astr = reqData["addr"].getStr
@@ -444,7 +443,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       result = client.sendCmd(resJson)
     elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
-    elif cmd0 == "status":
+    elif cmd == "status":
       if cmdSwitch == ParseCmdSwitch.On:
         client.setTag("status".toBytes)
       elif cmdSwitch == ParseCmdSwitch.Off:
@@ -458,10 +457,11 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
                           "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}
         result = client.sendCmd(jsonData)
-    elif cmd == "mempool-on":
-      client.setTag("mempool".toBytes)
-    elif cmd == "mempool-off":
-      client.delTag("mempool".toBytes)
+    elif cmd == "mempool":
+      if cmdSwitch == ParseCmdSwitch.On:
+        client.setTag("mempool".toBytes)
+      elif cmdSwitch == ParseCmdSwitch.Off:
+        client.delTag("mempool".toBytes)
 
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
