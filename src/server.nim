@@ -351,11 +351,13 @@ proc quitServer(restart: bool = false) =
     if retShutdown != 0:
       errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
     serverSock.close()
+    serverSock = osInvalidSocket
   if httpSock != osInvalidSocket:
     var retShutdown = httpSock.shutdown(SHUT_RD)
     if retShutdown != 0:
       errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
     httpSock.close()
+    httpSock = osInvalidSocket
 
 proc restart*() = quitServer(true)
 
