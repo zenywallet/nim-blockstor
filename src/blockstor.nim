@@ -186,7 +186,7 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
 
   var addrouts = newSeq[seq[AddrVal]](blk.txs.len)
   var addrins = newSeq[seq[AddrVal]](blk.txs.len)
-  var streamAddrs = initTable[seq[byte], tuple[value: uint64, utxo_count: uint32]]()
+  var streamAddrs = newTable[seq[byte], tuple[value: uint64, utxo_count: uint32, seq_id: uint64]]()
 
   if blk.txs.len != blk.txn.int:
     raise newException(BlockParserError, "txn conflict")
@@ -253,13 +253,13 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
       if ret_addrval.err == DbStatus.NotFound:
         dbInst.setAddrval(hash160, value, utxo_count)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType, nid).toBytes] = (value, utxo_count)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (value, utxo_count, sid)
       else:
         let val = ret_addrval.res.value + value
         let cnt = ret_addrval.res.utxo_count + utxo_count
         dbInst.setAddrval(hash160, val, cnt)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt, sid)
       dbInst.setAddrlog(hash160, sid, 1, value, addressType)
 
   for idx, tx in blk.txs:
@@ -279,7 +279,7 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
         let cnt = ret_addrval.res.utxo_count - utxo_count
         dbInst.setAddrval(hash160, val, cnt)
         if addressType != AddressType.Unknown.uint8:
-          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt)
+          streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt, sid)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
   for k, v in streamAddrs.pairs:
@@ -287,7 +287,7 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
     let addressType = k[20].AddressType
     let jsonData =  %*{"type": "addr", "data": {"nid": nid,
                       "addr": network.getAddress(hash160, addressType),
-                      "val": v.value.toJson, "utxo_count": v.utxo_count}}
+                      "val": v.value.toJson, "utxo_count": v.utxo_count, "sid": v.seq_id, "height": height}}
     streamSend(k, jsonData)
     echo "streamSend tag=", k, " ", jsonData
 
