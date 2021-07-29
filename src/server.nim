@@ -1329,7 +1329,9 @@ proc start*(): seq[Thread[ThreadArg]] {.discardable.} =
   createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
   result.add(mainThread)
 
-proc stop*() {.inline.} = quitServer()
+proc stop*() {.inline.} =
+  if not abortFlag:
+    quitServer()
 
 
 when isMainModule:
