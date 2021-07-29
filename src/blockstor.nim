@@ -282,14 +282,15 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
           streamAddrs[(hash160, addressType, nid).toBytes] = (val, cnt, sid)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
-  for k, v in streamAddrs.pairs:
-    let hash160 = k[0..19].Hash160
-    let addressType = k[20].AddressType
-    let jsonData =  %*{"type": "addr", "data": {"nid": nid,
-                      "addr": network.getAddress(hash160, addressType),
-                      "val": v.value.toJson, "utxo_count": v.utxo_count, "sid": v.seq_id, "height": height}}
-    streamSend(k, jsonData)
-    echo "streamSend tag=", k, " ", jsonData
+  if streamActive:
+    for k, v in streamAddrs.pairs:
+      let hash160 = k[0..19].Hash160
+      let addressType = k[20].AddressType
+      let jsonData =  %*{"type": "addr", "data": {"nid": nid,
+                        "addr": network.getAddress(hash160, addressType),
+                        "val": v.value.toJson, "utxo_count": v.utxo_count, "sid": v.seq_id, "height": height}}
+      streamSend(k, jsonData)
+      echo "streamSend tag=", k, " ", jsonData
 
 proc rollbackBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64): tuple[height: int, seq_id: uint64] =
   var addrins = newSeq[seq[AddrValRollback]](blk.txs.len)
