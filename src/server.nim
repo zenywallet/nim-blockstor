@@ -293,6 +293,41 @@ proc invokeSendEvent*(client: ptr Client, retry: bool = false): bool =
     client.invoke = false
     result = true
 
+proc getErrnoStr(): string =
+  case errno
+  of EADDRINUSE: "errno=EADDRINUSE(" & $errno & ")"
+  else: "errno=" & $errno
+
+proc quitServer(restart: bool = false) =
+  debug "quit"
+  restartFlag = restart
+  active = false
+  if serverSock != osInvalidSocket:
+    if epfd >= 0:
+      var ev: EpollEvent
+      ev.events = EPOLLRDHUP
+      var retCtl = epoll_ctl(epfd, EPOLL_CTL_ADD, serverSock, addr ev)
+      if retCtl != 0:
+        errorQuit "error: quit epoll_ctl ret=", retCtl, " ", getErrnoStr()
+    var retShutdown = serverSock.shutdown(SHUT_RD)
+    if retShutdown != 0:
+      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
+    serverSock.close()
+    serverSock = osInvalidSocket
+  if httpSock != osInvalidSocket:
+    var retShutdown = httpSock.shutdown(SHUT_RD)
+    if retShutdown != 0:
+      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
+    httpSock.close()
+    httpSock = osInvalidSocket
+
+proc restart*() = quitServer(true)
+
+proc abort() =
+  debug "abort"
+  abortFlag = true
+  quitServer()
+
 include stream
 
 proc initClient() =
@@ -330,41 +365,6 @@ proc freeClient() =
     when declared(freeExClient):
       freeExClient(client)
   deallocShared(p)
-
-proc getErrnoStr(): string =
-  case errno
-  of EADDRINUSE: "errno=EADDRINUSE(" & $errno & ")"
-  else: "errno=" & $errno
-
-proc quitServer(restart: bool = false) =
-  debug "quit"
-  restartFlag = restart
-  active = false
-  if serverSock != osInvalidSocket:
-    if epfd >= 0:
-      var ev: EpollEvent
-      ev.events = EPOLLRDHUP
-      var retCtl = epoll_ctl(epfd, EPOLL_CTL_ADD, serverSock, addr ev)
-      if retCtl != 0:
-        errorQuit "error: quit epoll_ctl ret=", retCtl, " ", getErrnoStr()
-    var retShutdown = serverSock.shutdown(SHUT_RD)
-    if retShutdown != 0:
-      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
-    serverSock.close()
-    serverSock = osInvalidSocket
-  if httpSock != osInvalidSocket:
-    var retShutdown = httpSock.shutdown(SHUT_RD)
-    if retShutdown != 0:
-      errorQuit "error: quit shutdown ret=", retShutdown, " ", getErrnoStr()
-    httpSock.close()
-    httpSock = osInvalidSocket
-
-proc restart*() = quitServer(true)
-
-proc abort() =
-  debug "abort"
-  abortFlag = true
-  quitServer()
 
 proc atomic_compare_exchange_n(p: ptr int, expected: ptr int, desired: int, weak: bool,
                               success_memmodel: int, failure_memmodel: int): bool
