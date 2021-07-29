@@ -47,7 +47,11 @@ type
 
   StreamIdToTag* = ptr StreamIdToTagObj
 
+  MsgDataType {.pure.} = enum
+    Direct
+
   MsgDataObj* = object
+    msgType: MsgDataType
     size: cint
     data: UncheckedArray[byte]
 
@@ -142,8 +146,9 @@ proc delTag*(client: ptr Client, tag: seq[byte]) =
   var sobj = cast[ptr StreamObj](client.pStream)
   sobj.streamId.delTag(tag)
 
-proc newMsg*(msg: seq[byte]): MsgData =
+proc newMsg*(msg: seq[byte], msgType: MsgDataType = MsgDataType.Direct): MsgData =
   let p = cast[MsgData](allocShared0(sizeof(MsgDataObj) + msg.len))
+  p.msgType = msgType
   p.size = msg.len.cint
   copyMem(addr p.data, unsafeAddr msg[0], msg.len)
   result = p
@@ -175,7 +180,7 @@ var streamWorkerThread: Thread[void]
 var invokeWorkerThread: Thread[void]
 var testMessageGeneratorThread: Thread[void]
 type
-  StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte]]
+  StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
 var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
 var streamActive* = false
 var curMsgId: int
@@ -241,16 +246,19 @@ proc invokeWorker() {.thread.} =
     inc(cnt)
     if cnt >= 5:
       cnt = 0
-      streamWorkerChannel[].send((0'u64, @[], @[]))
+      streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
 
 proc streamSend*(tag: seq[byte], json: JsonNode) =
-  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes))
+  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
 
 proc streamSend*(tag: string, json: JsonNode) =
-  streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes))
+  streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes, MsgDataType.Direct))
 
-proc streamSend*(streamId: StreamId, json: JsonNode) =
-  streamWorkerChannel[].send((streamId, @[], ($json).toBytes))
+proc streamSend*(streamId: StreamId, json: JsonNode, msgType: MsgDataType = MsgDataType.Direct) =
+  streamWorkerChannel[].send((streamId, @[], ($json).toBytes, msgType))
+
+proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = MsgDataType.Direct) =
+  streamWorkerChannel[].send((streamId, @[], data, msgType))
 
 proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeParams]) =
   globalDbInsts = dbInsts
@@ -307,7 +315,7 @@ proc initStream*() =
 
 proc freeStream*() =
   streamActive = false
-  streamWorkerChannel[].send((0'u64, @[], @[]))
+  streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
   var threads: seq[Thread[void]]
   threads.add(testMessageGeneratorThread)
   threads.add(invokeWorkerThread)
@@ -524,16 +532,18 @@ proc invokeSendMain(client: ptr Client): SendResult =
       if val.isNil:
         debug "msg not found msgId=", msgId
         continue
-      let data = (addr val.data).toBytes(val.size.int)
-      if data.len > 0:
-        result = client.sendCmd(data)
-        delMsg(sobj.streamId, msgId)
-        var refExists = false
-        var mb = msgId.toBytes
-        for m in msgRevTable.items(mb):
-          refExists = true
-          break
-        if not refExists:
-          msgDataTable.del(mb)
-        if result == SendResult.Pending:
-          break
+      let msgType = val.msgType
+      if msgType == MsgDataType.Direct:
+        let data = (addr val.data).toBytes(val.size.int)
+        if data.len > 0:
+          result = client.sendCmd(data)
+          delMsg(sobj.streamId, msgId)
+          var refExists = false
+          var mb = msgId.toBytes
+          for m in msgRevTable.items(mb):
+            refExists = true
+            break
+          if not refExists:
+            msgDataTable.del(mb)
+          if result == SendResult.Pending:
+            break
