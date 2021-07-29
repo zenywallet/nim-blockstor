@@ -613,7 +613,7 @@ proc startWorker() =
 when MONITOR_CONSOLE:
   stdout.eraseScreen
 
-server.setDbInsts(dbInsts, networks)
+server.setStreamParams(dbInsts, networks, nodes)
 server.start()
 
 onSignal(SIGINT, SIGTERM):

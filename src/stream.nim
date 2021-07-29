@@ -12,6 +12,7 @@ import uthash
 import ptlock
 import monitor
 import utils
+import tcp
 
 const DECODE_BUF_SIZE = 1048576
 const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
@@ -167,6 +168,8 @@ var globalDbInsts: DbInsts
 var streamDbInsts {.threadvar.}: DbInsts
 var globalNetworks: seq[Network]
 var networks {.threadvar.}: seq[Network]
+var globalNodes: seq[NodeParams]
+var node {.threadvar.}: NodeParams
 var curStreamId: int
 var streamWorkerThread: Thread[void]
 var invokeWorkerThread: Thread[void]
@@ -249,9 +252,10 @@ proc streamSend*(tag: string, json: JsonNode) =
 proc streamSend*(streamId: StreamId, json: JsonNode) =
   streamWorkerChannel[].send((streamId, @[], ($json).toBytes))
 
-proc setDbInsts*(dbInsts: DbInsts, networks: seq[Network]) =
+proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeParams]) =
   globalDbInsts = dbInsts
   globalNetworks = networks
+  globalNodes = nodes
 
 proc initExClient*(pClient: ptr Client) =
   pClient.pStream = nil
