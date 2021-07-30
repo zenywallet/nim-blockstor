@@ -1326,10 +1326,10 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*(): seq[Thread[ThreadArg]] {.discardable.} =
+proc start*(): Thread[ThreadArg] {.discardable.} =
   setUlimit(ULIMIT_SIZE)
   createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
-  result.add(mainThread)
+  mainThread
 
 proc stop*() {.inline.} =
   if not abortFlag:
