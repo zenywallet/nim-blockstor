@@ -64,6 +64,16 @@ type
     On
     Off
 
+  StreamThreadArgType* {.pure.} = enum
+    Void
+
+  StreamThreadArg* = object
+    case type*: StreamThreadArgType
+    of StreamThreadArgType.Void:
+      discard
+
+  WrapperStreamThreadArg = tuple[threadFunc: proc(arg: StreamThreadArg) {.thread.}, arg: StreamThreadArg]
+
 
 proc newTag*(tag: seq[byte], pair: KVPair[StreamId] = nil,
             tagType: StreamIdTag = StreamIdTag.Unknown): StreamIdToTag =
@@ -176,16 +186,16 @@ var networks {.threadvar.}: seq[Network]
 var globalNodes: seq[NodeParams]
 var node {.threadvar.}: NodeParams
 var curStreamId: int
-var streamWorkerThread: Thread[void]
-var invokeWorkerThread: Thread[void]
-var testMessageGeneratorThread: Thread[void]
+var streamWorkerThread: Thread[WrapperStreamThreadArg]
+var invokeWorkerThread: Thread[WrapperStreamThreadArg]
+var testMessageGeneratorThread: Thread[WrapperStreamThreadArg]
 type
   StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
 var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
 var streamActive* = false
 var curMsgId: int
 
-proc streamWorker() {.thread.} =
+proc streamWorker(arg: StreamThreadArg) {.thread.} =
   var pendingClient: seq[ptr Client]
 
   while true:
@@ -239,7 +249,7 @@ proc streamWorker() {.thread.} =
       if addNew:
         addMsgAndInvoke()
 
-proc invokeWorker() {.thread.} =
+proc invokeWorker(arg: StreamThreadArg) {.thread.} =
   var cnt = 0
   while streamActive:
     sleep(200)
@@ -297,6 +307,15 @@ proc freeWorker*() =
     decBufSize = 0
     decBuf.deallocShared()
 
+proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
+  echo wrapperArg
+  try:
+    wrapperArg.threadFunc(wrapperArg.arg)
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
+    abort()
+
 proc initStream*() =
   ptlockInit(tableLock)
   curStreamId = 1
@@ -304,19 +323,20 @@ proc initStream*() =
   streamWorkerChannel[].open()
   streamActive = true
   curMsgId = 1
-  createThread(streamWorkerThread, streamWorker)
-  createThread(invokeWorkerThread, invokeWorker)
+  createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
+  createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
 
-  proc testMessageGenerator() {.thread.} =
+  proc testMessageGenerator(arg: StreamThreadArg) {.thread.} =
     while streamActive:
       streamSend("testmessage".toBytes, %*{"type": "push", "data": "hello!"})
       sleep(3000)
-  createThread(testMessageGeneratorThread, testMessageGenerator)
+  createThread(testMessageGeneratorThread, streamThreadWrapper,
+              (testMessageGenerator, StreamThreadArg(type: StreamThreadArgType.Void)))
 
 proc freeStream*() =
   streamActive = false
   streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
-  var threads: seq[Thread[void]]
+  var threads: seq[Thread[WrapperStreamThreadArg]]
   threads.add(testMessageGeneratorThread)
   threads.add(invokeWorkerThread)
   threads.add(streamWorkerThread)
