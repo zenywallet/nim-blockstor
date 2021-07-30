@@ -248,13 +248,16 @@ type
   WorkerChannelParam = tuple[appId: int, idx: int, events: uint32, evData: uint64]
 var workerChannel: ptr Channel[WorkerChannelParam]
 var workerChannelWaitingCount: int = 0
-var workerThreads: array[WORKER_THREAD_NUM, Thread[ThreadArg]]
 
-var dispatcherThread: Thread[ThreadArg]
-var acceptThread: Thread[ThreadArg]
-var httpThread: Thread[ThreadArg]
-var monitorThread: Thread[ThreadArg]
-var mainThread: Thread[ThreadArg]
+type
+  WrapperThreadArg = tuple[threadFunc: proc(arg: ThreadArg) {.thread.}, arg: ThreadArg]
+var workerThreads: array[WORKER_THREAD_NUM, Thread[WrapperThreadArg]]
+
+var dispatcherThread: Thread[WrapperThreadArg]
+var acceptThread: Thread[WrapperThreadArg]
+var httpThread: Thread[WrapperThreadArg]
+var monitorThread: Thread[WrapperThreadArg]
+var mainThread: Thread[WrapperThreadArg]
 
 proc setUlimit(rlim: int): bool {.discardable.} =
   var rlp: RLimit
@@ -1271,6 +1274,14 @@ proc createServer(port: Port): SocketHandle =
     errorQuit "error: listen ret=", retListen, " ", getErrnoStr()
   result = sock
 
+proc threadWrapper(wrapperArg: WrapperThreadArg) {.thread.} =
+  try:
+    wrapperArg.threadFunc(wrapperArg.arg)
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
+    abort()
+
 proc main(arg: ThreadArg) {.thread.} =
   while true:
     serverSock = createServer(Port(HTTPS_PORT))
@@ -1291,15 +1302,15 @@ proc main(arg: ThreadArg) {.thread.} =
     workerChannel = cast[ptr Channel[WorkerChannelParam]](allocShared0(sizeof(Channel[WorkerChannelParam])))
     workerChannel[].open()
     for i in 0..<WORKER_THREAD_NUM:
-      createThread(workerThreads[i], worker, ThreadArg(type: ThreadArgType.WorkerParams,
-                                                      workerParams: (i, tcp_rmem)))
+      createThread(workerThreads[i], threadWrapper,
+                  (worker, ThreadArg(type: ThreadArgType.WorkerParams, workerParams: (i, tcp_rmem))))
 
-    createThread(dispatcherThread, dispatcher, ThreadArg(type: ThreadArgType.Void))
-    createThread(acceptThread, acceptClient, ThreadArg(type: ThreadArgType.Void))
-    createThread(httpThread, http, ThreadArg(type: ThreadArgType.Void))
-    createThread(monitorThread, serverMonitor, ThreadArg(type: ThreadArgType.Void))
+    createThread(dispatcherThread, threadWrapper, (dispatcher, ThreadArg(type: ThreadArgType.Void)))
+    createThread(acceptThread, threadWrapper, (acceptClient, ThreadArg(type: ThreadArgType.Void)))
+    createThread(httpThread, threadWrapper, (http, ThreadArg(type: ThreadArgType.Void)))
+    createThread(monitorThread, threadWrapper, (serverMonitor, ThreadArg(type: ThreadArgType.Void)))
 
-    var waitThreads: seq[Thread[ThreadArg]]
+    var waitThreads: seq[Thread[WrapperThreadArg]]
     waitThreads.add(dispatcherThread)
     waitThreads.add(acceptThread)
     waitThreads.add(httpThread)
@@ -1326,13 +1337,13 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*(noBlocking: bool = true): Thread[ThreadArg] {.discardable.} =
+proc start*(noBlocking: bool = true): Thread[WrapperThreadArg] {.discardable.} =
   setUlimit(ULIMIT_SIZE)
   if noBlocking:
-    createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
+    createThread(mainThread, threadWrapper, (main, ThreadArg(type: ThreadArgType.Void)))
     result = mainThread
   else:
-    main(ThreadArg(type: ThreadArgType.Void))
+    threadWrapper((main, ThreadArg(type: ThreadArgType.Void)))
 
 proc stop*() {.inline.} =
   if not abortFlag:
@@ -1344,6 +1355,6 @@ when isMainModule:
     debug "bye from signal ", sig
     quitServer()
 
-  var thread: Thread[ThreadArg]
+  var thread: Thread[WrapperThreadArg]
   thread = start()
   joinThread(thread)
