@@ -588,6 +588,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       sleep(1000)
 
 var monitorThread: Thread[WrapperMultiParams]
+var startServerThread: Thread[void]
 
 proc startWorker() =
   lastBlockChekcerParam = cast[ptr UncheckedArray[LastBlockChekcerParam]](allocShared0(sizeof(LastBlockChekcerParam) * workers.len))
@@ -613,8 +614,17 @@ proc startWorker() =
 when MONITOR_CONSOLE:
   stdout.eraseScreen
 
+proc startServer() {.thread.} =
+  try:
+    server.start(false)
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
+  finally:
+    doAbort()
+
 server.setStreamParams(dbInsts, networks, nodes)
-server.start()
+createThread(startServerThread, startServer)
 
 onSignal(SIGINT, SIGTERM):
   echo "bye from signal ", sig

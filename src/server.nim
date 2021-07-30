@@ -1326,10 +1326,13 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*(): Thread[ThreadArg] {.discardable.} =
+proc start*(noBlocking: bool = true): Thread[ThreadArg] {.discardable.} =
   setUlimit(ULIMIT_SIZE)
-  createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
-  mainThread
+  if noBlocking:
+    createThread(mainThread, main, ThreadArg(type: ThreadArgType.Void))
+    result = mainThread
+  else:
+    main(ThreadArg(type: ThreadArgType.Void))
 
 proc stop*() {.inline.} =
   if not abortFlag:
@@ -1341,6 +1344,6 @@ when isMainModule:
     debug "bye from signal ", sig
     quitServer()
 
-  var threads: seq[Thread[ThreadArg]]
-  threads = threads.concat(start())
-  joinThreads(threads)
+  var thread: Thread[ThreadArg]
+  thread = start()
+  joinThread(thread)
