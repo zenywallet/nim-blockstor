@@ -4,6 +4,7 @@ import bip32, bytes, base58
 import secp256k1
 import secp256k1_ecdh
 import sequtils
+import eckey
 
 proc paymentCode*(node: HDNode): string =
   var d = (0x47'u8, 0x01'u8, 0x00'u8, node.publicKey, node.chainCode, Pad(13)).toBytes.addCheck
