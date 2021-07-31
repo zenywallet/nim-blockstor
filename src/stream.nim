@@ -553,17 +553,17 @@ proc invokeSendMain(client: ptr Client): SendResult =
         debug "msg not found msgId=", msgId
         continue
       let msgType = val.msgType
-      if msgType == MsgDataType.Direct:
-        let data = (addr val.data).toBytes(val.size.int)
-        if data.len > 0:
+      let data = (addr val.data).toBytes(val.size.int)
+      if data.len > 0:
+        if msgType == MsgDataType.Direct:
           result = client.sendCmd(data)
-          delMsg(sobj.streamId, msgId)
-          var refExists = false
-          var mb = msgId.toBytes
-          for m in msgRevTable.items(mb):
-            refExists = true
-            break
-          if not refExists:
-            msgDataTable.del(mb)
-          if result == SendResult.Pending:
-            break
+        delMsg(sobj.streamId, msgId)
+        var refExists = false
+        var mb = msgId.toBytes
+        for m in msgRevTable.items(mb):
+          refExists = true
+          break
+        if not refExists:
+          msgDataTable.del(mb)
+        if result == SendResult.Pending:
+          break
