@@ -113,7 +113,7 @@ proc newMempoolTxAddr(address_hash: Hash160, address_type: AddressType,
   let p = cast[MempoolTxAddr](allocShared0(sizeof(MempoolTxAddrObj)))
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
-    raise newException(MempoolError, "invalid address_hash")
+    raise newException(MempoolError, "invalid address_hash txaddr")
   copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
   p.address_type = address_type
   p.trans = trans
@@ -127,7 +127,7 @@ proc newMempoolTxTxout(n: uint32, value: uint64, address_hash: Hash160,
   p.value = value
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
-    raise newException(MempoolError, "invalid address_hash")
+    raise newException(MempoolError, "invalid address_hash txtxout")
   copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
   p.address_type = address_type
   result = p
@@ -143,7 +143,7 @@ proc newMempoolTxSpent(txid: Hash, n: uint32, value: uint64, address_hash: Hash1
   p.value = value
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
-    raise newException(MempoolError, "invalid address_hash")
+    raise newException(MempoolError, "invalid address_hash txspent")
   copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
   p.address_type = address_type
   result = p
@@ -267,7 +267,6 @@ proc update*(reset: bool) =
     var rpcResults = rpcCmds.send()
     if txids.len != rpcResults.len:
       raise newException(MempoolError, "rpc failed")
-
     var txNews: seq[tuple[txid: Hash, tx: Tx]]
     for i, txid in txids:
       if not txsTable.hasKey(txid):
