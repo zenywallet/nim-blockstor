@@ -324,6 +324,9 @@ proc update*(reset: bool) =
       for txin in tx.ins:
         let retTx = dbInst.getTx(txin.tx)
         if retTx.err == DbStatus.Success:
+          if retTx.res.skip == 1:
+            info "INFO: mempool skip tx " & $txin.tx
+            continue
           let retTxout = dbInst.getTxout(retTx.res.id, txin.n)
           if retTxout.err == DbStatus.Success:
             let (value, address_hash, address_type) = retTxout.res
