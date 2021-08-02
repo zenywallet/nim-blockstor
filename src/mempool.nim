@@ -80,6 +80,16 @@ template debug(x: varargs[string, `$`]) {.used.} = echo join(x)
 template info(x: varargs[string, `$`]) {.used.} = echo join(x)
 template error(x: varargs[string, `$`]) {.used.} = echo join(x)
 
+proc toFixedHash160(h: Hash160): Hash160 =
+  var s = h.toBytes
+  if s.len == 20:
+    result = h
+  elif s.len < 20:
+    let padLen = 20 - s.len
+    result = (s, Pad(padLen)).toBytes.Hash160
+  else:
+    raise newException(MempoolError, "length is too large len=" & $s.len)
+
 proc newMempoolAddrSpent(address_type: AddressType, txid: Hash, n: uint32,
                         value: uint64, txid_out: Hash): MempoolAddrSpent =
   let p = cast[MempoolAddrSpent](allocShared0(sizeof(MempoolAddrSpentObj)))
@@ -284,18 +294,22 @@ proc update*(reset: bool) =
         if txout.value == 0:
           continue
         let addrHash = txout.script.getAddressHash160
+        var addrHashFixed: Hash160
         if addrHash.addressType == AddressType.Unknown:
           info "INFO: mempool unknown address chunks=", txout.script.getScriptChunks
-          continue
-        let mpTxTxout = newMempoolTxTxout(n.uint32, txout.value, addrHash.hash160, addrHash.addressType)
+          addrHashFixed = addrHash.hash160.toFixedHash160
+        else:
+          addrHashFixed = addrHash.hash160
+        let mpTxTxout = newMempoolTxTxout(n.uint32, txout.value, addrHashFixed,
+                                          addrHash.addressType)
         withWriteLock kvLock:
           kvTxTxouts.add(txid.toBytes, mpTxTxout)
 
         let mpAddrTxout = newMempoolAddrTxout(addrHash.addressType, txid, n.uint32, txout.value)
         withWriteLock kvLock:
-          kvAddrTxouts.add(addrHash.hash160.toBytes, mpAddrTxout)
+          kvAddrTxouts.add(addrHashFixed.toBytes, mpAddrTxout)
 
-        let addrkey = (addrHash.hash160, addrHash.addressType).toBytes
+        let addrkey = (addrHashFixed, addrHash.addressType).toBytes
         if addrsRecvTable.hasKey(addrkey):
           addrsRecvTable[addrkey] = addrsRecvTable[addrkey] + txout.value
         else:
@@ -313,13 +327,15 @@ proc update*(reset: bool) =
           let retTxout = dbInst.getTxout(retTx.res.id, txin.n)
           if retTxout.err == DbStatus.Success:
             let (value, address_hash, address_type) = retTxout.res
+            let address_hash_fixed = address_hash.toFixedHash160
             let mpAddrSpent = newMempoolAddrSpent(address_type.AddressType, txin.tx, txin.n, value, txid)
-            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, value, address_hash, address_type.AddressType)
+            let mpTxSpent = newMempoolTxSpent(txin.tx, txin.n, value, address_hash_fixed,
+                                              address_type.AddressType)
             withWriteLock kvLock:
-              kvAddrSpents.add(address_hash.toBytes, mpAddrSpent)
+              kvAddrSpents.add(address_hash_fixed.toBytes, mpAddrSpent)
               kvTxSpents.add(txidBytes, mpTxSpent)
 
-            let addrkey = (address_hash, address_type).toBytes
+            let addrkey = (address_hash_fixed, address_type).toBytes
             if addrsSendTable.hasKey(addrkey):
               addrsSendTable[addrkey] = addrsSendTable[addrkey] + value
             else:
@@ -446,6 +462,6 @@ proc unconfs*(poolId: int): JsonNode =
 
 proc unconfs*(poolId: int, addrHash: Hash160, addrType: AddressType): MempoolUnconf =
   let kvUnconfs = kvs[poolId].kvUnconfs
-  let addrkey = (addrHash, addrType).toBytes
+  let addrkey = (addrHash.toFixedHash160, addrType).toBytes
   withReadLock kvLock:
     result = kvUnconfs[addrkey]
