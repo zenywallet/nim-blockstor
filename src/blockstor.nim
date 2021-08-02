@@ -495,9 +495,9 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
     let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
     height = retLastBlock.res.height
-    nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
     blkHash = retLastBlock.res.hash
-    dbInst.writeBlock(height, blkHash, blk, nextSeqId)
+    dbInst.writeBlock(height, blkHash, blk, retLastBlock.res.start_id)
+    nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
     setMonitorInfo(params.id, height, blkHash, blk.header.time.int64, height)
 
   # block check
