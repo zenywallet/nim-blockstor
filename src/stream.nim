@@ -641,7 +641,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       for i in 0..<monitorInfosCount:
         var m = monitorInfos[][i]
         let jsonData = %*{"type": "status", "data":
-                          {"network": SERVER_LABELS[i],
+                          {"nid": i,
+                          "network": SERVER_LABELS[i],
                           "height": m.height, "hash": $m.hash,
                           "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}

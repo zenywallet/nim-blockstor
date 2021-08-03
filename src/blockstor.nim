@@ -444,7 +444,8 @@ proc monitorMain(workers: seq[WorkerParams]) {.thread.} =
 
         if streamActive:
           let jsonData = %*{"type": "status", "data":
-                          {"network": $params.nodeParams.networkId,
+                          {"nid": i,
+                          "network": $params.nodeParams.networkId,
                           "height": m.height, "hash": $m.hash,
                           "blkTime": m.blkTime,
                           "lastHeight": m.lastHeight}}

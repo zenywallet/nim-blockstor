@@ -78,7 +78,7 @@ extern "C" void streamRecv(char* data, int size) {
         noraList = j["data"];
     } else if(j["type"] == "status") {
         auto data = j["data"];
-        nodeStatus[data["network"].get<std::string>()] = data;
+        nodeStatus[data["nid"].get<int>()] = data;
     } else if(j["type"] == "addr") {
         addrInfos["pending"].push_back(j["data"]);
     }
@@ -1112,11 +1112,13 @@ static void main_loop(void *arg)
         if (ImGui::Begin("Nora Servers", &show_nora_servers_window)) {
             ImGui::PushFont(monoFont);
             if (noraList.size() > 0) {
+                int node_id = 0;
                 for (auto& node : noraList) {
                     std::string node_s = node.get<std::string>();
                     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                     if (ImGui::CollapsingHeader(node_s.c_str())) {
-                        auto status = nodeStatus[node_s];
+                        auto status = nodeStatus[node_id];
+                        node_id++;
                         if (!status.empty()) {
                             if (!status["blkTime"].empty()) {
                                 int64_t tval = status["blkTime"].get<int64_t>();
