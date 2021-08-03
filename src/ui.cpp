@@ -151,6 +151,14 @@ std::string hexStr(unsigned char *data, int len)
   return s;
 }
 
+std::string trimQuote(std::string s)
+{
+    if (s[0] == '\"' && s[s.length() - 1] == '\"') {
+        return s.substr(1, s.length() - 2);
+    }
+    return s;
+}
+
 std::string convCoin(std::string valstr)
 {
     int len = valstr.length();
@@ -747,7 +755,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
             if (addrInfos.find(address) != addrInfos.end() &&
                 addrInfos[address].find("val") != addrInfos[address].end() &&
                 addrInfos[address]["unused"].get<int>() == 0) {
-                amount = convCoin(addrInfos[address]["val"].dump());
+                amount = convCoin(trimQuote(addrInfos[address]["val"].dump()));
                 header = address + " " + amount + "##ha" + wid_s;
             } else {
                 header = address + "##ha" + wid_s;
