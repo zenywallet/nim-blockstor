@@ -13,9 +13,14 @@ import ptlock
 import monitor
 import utils
 import tcp
+import rpc
+import blocks, tx, script
 
 const DECODE_BUF_SIZE = 1048576
 const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
+const RPC_NODE_COUNT = SERVER_LABELS.len
+const RPC_WORKER_NUM = 2
+const RPC_WORKER_TOTAL = RPC_WORKER_NUM * RPC_NODE_COUNT
 
 type
   StreamStage {.pure.} = enum
@@ -49,6 +54,7 @@ type
 
   MsgDataType {.pure.} = enum
     Direct
+    Rawtx
 
   MsgDataObj* = object
     msgType: MsgDataType
@@ -66,11 +72,15 @@ type
 
   StreamThreadArgType* {.pure.} = enum
     Void
+    NodeId
 
   StreamThreadArg* = object
     case type*: StreamThreadArgType
     of StreamThreadArgType.Void:
       discard
+    of StreamThreadArgType.NodeId:
+      threadId: int
+      nodeId*: int
 
   WrapperStreamThreadArg = tuple[threadFunc: proc(arg: StreamThreadArg) {.thread.}, arg: StreamThreadArg]
 
@@ -189,9 +199,12 @@ var curStreamId: int
 var streamWorkerThread: Thread[WrapperStreamThreadArg]
 var invokeWorkerThread: Thread[WrapperStreamThreadArg]
 var testMessageGeneratorThread: Thread[WrapperStreamThreadArg]
+var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
 type
   StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
+  RpcWorkerChannelParam = tuple[streamId: StreamId, data: JsonNode, msgType: MsgDataType]
 var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
+var rpcWorkerChannels: array[RPC_NODE_COUNT, ptr Channel[RpcWorkerChannelParam]]
 var streamActive* = false
 var curMsgId: int
 
@@ -221,7 +234,7 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
       msgId = curId.uint64
 
     template addMsgAndInvoke() {.dirty.} =
-      msgDataTable.add(msgId.toBytes, newMsg(channelData.data))
+      msgDataTable.add(msgId.toBytes, newMsg(channelData.data, channelData.msgType))
       pendingClient = pendingClient.deduplicate()
       pendingClient.keepItIf(it.invokeSendEvent() == false)
       if pendingClient.len > 0:
@@ -307,6 +320,134 @@ proc freeWorker*() =
     decBufSize = 0
     decBuf.deallocShared()
 
+type
+  TxAddrVal = tuple[hash160: Hash160, addressType: uint8, value: uint64, count: uint32]
+
+proc aggregate(txaddrvals: seq[TxAddrVal]): seq[TxAddrVal] =
+  var t = initTable[seq[byte], ref TxAddrVal]()
+  for a in txaddrvals:
+    var key = (a.hash160, a.addressType).toBytes
+    if t.hasKey(key):
+      var tkey = t[key]
+      tkey.value = tkey.value + a.value
+      tkey.count = tkey.count + a.count
+    else:
+      var ra = new TxAddrVal
+      ra[] = a
+      t[key] = ra
+  for v in t.values:
+    result.add(v[])
+
+proc rpcWorker(arg: StreamThreadArg) {.thread.} =
+  {.cast(gcsafe).}:
+    deepCopy(streamDbInsts, globalDbInsts)
+    deepCopy(networks, globalNetworks)
+    node = globalNodes[arg.nodeId]
+  var network = networks[arg.nodeId]
+
+  var dbInst = streamDbInsts[arg.nodeId]
+  setRpcConfig(RpcConfig(rpcUrl: node.rpcUrl, rpcUserPass: node.rpcUserPass))
+
+  while true:
+    var channelData = rpcWorkerChannels[arg.nodeId][].recv()
+    if not streamActive:
+      break
+
+    block workerMain:
+      var json = channelData.data
+      if channelData.msgType == MsgDataType.Rawtx:
+        var retJson = %*{"type": "tx", "data": {"err": 0}}
+        if json.hasKey("ref"):
+            retJson["ref"] = json["ref"]
+        var data = json["data"]
+
+        template errSendBreak(err: int) {.dirty.} =
+          retJson["data"]["err"] = newJint(err)
+          retJson["data"]["res"] = data
+          streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
+          break workerMain
+
+        if not data.hasKey("txid"):
+          errSendBreak(1)
+        var txidStr = data["txid"].getStr
+        var txidHash = txidStr.Hex.toHash
+        var txObj: Tx
+        var blk: DbBlockHashResult
+        var tx = dbInst.getTx(txidHash)
+        if tx.err == DbStatus.NotFound:
+          errSendBreak(2)
+        if tx.res.skip == 1:
+          errSendBreak(3)
+
+        var ret_rawtx = rpc.getRawTransaction.send(txidStr, 0)
+        if ret_rawtx["result"].kind != JString:
+          blk = dbInst.getBlockHash(tx.res.height)
+          if blk.err != DbStatus.Success:
+            errSendBreak(1)
+          var ret_blk = rpc.getBlock.send($blk.res.hash, 0)
+          if ret_blk["result"].kind != JString:
+            errSendBreak(1)
+          var idx = tx.res.id - blk.res.start_id
+          var b = ret_blk["result"].getStr.Hex.toBytes.toBlock
+          txobj = b.txs[idx]
+        else:
+          blk = dbInst.getBlockHash(tx.res.height)
+          if blk.err != DbStatus.Success:
+            errSendBreak(1)
+          txobj = ret_rawtx["result"].getStr.Hex.toBytes.toTx
+
+        var fee: uint64 = 0
+        var txinvals: seq[TxAddrVal]
+        var txoutvals: seq[TxAddrVal]
+        var reward = false;
+        for i in txobj.ins:
+          var in_txid = i.tx
+          var n = i.n
+          if n == 0xffffffff'u32:
+            reward = true
+          else:
+            var ret_tx = dbInst.getTx(in_txid)
+            if ret_tx.err == DbStatus.NotFound:
+              errSendBreak(1)
+            if ret_tx.res.skip == 1:
+              errSendBreak(3)
+            var id = ret_tx.res.id
+            var ret_txout = dbInst.getTxout(id, n)
+            if ret_txout.err == DbStatus.NotFound:
+              errSendBreak(1)
+            txinvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
+
+        for n, o in txobj.outs:
+          var addrHash = getAddressHash160(o.script)
+          txoutvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
+
+        var addrins = newJArray()
+        var addrouts = newJArray()
+        if reward:
+          for t in txinvals.aggregate:
+            addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                          "value": t.value.toJson, "count": t.count})
+          for t in txoutvals.aggregate:
+            addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                          "value": t.value.toJson, "count": t.count})
+        else:
+          for t in txinvals.aggregate:
+            addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                          "value": t.value.toJson, "count": t.count})
+            fee = fee + t.value
+          for t in txoutvals.aggregate:
+            addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                          "value": t.value.toJson, "count": t.count})
+            fee = fee - t.value
+
+        retJson["data"]["res"] = %*{"txid": txidStr,
+                                    "ins": addrins, "outs": addrouts,
+                                    "fee": fee.toJson, "height": tx.res.height,
+                                    "time": blk.res.time, "id": tx.res.id}
+        streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
+
+
+
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
   echo wrapperArg
   try:
@@ -321,10 +462,20 @@ proc initStream*() =
   curStreamId = 1
   streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
   streamWorkerChannel[].open()
+  for i in 0..<RPC_NODE_COUNT:
+    rpcWorkerChannels[i] = cast[ptr Channel[RpcWorkerChannelParam]](allocShared0(sizeof(Channel[RpcWorkerChannelParam])))
+    rpcWorkerChannels[i][].open()
   streamActive = true
   curMsgId = 1
   createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
   createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
+
+  var threadId = 0
+  for i in 0..<RPC_NODE_COUNT:
+    for j in 0..<RPC_WORKER_NUM:
+      createThread(rpcWorkerThreads[threadId], streamThreadWrapper,
+                  (rpcWorker, StreamThreadArg(type: StreamThreadArgType.NodeId, threadId: threadId, nodeId: i)))
+      inc(threadId)
 
   proc testMessageGenerator(arg: StreamThreadArg) {.thread.} =
     while streamActive:
@@ -335,12 +486,18 @@ proc initStream*() =
 
 proc freeStream*() =
   streamActive = false
+  for i in 0..<RPC_NODE_COUNT:
+    for j in 0..<RPC_WORKER_NUM:
+      rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.Direct))
   streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
   var threads: seq[Thread[WrapperStreamThreadArg]]
   threads.add(testMessageGeneratorThread)
   threads.add(invokeWorkerThread)
   threads.add(streamWorkerThread)
   threads.joinThreads()
+  for i in 0..<RPC_NODE_COUNT:
+    rpcWorkerChannels[i][].close()
+    rpcWorkerChannels[i].deallocShared()
   streamWorkerChannel[].close()
   streamWorkerChannel.deallocShared()
   withWriteLock tableLock:
@@ -494,6 +651,12 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         client.setTag("mempool".toBytes)
       elif cmdSwitch == ParseCmdSwitch.Off:
         client.delTag("mempool".toBytes)
+    elif cmd == "tx":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      let sobj = cast[ptr StreamObj](client.pStream)
+      let streamId = sobj.streamId
+      rpcWorkerChannels[nid][].send((streamId, json, MsgDataType.Rawtx))
 
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
@@ -556,6 +719,8 @@ proc invokeSendMain(client: ptr Client): SendResult =
       let data = (addr val.data).toBytes(val.size.int)
       if data.len > 0:
         if msgType == MsgDataType.Direct:
+          result = client.sendCmd(data)
+        elif msgType == MsgDataType.Rawtx:
           result = client.sendCmd(data)
         delMsg(sobj.streamId, msgId)
         var refExists = false
