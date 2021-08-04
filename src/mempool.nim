@@ -283,6 +283,7 @@ proc update*(reset: bool) =
         let tx = rpcResults[i]["result"].getStr.Hex.toBytes.toTx
         txsTable[txid] = tx
         txNews.add((txid.Hex.toHash, tx))
+        debug "mempool[", poolId, "] txid=", txid
 
     var txsAddrSendTable = initTable[seq[byte], TableRef[seq[byte], uint64]]()
     var txsAddrRecvTable = initTable[seq[byte], TableRef[seq[byte], uint64]]()
