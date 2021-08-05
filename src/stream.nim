@@ -658,6 +658,27 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let sobj = cast[ptr StreamObj](client.pStream)
       let streamId = sobj.streamId
       rpcWorkerChannels[nid][].send((streamId, json, MsgDataType.Rawtx))
+    elif cmd == "block":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      var blks = newJArray()
+      var count = 0
+      let height = reqData["height"].getInt
+      var limit = 100
+      if reqData.hasKey("count"):
+        limit = reqData["count"].getInt
+        if limit > 1000:
+          limit = 1000
+      for b in streamDbInsts[nid].getBlockHashes(height):
+        blks.add(%*{"height": b.height, "hash": b.hash, "time": b.time, "start_id": b.start_id});
+        inc(count)
+        if count >= limit:
+          break
+      var jsonData = %*{"type": "block", "data": {"nid": nid, "blocks": blks}}
+      if json.hasKey("ref"):
+        jsonData["ref"] = json["ref"]
+      echo "jsonData", jsonData
+      result = client.sendCmd(jsonData)
 
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,

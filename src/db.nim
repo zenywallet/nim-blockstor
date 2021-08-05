@@ -82,6 +82,22 @@ proc getBlockHash*(db: DbInst, height: int): DbBlockHashResult =
     result = DbBlockHashResult(err: DbStatus.NotFound)
 
 type
+  BlockHeightHashResult* = tuple[height: int, hash: BlockHash, time: uint32, start_id: uint64]
+
+iterator getBlockHashes*(db: DbInst, height: int): BlockHeightHashResult =
+  var startkey = BytesBE(Prefix.blocks, height.uint32)
+  var endkey = BytesBE(Prefix.blocks, uint32.low)
+
+  for d in db.getsRev(startkey, endkey):
+    if d.key.len == 5 and d.val.len == 44:
+      var d = d
+      let height = d.key[1].toUint32BE.int
+      let hash = BlockHash(d.val[0..31])
+      let time = d.val[32].toUint32BE
+      let start_id = d.val[36].toUint64BE
+      yield (height, hash, time, start_id)
+
+type
   LastBlockHashResult* = tuple[height: int, hash: BlockHash, time: uint32, start_id: uint64]
   DbLastBlockHashResult* = DbResult[LastBlockHashResult]
 
