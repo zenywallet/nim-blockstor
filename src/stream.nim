@@ -354,98 +354,104 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
       break
 
     block workerMain:
+      var retJson = %*{"type": "", "data": {"err": 0, "res": {}}}
       var json = channelData.data
-      if channelData.msgType == MsgDataType.Rawtx:
-        var retJson = %*{"type": "tx", "data": {"err": 0}}
+
+      template errSendBreak(err: int) {.dirty.} =
+        retJson["data"]["err"] = newJint(err)
+        if json.hasKey("data"):
+          retJson["data"]["res"] = json["data"]
+        streamSend(channelData.streamId, retJson, channelData.msgType)
+        break workerMain
+
+      try:
         if json.hasKey("ref"):
-            retJson["ref"] = json["ref"]
+          retJson["ref"] = json["ref"]
         var data = json["data"]
-
-        template errSendBreak(err: int) {.dirty.} =
-          retJson["data"]["err"] = newJint(err)
-          retJson["data"]["res"] = data
-          streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
-          break workerMain
-
-        if not data.hasKey("txid"):
-          errSendBreak(1)
-        var txidStr = data["txid"].getStr
-        var txidHash = txidStr.Hex.toHash
-        var txObj: Tx
-        var blk: DbBlockHashResult
-        var tx = dbInst.getTx(txidHash)
-        if tx.err == DbStatus.NotFound:
-          errSendBreak(2)
-        if tx.res.skip == 1:
-          errSendBreak(3)
-
-        var ret_rawtx = rpc.getRawTransaction.send(txidStr, 0)
-        if ret_rawtx["result"].kind != JString:
-          blk = dbInst.getBlockHash(tx.res.height)
-          if blk.err != DbStatus.Success:
+        if channelData.msgType == MsgDataType.Rawtx:
+          retJson["type"] = newJString("tx")
+          if not data.hasKey("txid"):
             errSendBreak(1)
-          var ret_blk = rpc.getBlock.send($blk.res.hash, 0)
-          if ret_blk["result"].kind != JString:
-            errSendBreak(1)
-          var idx = tx.res.id - blk.res.start_id
-          var b = ret_blk["result"].getStr.Hex.toBytes.toBlock
-          txobj = b.txs[idx]
-        else:
-          blk = dbInst.getBlockHash(tx.res.height)
-          if blk.err != DbStatus.Success:
-            errSendBreak(1)
-          txobj = ret_rawtx["result"].getStr.Hex.toBytes.toTx
+          var txidStr = data["txid"].getStr
+          var txidHash = txidStr.Hex.toHash
+          var txObj: Tx
+          var blk: DbBlockHashResult
+          var tx = dbInst.getTx(txidHash)
+          if tx.err == DbStatus.NotFound:
+            errSendBreak(2)
+          if tx.res.skip == 1:
+            errSendBreak(3)
 
-        var fee: uint64 = 0
-        var txinvals: seq[TxAddrVal]
-        var txoutvals: seq[TxAddrVal]
-        var reward = false;
-        for i in txobj.ins:
-          var in_txid = i.tx
-          var n = i.n
-          if n == 0xffffffff'u32:
-            reward = true
+          var ret_rawtx = rpc.getRawTransaction.send(txidStr, 0)
+          if ret_rawtx["result"].kind != JString:
+            blk = dbInst.getBlockHash(tx.res.height)
+            if blk.err != DbStatus.Success:
+              errSendBreak(1)
+            var ret_blk = rpc.getBlock.send($blk.res.hash, 0)
+            if ret_blk["result"].kind != JString:
+              errSendBreak(1)
+            var idx = tx.res.id - blk.res.start_id
+            var b = ret_blk["result"].getStr.Hex.toBytes.toBlock
+            txobj = b.txs[idx]
           else:
-            var ret_tx = dbInst.getTx(in_txid)
-            if ret_tx.err == DbStatus.NotFound:
+            blk = dbInst.getBlockHash(tx.res.height)
+            if blk.err != DbStatus.Success:
               errSendBreak(1)
-            if ret_tx.res.skip == 1:
-              errSendBreak(3)
-            var id = ret_tx.res.id
-            var ret_txout = dbInst.getTxout(id, n)
-            if ret_txout.err == DbStatus.NotFound:
-              errSendBreak(1)
-            txinvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
+            txobj = ret_rawtx["result"].getStr.Hex.toBytes.toTx
 
-        for n, o in txobj.outs:
-          var addrHash = getAddressHash160(o.script)
-          txoutvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
+          var fee: uint64 = 0
+          var txinvals: seq[TxAddrVal]
+          var txoutvals: seq[TxAddrVal]
+          var reward = false;
+          for i in txobj.ins:
+            var in_txid = i.tx
+            var n = i.n
+            if n == 0xffffffff'u32:
+              reward = true
+            else:
+              var ret_tx = dbInst.getTx(in_txid)
+              if ret_tx.err == DbStatus.NotFound:
+                errSendBreak(1)
+              if ret_tx.res.skip == 1:
+                errSendBreak(3)
+              var id = ret_tx.res.id
+              var ret_txout = dbInst.getTxout(id, n)
+              if ret_txout.err == DbStatus.NotFound:
+                errSendBreak(1)
+              txinvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
 
-        var addrins = newJArray()
-        var addrouts = newJArray()
-        if reward:
-          for t in txinvals.aggregate:
-            addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                          "value": t.value.toJson, "count": t.count})
-          for t in txoutvals.aggregate:
-            addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                          "value": t.value.toJson, "count": t.count})
-        else:
-          for t in txinvals.aggregate:
-            addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                          "value": t.value.toJson, "count": t.count})
-            fee = fee + t.value
-          for t in txoutvals.aggregate:
-            addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                          "value": t.value.toJson, "count": t.count})
-            fee = fee - t.value
+          for n, o in txobj.outs:
+            var addrHash = getAddressHash160(o.script)
+            txoutvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
 
-        retJson["data"]["res"] = %*{"txid": txidStr,
-                                    "ins": addrins, "outs": addrouts,
-                                    "fee": fee.toJson, "height": tx.res.height,
-                                    "time": blk.res.time, "id": tx.res.id}
-        streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
+          var addrins = newJArray()
+          var addrouts = newJArray()
+          if reward:
+            for t in txinvals.aggregate:
+              addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                            "value": t.value.toJson, "count": t.count})
+            for t in txoutvals.aggregate:
+              addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                            "value": t.value.toJson, "count": t.count})
+          else:
+            for t in txinvals.aggregate:
+              addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                            "value": t.value.toJson, "count": t.count})
+              fee = fee + t.value
+            for t in txoutvals.aggregate:
+              addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
+                            "value": t.value.toJson, "count": t.count})
+              fee = fee - t.value
 
+          retJson["data"]["res"] = %*{"txid": txidStr,
+                                      "ins": addrins, "outs": addrouts,
+                                      "fee": fee.toJson, "height": tx.res.height,
+                                      "time": blk.res.time, "id": tx.res.id}
+          streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
+      except:
+        let e = getCurrentException()
+        echo "rpcWorker ", e.name, ": ", e.msg
+        errSendBreak(1)
 
 
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
