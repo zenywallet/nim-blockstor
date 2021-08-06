@@ -172,6 +172,17 @@ std::string convCoin(std::string valstr)
     return "0." + valstr;
 }
 
+std::string convCoin(json jval)
+{
+    std::string valstr;
+    if (jval.type() == json::value_t::string) {
+        valstr = jval.get<std::string>();
+    } else {
+        valstr = std::to_string(jval.get<uint64_t>());
+    }
+    return convCoin(valstr);
+}
+
 static ImGuiWindowFlags PrepareOverlay()
 {
     const float PAD = 10.0f;
@@ -755,7 +766,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
             if (addrInfos.find(address) != addrInfos.end() &&
                 addrInfos[address].find("val") != addrInfos[address].end() &&
                 addrInfos[address]["unused"].get<int>() == 0) {
-                amount = convCoin(trimQuote(addrInfos[address]["val"].dump()));
+                amount = convCoin(addrInfos[address]["val"]);
                 header = address + " " + amount + "##ha" + wid_s;
             } else {
                 header = address + "##ha" + wid_s;
