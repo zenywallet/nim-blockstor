@@ -34,6 +34,8 @@ json winBip44;
 json winAddress;
 json addrInfos;
 json winTools;
+json winBlock;
+json blkInfos;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -81,6 +83,8 @@ extern "C" void streamRecv(char* data, int size) {
         nodeStatus[data["nid"].get<int>()] = data;
     } else if(j["type"] == "addr") {
         addrInfos["pending"].push_back(j["data"]);
+    } else if(j["type"] == "block") {
+        blkInfos["pending"].push_back(j);
     }
 }
 
@@ -298,6 +302,19 @@ json db_get_json(const char* tag) {
         return json::parse(ret_string);
     }
     return json{};
+}
+
+static void HelpMarker(const char* desc)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
 }
 
 static void ShowBip44Window(bool* p_open, int wid)
@@ -970,6 +987,133 @@ static void ShowAddressWindow(bool* p_open, int wid)
     ImGui::End();
 }
 
+static void ShowBlockWindow(bool* p_open, int wid)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    std::string wid_s = std::to_string(wid);
+    json& param = winBlock["windows"][wid_s];
+    int network_idx = param["nid"].get<int>();
+    if (nodeStatus[network_idx].empty() || nodeStatus[network_idx]["height"].empty()) {
+        return;
+    }
+    int height = param["height"].get<int>();
+    int max_height = nodeStatus[network_idx]["height"].get<int>();
+    std::string title = "Block - " + wid_s + "##blk" + wid_s;
+    ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(title.c_str(), p_open)) {
+        if (height > max_height) {
+            height = max_height;
+            param["height"] = height;
+        }
+        int org_height = height;
+        int height_gap = param["height_gap"].get<int>();
+        ImGuiComboFlags comb_flags = 0;
+        const char* combo_preview_value = NetworkIds[network_idx];
+        ImGui::PushFont(monoFont);
+        ImGui::PushItemWidth(300);
+        if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
+            for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
+                const bool is_selected = (network_idx == n);
+                if (ImGui::Selectable(NetworkIds[n], is_selected)) {
+                    network_idx = n;
+                    param["nid"] = network_idx;
+                    param["prev_height"] = -1;
+                }
+                if (is_selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+        ImGui::DragInt("Height", &height, 0.5f, 0, max_height, "%d", ImGuiSliderFlags_None);
+        ImGui::SameLine(); HelpMarker("Drag to move left or right or double-click to input the value directly.");
+        ImGui::SliderInt("##blkslider", &height, 0, max_height, "%d", ImGuiSliderFlags_None);
+        param["height"] = height;
+        if (org_height != height && height_gap != 0) {
+            height_gap = 0;
+            param["height_gap"] = 0;
+        }
+        char blk_hash[257];
+        std::string hash = param["hash"].get<std::string>();
+        copyString(hash, blk_hash, sizeof(blk_hash));
+        ImGui::InputText("Block Hash##blkh", blk_hash, IM_ARRAYSIZE(blk_hash), ImGuiInputTextFlags_ReadOnly);
+
+        //ImGui::SameLine(); ImGui::LabelText("##labelbh", "Block Hash");
+        //ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        bool height_update = param["prev_height"].get<int>() != height;
+        static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
+                                        ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
+                                        ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+        if (ImGui::BeginTable("blocks", 3, flags))
+        {
+            ImGui::TableSetupColumn("Height", ImGuiTableColumnFlags_WidthFixed, 9 * 10.0f);
+            ImGui::TableSetupColumn("Block Hash", ImGuiTableColumnFlags_WidthFixed, 65 * 10.0f);
+            ImGui::TableSetupColumn("Time", ImGuiTableColumnFlags_WidthStretch, 20 * 10.0f);
+            ImGui::TableHeadersRow();
+
+            if (!blkInfos[wid_s].empty()) {
+                int pos = 0;
+                for (auto& el : blkInfos[wid_s]["blocks"]) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    std::string hash_str = trimQuote(el["hash"].dump());
+                    int cur_height = el["height"].get<int>();
+                    bool item_is_selected;
+                    if (height_gap == 0 && height + 10 < max_height) {
+                        if (pos == 10) {
+                            item_is_selected = true;
+                            param["hash"] = hash_str;
+                        } else {
+                            item_is_selected = false;
+                        }
+                        pos++;
+                    } else {
+                        if (height == cur_height) {
+                            item_is_selected = true;
+                            param["hash"] = hash_str;
+                        } else {
+                            item_is_selected = false;
+                        }
+                    }
+
+                    ImGuiSelectableFlags selectable_flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowItemOverlap;
+                    if (ImGui::Selectable(std::to_string(cur_height).c_str(), item_is_selected, selectable_flags, ImVec2(0, 0.0f))) {
+                        height_gap = height_gap + height - cur_height;
+                        param["height_gap"] = height_gap;
+                        param["height"] = cur_height;
+                    }
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text(trimQuote(el["hash"].dump()).c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text(getLocalTime(el["time"].get<int64_t>()).c_str());
+                }
+            }
+            ImGui::EndTable();
+        }
+        ImGui::PopFont();
+
+        if (height_update) {
+            float delta = param["delta"].get<float>();
+            if (delta <= 0.0) {
+                param["prev_height"] = height;
+                param["delta"] = 0.06f;
+                std::string s = "{\"cmd\":\"block\",\"data\":{\"nid\":" + std::to_string(network_idx) + ", \"height\":" +
+                                std::to_string(height + 10 + height_gap) + ",  \"count\":21}, \"ref\":\"" + wid_s + "\"}";
+                streamSend(s.c_str(), s.length());
+            } else {
+                param["delta"] = delta - io.DeltaTime;
+            }
+        }
+    }
+    while (!blkInfos["pending"].empty()) {
+        auto blk = blkInfos["pending"].at(0);
+        blkInfos[blk["ref"].get<std::string>()] = blk["data"];
+        blkInfos["pending"].erase(0);
+    }
+    ImGui::End();
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -993,6 +1137,7 @@ static void main_loop(void *arg)
         winBip44 = db_get_json("winBip44");
         winAddress = db_get_json("winAddress");
         winTools = db_get_json("winTools");
+        winBlock = db_get_json("winBlock");
         std::string settings = db_get_string("settings");
         ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
         if (winTools.find("nora_chk") != winTools.end()) {
@@ -1013,6 +1158,9 @@ static void main_loop(void *arg)
         for (auto& el : winAddress["windows"].items()) {
             winAddress["windows"][el.key()]["update"] = true;
         }
+        for (auto& el : winBlock["windows"].items()) {
+            winBlock["windows"][el.key()]["prev_height"] = -1;
+        }
     }
     if (CheckSettingsDirty(io) || io.WantSaveIniSettings) {
         std::cout << "save" << std::endl;
@@ -1021,6 +1169,7 @@ static void main_loop(void *arg)
         db_set("winBip44", winBip44.dump().c_str());
         db_set("winAddress", winAddress.dump().c_str());
         db_set("winTools", winTools.dump().c_str());
+        db_set("winBlock", winBlock.dump().c_str());
         size_t out_size;
         const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
         std::string settings(s, out_size);
@@ -1075,6 +1224,17 @@ static void main_loop(void *arg)
             int wid = winAddress["wid"].get<int>() + 1;
             winAddress["wid"] = wid;
             winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
+        }
+        if (ImGui::Button("Block")) {
+            if (winBlock["wid"].empty()) {
+                winBlock = R"({"wid": 0, "windows": {}, "del": []})"_json;
+            }
+            int wid = winBlock["wid"].get<int>() + 1;
+            winBlock["wid"] = wid;
+            winBlock["windows"][std::to_string(wid)] = R"({"nid": 0, "height": 0, "prev_height": -1, "delta": 0, "height_gap": 0, "hash": ""})"_json;
+            if (!nodeStatus[0].empty() && !nodeStatus[0]["height"].empty()) {
+                winBlock["windows"][std::to_string(wid)]["height"] = nodeStatus[0]["height"];
+            }
         }
         if (ImGui::Button("BIP44")) {
             if (winBip44["wid"].empty()) {
@@ -1221,6 +1381,19 @@ static void main_loop(void *arg)
         winAddress["windows"].erase(key);
     }
     winAddress["del"].clear();
+
+    for (auto& el : winBlock["windows"].items()) {
+        int wid = std::stoi(el.key());
+        bool flag = true;
+        ShowBlockWindow(&flag, wid);
+        if (!flag) {
+            winBlock["del"].push_back(el.key());
+        }
+    }
+    for (auto& el : winBlock["del"]) {
+        winBlock["windows"].erase(el.get<std::string>());
+    }
+    winBlock["del"].clear();
 
     ImGui::Render();
     SDL_GL_MakeCurrent(g_Window, g_GLContext);
