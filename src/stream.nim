@@ -429,18 +429,18 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
           if reward:
             for t in txinvals.aggregate:
               addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                            "value": t.value.toJson, "count": t.count})
+                            "val": t.value.toJson, "count": t.count})
             for t in txoutvals.aggregate:
               addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                            "value": t.value.toJson, "count": t.count})
+                            "val": t.value.toJson, "count": t.count})
           else:
             for t in txinvals.aggregate:
               addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                            "value": t.value.toJson, "count": t.count})
+                            "val": t.value.toJson, "count": t.count})
               fee = fee + t.value
             for t in txoutvals.aggregate:
               addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType.AddressType),
-                            "value": t.value.toJson, "count": t.count})
+                            "val": t.value.toJson, "count": t.count})
               fee = fee - t.value
 
           retJson["data"]["res"] = %*{"txid": txidStr,
