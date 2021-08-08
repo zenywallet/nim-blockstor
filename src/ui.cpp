@@ -771,7 +771,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
         param["update"] = false;
     }
     std::string title;
-    if (winAddress["samewin"]) {
+    if (winAddress["samewin"].get<bool>()) {
         title = "Addresses";
     } else {
         title = "Address - " + wid_s + "##ta" + wid_s;
