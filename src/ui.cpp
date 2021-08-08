@@ -36,6 +36,8 @@ json addrInfos;
 json winTools;
 json winBlock;
 json blkInfos;
+json winTx;
+json txInfos;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -83,6 +85,8 @@ extern "C" void streamRecv(char* data, int size) {
         nodeStatus[data["nid"].get<int>()] = data;
     } else if(j["type"] == "addr") {
         addrInfos["pending"].push_back(j["data"]);
+    } else if(j["type"] == "tx") {
+        txInfos["pending"].push_back(j);
     } else if(j["type"] == "block") {
         blkInfos["pending"].push_back(j);
     }
@@ -987,6 +991,165 @@ static void ShowAddressWindow(bool* p_open, int wid)
     ImGui::End();
 }
 
+static void ShowTxWindow(bool* p_open, int wid)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    std::string wid_s = std::to_string(wid);
+    json& param = winTx["windows"][wid_s];
+    int network_idx = param["nid"].get<int>();
+    std::string tx = param["tx"].get<std::string>();
+    bool valid_tx = param["valid_tx"].get<bool>();
+    std::string hash = param["tx"].get<std::string>();
+    bool update = false;
+    if (param["update"].get<bool>() && streamActive) {
+        update = true;
+        param["update"] = false;
+    }
+    std::string title;
+    if (winTx["samewin"].get<bool>()) {
+        title = "Transactions";
+    } else {
+        title = "Transaction - " + wid_s + "##tx" + wid_s;
+    }
+    ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin(title.c_str(), p_open)) {
+        std::string header;
+        if (hash.length() > 0) {
+            header = hash + "##txh" + wid_s;
+        } else {
+            header = "Transaction##txh" + wid_s;
+        }
+        ImGui::PushFont(monoFont);
+        ImGui::SetNextItemOpen(param["txopen"].get<bool>());
+        if (ImGui::CollapsingHeader(header.c_str())) {
+            param["txopen"] = true;
+            ImGuiComboFlags comb_flags = 0;
+            const char* combo_preview_value = NetworkIds[network_idx];
+            ImGui::PushItemWidth(300);
+            if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
+                for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
+                    const bool is_selected = (network_idx == n);
+                    if (ImGui::Selectable(NetworkIds[n], is_selected)) {
+                        network_idx = n;
+                        param["nid"] = network_idx;
+                        param["prev_tx"] = "";
+                        txInfos[wid_s].clear();
+                        bool validhex = checkHexStr(hash);
+                        if (validhex && hash.length() == 64) {
+                            valid_tx = true;
+                            if (streamActive) {
+                                update = true;
+                            } else {
+                                param["update"] = true;
+                            }
+                        } else {
+                            valid_tx = false;
+                        }
+                        param["valid_tx"] = valid_tx;
+                    }
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopItemWidth();
+
+            char tx_hash[134];
+            copyString(hash, tx_hash, sizeof(tx_hash));
+            ImGui::PushItemWidth(700.0f);
+            if (ImGui::InputText(("Transaction ID (txid)##txid" + wid_s).c_str(), tx_hash, IM_ARRAYSIZE(tx_hash))) {
+                std::string tx_str = std::string(tx_hash);
+                hash = tx_str;
+                param["tx"] = tx_str;
+                bool validhex = checkHexStr(tx_str);
+                if (validhex && tx_str.length() == 64) {
+                    valid_tx = true;
+                    txInfos[wid_s].clear();
+                    if (streamActive) {
+                        update = true;
+                    } else {
+                        param["update"] = true;
+                    }
+                } else {
+                    valid_tx = false;
+                }
+                param["valid_tx"] = valid_tx;
+            }
+            ImGui::PopItemWidth();
+
+            if (!valid_tx) {
+                if (hash.length() > 0) {
+                    ImGui::Text(("invalid txid \"" + hash + "\"").c_str());
+                }
+            } else if (!txInfos[wid_s].empty()) {
+                int err = txInfos[wid_s]["err"].get<int>();
+                if (err == 0) {
+                    auto res = txInfos[wid_s]["res"];
+                    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+                    if (ImGui::TreeNode(("inputs##ins" + wid_s).c_str())) {
+                        if (res["ins"].size() > 0) {
+                            for (auto& el : res["ins"]) {
+                                int count = el["count"].get<int>();
+                                if (count > 1) {
+                                    ImGui::Text((el["addr"].get<std::string>() + "(" + std::to_string(count) + ") " +
+                                                convCoin(el["val"])).c_str());
+                                } else {
+                                    ImGui::Text((el["addr"].get<std::string>() + " " +
+                                                convCoin(el["val"])).c_str());
+                                }
+                            }
+                        } else {
+                            ImGui::Text("coinbase");
+                        }
+                        ImGui::TreePop();
+                    }
+                    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+                    if (ImGui::TreeNode(("outputs##outs" + wid_s).c_str())) {
+                        if (res["outs"].size() > 0) {
+                            for (auto& el : res["outs"]) {
+                                int count = el["count"].get<int>();
+                                if (count > 1) {
+                                    ImGui::Text((el["addr"].get<std::string>() + "(" + std::to_string(count) + ") " +
+                                                convCoin(el["val"])).c_str());
+                                } else {
+                                    ImGui::Text((el["addr"].get<std::string>() + " " +
+                                                convCoin(el["val"])).c_str());
+                                }
+                            }
+                        } else {
+                            ImGui::Text("none");
+                        }
+                        ImGui::TreePop();
+                    }
+                    ImGui::Text(("fee: " + convCoin(res["fee"])).c_str());
+                    ImGui::Text(("height: " + std::to_string(res["height"].get<int>())).c_str());
+                    ImGui::Text(("time: " + getLocalTime(res["time"].get<int64_t>())).c_str());
+                    ImGui::Text(("sequence id: " + std::to_string(res["id"].get<uint64_t>())).c_str());
+                } else if (err = 2) {
+                    ImGui::Text("txid is not found");
+                } else {
+                    ImGui::Text("error");
+                }
+            }
+        } else {
+            param["txopen"] = false;
+        }
+        ImGui::PopFont();
+    }
+    if (update && valid_tx) {
+        std::string s = "{\"cmd\":\"tx\",\"data\":{\"nid\":" + std::to_string(network_idx) +
+                        ",\"txid\":\"" + hash + "\"},\"ref\":\"" + wid_s + "\"}";
+        streamSend(s.c_str(), s.length());
+    }
+    while (!txInfos["pending"].empty()) {
+        auto tx = txInfos["pending"].at(0);
+        txInfos[tx["ref"].get<std::string>()] = tx["data"];
+        txInfos["pending"].erase(0);
+    }
+    ImGui::End();
+}
+
 static void ShowBlockWindow(bool* p_open, int wid)
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -1124,6 +1287,7 @@ static void main_loop(void *arg)
     static bool show_framerate_overlay = true;
     static bool show_nora_servers_window = false;
     static bool show_same_address_window = false;
+    static bool show_same_transaction_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -1137,6 +1301,7 @@ static void main_loop(void *arg)
         winBip44 = db_get_json("winBip44");
         winAddress = db_get_json("winAddress");
         winTools = db_get_json("winTools");
+        winTx = db_get_json("winTx");
         winBlock = db_get_json("winBlock");
         std::string settings = db_get_string("settings");
         ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
@@ -1155,8 +1320,14 @@ static void main_loop(void *arg)
         if (winAddress.find("samewin") != winAddress.end()) {
             show_same_address_window = winAddress["samewin"].get<bool>();
         }
+        if (winTx.find("samewin") != winTx.end()) {
+            show_same_transaction_window = winTx["samewin"].get<bool>();
+        }
         for (auto& el : winAddress["windows"].items()) {
             winAddress["windows"][el.key()]["update"] = true;
+        }
+        for (auto& el : winTx["windows"].items()) {
+            winTx["windows"][el.key()]["update"] = true;
         }
         for (auto& el : winBlock["windows"].items()) {
             winBlock["windows"][el.key()]["prev_height"] = -1;
@@ -1169,6 +1340,7 @@ static void main_loop(void *arg)
         db_set("winBip44", winBip44.dump().c_str());
         db_set("winAddress", winAddress.dump().c_str());
         db_set("winTools", winTools.dump().c_str());
+        db_set("winTx", winTx.dump().c_str());
         db_set("winBlock", winBlock.dump().c_str());
         size_t out_size;
         const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
@@ -1225,6 +1397,14 @@ static void main_loop(void *arg)
             winAddress["wid"] = wid;
             winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
         }
+        if (ImGui::Button("Transaction")) {
+            if (winTx["wid"].empty()) {
+                winTx = R"({"wid": 0, "windows": {}, "del": [], "samewin": false})"_json;
+            }
+            int wid = winTx["wid"].get<int>() + 1;
+            winTx["wid"] = wid;
+            winTx["windows"][std::to_string(wid)] = R"({"nid": 0, "tx": "", "prev_tx": "", "valid_tx": false, "update": false, "txopen": true})"_json;
+        }
         if (ImGui::Button("Block")) {
             if (winBlock["wid"].empty()) {
                 winBlock = R"({"wid": 0, "windows": {}, "del": []})"_json;
@@ -1265,6 +1445,10 @@ static void main_loop(void *arg)
         }
         if (ImGui::Checkbox("Addresses in the same window", &show_same_address_window)) {
             winAddress["samewin"] = show_same_address_window;
+            MarkSettingsDirty();
+        }
+        if (ImGui::Checkbox("Transactions in the same window", &show_same_transaction_window)) {
+            winTx["samewin"] = show_same_transaction_window;
             MarkSettingsDirty();
         }
         ImGui::Separator();
@@ -1381,6 +1565,19 @@ static void main_loop(void *arg)
         winAddress["windows"].erase(key);
     }
     winAddress["del"].clear();
+
+    for (auto& el : winTx["windows"].items()) {
+        int wid = std::stoi(el.key());
+        bool flag = true;
+        ShowTxWindow(&flag, wid);
+        if (!flag) {
+            winTx["del"].push_back(el.key());
+        }
+    }
+    for (auto& el : winTx["del"]) {
+        winTx["windows"].erase(el.get<std::string>());
+    }
+    winTx["del"].clear();
 
     for (auto& el : winBlock["windows"].items()) {
         int wid = std::stoi(el.key());
