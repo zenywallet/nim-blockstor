@@ -82,7 +82,16 @@ extern "C" void streamRecv(char* data, int size) {
         noraList = j["data"];
     } else if(j["type"] == "status") {
         auto data = j["data"];
-        nodeStatus[data["nid"].get<int>()] = data;
+        int nid = data["nid"].get<int>();
+        nodeStatus[nid] = data;
+        int nodeHeight = nodeStatus[nid]["height"].get<int>();
+        for (auto& el : winTx["windows"].items()) {
+            int height = winTx["windows"][el.key()]["height"].get<int>();
+            if (winTx["windows"][el.key()]["nid"].get<int>() == nid && (height < 0 || nodeHeight == height) &&
+                winTx["windows"][el.key()]["valid_tx"].get<bool>()) {
+                winTx["windows"][el.key()]["update"] = true;
+            }
+        }
     } else if(j["type"] == "addr") {
         addrInfos["pending"].push_back(j["data"]);
     } else if(j["type"] == "tx") {
@@ -1410,7 +1419,7 @@ static void main_loop(void *arg)
             }
             int wid = winTx["wid"].get<int>() + 1;
             winTx["wid"] = wid;
-            winTx["windows"][std::to_string(wid)] = R"({"nid": 0, "tx": "", "prev_tx": "", "valid_tx": false, "update": false, "txopen": true})"_json;
+            winTx["windows"][std::to_string(wid)] = R"({"nid": 0, "tx": "", "prev_tx": "", "valid_tx": false, "update": false, "txopen": true, "height": -1})"_json;
         }
         if (ImGui::Button("Block")) {
             if (winBlock["wid"].empty()) {
