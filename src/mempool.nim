@@ -190,6 +190,7 @@ type
 var mparams {.threadvar.}: MempoolParams
 var dbInst {.threadvar.}: DbInst
 var poolId {.threadvar.}: int
+var network {.threadvar.}: Network
 var kvAddrSpents {.threadvar.}: ptr KVHandle[MempoolAddrSpent]
 var kvAddrTxouts {.threadvar.}: ptr KVHandle[MempoolAddrTxout]
 var kvTxAddrs {.threadvar.}: ptr KVHandle[MempoolTxAddr]
@@ -245,12 +246,57 @@ proc setParams*(mempoolParams: MempoolParams) =
   mparams = mempoolParams
   dbInst = mparams.dbInst
   poolId = mparams.id
+  network = poolId.NetworkId.getNetwork()
   kvAddrSpents = kvs[poolId].kvAddrSpents
   kvAddrTxouts = kvs[poolId].kvAddrTxouts
   kvTxAddrs = kvs[poolId].kvTxAddrs
   kvTxTxouts = kvs[poolId].kvTxTxouts
   kvTxSpents = kvs[poolId].kvTxSpents
   kvUnconfs = kvs[poolId].kvUnconfs
+
+type
+  TxAddrVal = tuple[hash160: Hash160, addressType: AddressType, value: uint64, count: uint32]
+
+proc aggregate(txaddrvals: seq[TxAddrVal]): seq[TxAddrVal] =
+  var t = initTable[seq[byte], ref TxAddrVal]()
+  for a in txaddrvals:
+    var key = (a.hash160, a.addressType).toBytes
+    if t.hasKey(key):
+      var tkey = t[key]
+      tkey.value = tkey.value + a.value
+      tkey.count = tkey.count + a.count
+    else:
+      var ra = new TxAddrVal
+      ra[] = a
+      t[key] = ra
+  for v in t.values:
+    result.add(v[])
+
+proc mempoolTx*(poolId: int, txid: Hash, network: Network): JsonNode =
+  let kvTxTxouts = kvs[poolId].kvTxTxouts
+  let kvTxSpents = kvs[poolId].kvTxSpents
+  var txinvals: seq[TxAddrVal]
+  var txoutvals: seq[TxAddrVal]
+  let txkey = txid.toBytes
+  for spent in kvTxSpents.items(txkey):
+    txinvals.add((spent.val.address_hash.toBytes.Hash160, spent.val.address_type, spent.val.value, 1'u32))
+  for txout in kvTxTxouts.items(txkey):
+    txoutvals.add((txout.val.address_hash.toBytes.Hash160, txout.val.address_type, txout.val.value, 1'u32))
+  if txinvals.len > 0 or txoutvals.len > 0:
+    var addrins = newJArray()
+    var addrouts = newJArray()
+    var fee: uint64 = 0
+    for t in txinvals.aggregate:
+      addrins.add(%*{"addr": network.getAddress(t.hash160, t.addressType),
+                    "val": t.value.toJson, "count": t.count})
+      fee = fee + t.value
+    for t in txoutvals.aggregate:
+      addrouts.add(%*{"addr": network.getAddress(t.hash160, t.addressType),
+                    "val": t.value.toJson, "count": t.count})
+      fee = fee - t.value
+    result = %*{"ins": addrins, "outs": addrouts, "fee": fee.toJson}
+  else:
+    result = newJNull()
 
 proc update*(reset: bool) =
   if reset:
@@ -418,6 +464,10 @@ proc update*(reset: bool) =
           else:
             let uc = kvUnconfs[k]
             kvUnconfs[k] = newMempoolUnconf(uc.value_out, uc.value_in + v)
+
+    for txNew in txNews:
+      let (txid, _) = txNew
+      debug mempoolTx(poolId, txid, network)
 
 proc `%`*(obj: MempoolAddrSpentObj | MempoolAddrTxoutObj |
           MempoolTxAddrObj | MempoolTxTxoutObj | MempoolTxSpentObj): JsonNode =

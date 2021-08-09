@@ -15,6 +15,7 @@ import utils
 import tcp
 import rpc
 import blocks, tx, script
+import mempool
 
 const DECODE_BUF_SIZE = 1048576
 const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
@@ -378,7 +379,14 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
           var blk: DbBlockHashResult
           var tx = dbInst.getTx(txidHash)
           if tx.err == DbStatus.NotFound:
-            errSendBreak(2)
+            var mtx = mempool.mempoolTx(arg.nodeId, txidHash, network)
+            if mtx.kind == JNull:
+              errSendBreak(2)
+            else:
+              retJson["data"]["res"] = mtx
+              retJson["data"]["res"]["txid"] = newJString(txidStr)
+              streamSend(channelData.streamId, retJson, MsgDataType.Rawtx)
+              break workerMain
           if tx.res.skip == 1:
             errSendBreak(3)
 

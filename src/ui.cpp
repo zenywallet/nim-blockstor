@@ -1123,9 +1123,16 @@ static void ShowTxWindow(bool* p_open, int wid)
                         ImGui::TreePop();
                     }
                     ImGui::Text(("fee: " + convCoin(res["fee"])).c_str());
-                    ImGui::Text(("height: " + std::to_string(res["height"].get<int>())).c_str());
-                    ImGui::Text(("time: " + getLocalTime(res["time"].get<int64_t>())).c_str());
-                    ImGui::Text(("sequence id: " + std::to_string(res["id"].get<uint64_t>())).c_str());
+                    if (!res["height"].empty()) {
+                        int height = res["height"].get<int>();
+                        ImGui::Text(("height: " + std::to_string(height)).c_str());
+                        ImGui::Text(("time: " + getLocalTime(res["time"].get<int64_t>())).c_str());
+                        ImGui::Text(("sequence id: " + std::to_string(res["id"].get<uint64_t>())).c_str());
+                        param["height"] = height;
+                    } else {
+                        ImGui::Text("This transaction is not yet in the block");
+                        param["height"] = -1;
+                    }
                 } else if (err = 2) {
                     ImGui::Text("txid is not found");
                 } else {
