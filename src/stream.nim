@@ -675,6 +675,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
     elif cmd == "block":
       let reqData = json["data"]
       let nid = reqData["nid"].getInt
+      if nid > streamDbInsts.high or nid < streamDbInsts.low:
+        raise newException(StreamError, "invalid nid")
       var blks = newJArray()
       var count = 0
       let height = reqData["height"].getInt
