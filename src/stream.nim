@@ -681,8 +681,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       var count = 0
       let height = reqData["height"].getInt
       var limit = 100
-      if reqData.hasKey("count"):
-        limit = reqData["count"].getInt
+      if reqData.hasKey("limit"):
+        limit = reqData["limit"].getInt
         if limit > 1000:
           limit = 1000
       for b in streamDbInsts[nid].getBlockHashes(height):
