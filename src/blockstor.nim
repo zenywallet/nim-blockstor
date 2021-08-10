@@ -511,10 +511,9 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       if retDbHash.err != DbStatus.Success:
         raise newException(BlockstorError, "db block not found height=" & $height)
 
-      var blkRpcHash = retRpcHash["result"].getStr.Hex.toBlockHash
+      blkHash = retRpcHash["result"].getStr.Hex.toBlockHash
       var blkDbHash = retDbHash.res.hash
-      if blkRpcHash.toBytes == blkDbHash.toBytes:
-        blkHash = blkDbHash
+      if blkHash.toBytes == blkDbHash.toBytes:
         break
 
       # rollback
