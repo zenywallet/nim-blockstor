@@ -83,16 +83,31 @@ extern "C" void streamRecv(char* data, int size) {
     } else if(j["type"] == "status") {
         auto data = j["data"];
         int nid = data["nid"].get<int>();
+        bool prev_synced = false;
+        if (!nodeStatus[nid].empty()) {
+            prev_synced = nodeStatus[nid]["synced"].get<bool>();
+        }
         nodeStatus[nid] = data;
         int nodeHeight = nodeStatus[nid]["height"].get<int>();
         int nodeLastHeight = nodeStatus[nid]["lastHeight"].get<int>();
         bool synced = (nodeHeight == nodeLastHeight);
-        for (auto& el : winTx["windows"].items()) {
-            int height = winTx["windows"][el.key()]["height"].get<int>();
-            if (winTx["windows"][el.key()]["nid"].get<int>() == nid &&
-                ((height < 0 && synced) || nodeHeight == height) &&
-                winTx["windows"][el.key()]["valid_tx"].get<bool>()) {
-                winTx["windows"][el.key()]["update"] = true;
+        nodeStatus[nid]["synced"] = synced;
+        if (!prev_synced && synced) {
+            for (auto& el : winTx["windows"].items()) {
+                int height = winTx["windows"][el.key()]["height"].get<int>();
+                if (winTx["windows"][el.key()]["nid"].get<int>() == nid &&
+                    winTx["windows"][el.key()]["valid_tx"].get<bool>()) {
+                    winTx["windows"][el.key()]["update"] = true;
+                }
+            }
+        } else {
+            for (auto& el : winTx["windows"].items()) {
+                int height = winTx["windows"][el.key()]["height"].get<int>();
+                if (winTx["windows"][el.key()]["nid"].get<int>() == nid &&
+                    (height < 0 || nodeHeight == height) &&
+                    winTx["windows"][el.key()]["valid_tx"].get<bool>()) {
+                    winTx["windows"][el.key()]["update"] = true;
+                }
             }
         }
     } else if(j["type"] == "addr") {
