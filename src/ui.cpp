@@ -85,9 +85,12 @@ extern "C" void streamRecv(char* data, int size) {
         int nid = data["nid"].get<int>();
         nodeStatus[nid] = data;
         int nodeHeight = nodeStatus[nid]["height"].get<int>();
+        int nodeLastHeight = nodeStatus[nid]["lastHeight"].get<int>();
+        bool synced = (nodeHeight == nodeLastHeight);
         for (auto& el : winTx["windows"].items()) {
             int height = winTx["windows"][el.key()]["height"].get<int>();
-            if (winTx["windows"][el.key()]["nid"].get<int>() == nid && (height < 0 || nodeHeight == height) &&
+            if (winTx["windows"][el.key()]["nid"].get<int>() == nid &&
+                ((height < 0 && synced) || nodeHeight == height) &&
                 winTx["windows"][el.key()]["valid_tx"].get<bool>()) {
                 winTx["windows"][el.key()]["update"] = true;
             }
