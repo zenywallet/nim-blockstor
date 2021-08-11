@@ -410,7 +410,7 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
           var fee: uint64 = 0
           var txinvals: seq[TxAddrVal]
           var txoutvals: seq[TxAddrVal]
-          var reward = false;
+          var reward = false
           for i in txobj.ins:
             var in_txid = i.tx
             var n = i.n
@@ -686,7 +686,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         if limit > 1000:
           limit = 1000
       for b in streamDbInsts[nid].getBlockHashes(height):
-        blks.add(%*{"height": b.height, "hash": b.hash, "time": b.time, "start_id": b.start_id});
+        blks.add(%*{"height": b.height, "hash": b.hash, "time": b.time, "start_id": b.start_id})
         inc(count)
         if count >= limit:
           break
