@@ -83,15 +83,16 @@ extern "C" void streamRecv(char* data, int size) {
     } else if(j["type"] == "status") {
         auto data = j["data"];
         int nid = data["nid"].get<int>();
+        std::string nid_s = std::to_string(nid);
         bool prev_synced = false;
-        if (!nodeStatus[nid].empty()) {
-            prev_synced = nodeStatus[nid]["synced"].get<bool>();
+        if (!nodeStatus[nid_s].empty()) {
+            prev_synced = nodeStatus[nid_s]["synced"].get<bool>();
         }
-        nodeStatus[nid] = data;
-        int nodeHeight = nodeStatus[nid]["height"].get<int>();
-        int nodeLastHeight = nodeStatus[nid]["lastHeight"].get<int>();
+        nodeStatus[nid_s] = data;
+        int nodeHeight = nodeStatus[nid_s]["height"].get<int>();
+        int nodeLastHeight = nodeStatus[nid_s]["lastHeight"].get<int>();
         bool synced = (nodeHeight == nodeLastHeight);
-        nodeStatus[nid]["synced"] = synced;
+        nodeStatus[nid_s]["synced"] = synced;
         if (!prev_synced && synced) {
             for (auto& el : winTx["windows"].items()) {
                 int height = winTx["windows"][el.key()]["height"].get<int>();
@@ -1002,9 +1003,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
         if (valid) {
             prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
            if (addrInfos.find(address) == addrInfos.end()) {
-                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": [], "utxos": [], "ref_count": 1})"_json;
+                std::string network_idx_s = std::to_string(network_idx);
+                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "utxos": {}, "ref_count": 1})"_json;
                 std::string s = "{\"cmd\":\"addr-on\",\"data\":{\"nid\":" +
-                                std::to_string(network_idx) + ",\"addr\":\"" + address + "\"}}";
+                                network_idx_s + ",\"addr\":\"" + address + "\"}}";
                 streamSend(s.c_str(), s.length());
             } else {
                 addrInfos[address]["ref_count"] = addrInfos[address]["ref_count"].get<int>() + 1;
@@ -1214,11 +1216,12 @@ static void ShowBlockWindow(bool* p_open, int wid)
     std::string wid_s = std::to_string(wid);
     json& param = winBlock["windows"][wid_s];
     int network_idx = param["nid"].get<int>();
-    if (nodeStatus[network_idx].empty() || nodeStatus[network_idx]["height"].empty()) {
+    std::string network_idx_s = std::to_string(network_idx);
+    if (nodeStatus[network_idx_s].empty() || nodeStatus[network_idx_s]["height"].empty()) {
         return;
     }
     int height = param["height"].get<int>();
-    int max_height = nodeStatus[network_idx]["height"].get<int>();
+    int max_height = nodeStatus[network_idx_s]["height"].get<int>();
     std::string title = "Block - " + wid_s + "##blk" + wid_s;
     ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(title.c_str(), p_open)) {
@@ -1319,7 +1322,7 @@ static void ShowBlockWindow(bool* p_open, int wid)
             if (delta <= 0.0) {
                 param["prev_height"] = height;
                 param["delta"] = 0.06f;
-                std::string s = "{\"cmd\":\"block\",\"data\":{\"nid\":" + std::to_string(network_idx) + ", \"height\":" +
+                std::string s = "{\"cmd\":\"block\",\"data\":{\"nid\":" + network_idx_s + ", \"height\":" +
                                 std::to_string(height + 10 + height_gap) + ",  \"count\":21}, \"ref\":\"" + wid_s + "\"}";
                 streamSend(s.c_str(), s.length());
             } else {
@@ -1470,8 +1473,8 @@ static void main_loop(void *arg)
             int wid = winBlock["wid"].get<int>() + 1;
             winBlock["wid"] = wid;
             winBlock["windows"][std::to_string(wid)] = R"({"nid": 0, "height": 0, "prev_height": -1, "delta": 0, "height_gap": 0, "hash": ""})"_json;
-            if (!nodeStatus[0].empty() && !nodeStatus[0]["height"].empty()) {
-                winBlock["windows"][std::to_string(wid)]["height"] = nodeStatus[0]["height"];
+            if (!nodeStatus["0"].empty() && !nodeStatus["0"]["height"].empty()) {
+                winBlock["windows"][std::to_string(wid)]["height"] = nodeStatus["0"]["height"];
             }
         }
         if (ImGui::Button("BIP44")) {
@@ -1530,7 +1533,7 @@ static void main_loop(void *arg)
                     std::string node_s = node.get<std::string>();
                     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                     if (ImGui::CollapsingHeader(node_s.c_str())) {
-                        auto status = nodeStatus[node_id];
+                        auto status = nodeStatus[std::to_string(node_id)];
                         node_id++;
                         if (!status.empty()) {
                             if (!status["blkTime"].empty()) {
