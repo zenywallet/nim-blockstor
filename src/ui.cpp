@@ -216,6 +216,14 @@ std::string jvalToStr(json jval)
     return valstr;
 }
 
+json uint64ToJson(uint64_t val)
+{
+    if (val > 9007199254740991) {
+        return std::to_string(val);
+    }
+    return val;
+}
+
 std::string convCoin(std::string valstr)
 {
     int len = valstr.length();
