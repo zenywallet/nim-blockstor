@@ -194,6 +194,17 @@ std::string trimQuote(std::string s)
     return s;
 }
 
+uint64_t jvalToUint64(json jval)
+{
+    uint64_t val;
+    if (jval.type() == json::value_t::string) {
+        val = std::stoull(jval.get<std::string>());
+    } else {
+        val = jval.get<uint64_t>();
+    }
+    return val;
+}
+
 std::string jvalToStr(json jval)
 {
     std::string valstr;
