@@ -194,6 +194,17 @@ std::string trimQuote(std::string s)
     return s;
 }
 
+std::string jvalToStr(json jval)
+{
+    std::string valstr;
+    if (jval.type() == json::value_t::string) {
+        valstr = jval.get<std::string>();
+    } else {
+        valstr = std::to_string(jval.get<uint64_t>());
+    }
+    return valstr;
+}
+
 std::string convCoin(std::string valstr)
 {
     int len = valstr.length();
@@ -209,13 +220,7 @@ std::string convCoin(std::string valstr)
 
 std::string convCoin(json jval)
 {
-    std::string valstr;
-    if (jval.type() == json::value_t::string) {
-        valstr = jval.get<std::string>();
-    } else {
-        valstr = std::to_string(jval.get<uint64_t>());
-    }
-    return convCoin(valstr);
+    return convCoin(jvalToStr(jval));
 }
 
 static ImGuiWindowFlags PrepareOverlay()
