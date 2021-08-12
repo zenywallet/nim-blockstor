@@ -573,9 +573,12 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
           raise newException(BlockstorError, "rpc block not found hash=" & $blkRpcHash)
 
         let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
+        if blk.header.prev.toBytes != blkHash.toBytes:
+          continue
         inc(height)
         dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
         nextSeqId = nextSeqId + blk.txs.len.uint64
+        blkHash = blkRpcHash
         setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
         if abort:
           return
