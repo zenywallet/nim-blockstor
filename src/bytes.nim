@@ -312,3 +312,5 @@ proc `$`*(p: PushData): string =
   result = op & "(" & $len & ", " & $b & ")"
 
 proc `$`*(o: ref tuple | ref object | ptr tuple | ptr object): string = $o[]
+
+proc `==`*(x, y: Hash | Hash160): bool = x.toBytes == y.toBytes
