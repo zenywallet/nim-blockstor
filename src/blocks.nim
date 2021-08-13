@@ -84,6 +84,8 @@ proc merkle*(txids: seq[seq[byte]]): MerkleHash =
     list = tmplist
   result = MerkleHash(list[0])
 
+proc `==`*(x, y: BlockHash | MerkleHash): bool = x.toBytes == y.toBytes
+
 
 when isMainModule:
   # bitcoin-cli getblockhash 100000

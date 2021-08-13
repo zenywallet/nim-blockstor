@@ -513,7 +513,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
       blkHash = retRpcHash["result"].getStr.Hex.toBlockHash
       var blkDbHash = retDbHash.res.hash
-      if blkHash.toBytes == blkDbHash.toBytes:
+      if blkHash == blkDbHash:
         break
 
       # rollback
@@ -573,7 +573,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
           raise newException(BlockstorError, "rpc block not found hash=" & $blkRpcHash)
 
         let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
-        if blk.header.prev.toBytes != blkHash.toBytes:
+        if blk.header.prev != blkHash:
           continue
         inc(height)
         dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
