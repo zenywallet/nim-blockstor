@@ -54,6 +54,9 @@ proc close*(dbInst: DbInst) =
 proc close*(dbInsts: DbInsts) =
   sophia.close(cast[seq[Sophia]](dbInsts))
 
+proc checkpoint*(dbInst: DbInst) =
+  sophia.checkpoint(dbInst)
+
 proc backupRun*(dbInst: DbInst) =
   sophia.backupRun(dbInst)
 

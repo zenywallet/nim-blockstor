@@ -9,6 +9,7 @@ type
   Sophia* = ref object
     env: pointer
     db: pointer
+    name: pointer
   SophiaErr* = object of CatchableError
   int64_t* = int64
 
@@ -77,6 +78,8 @@ proc open*(sophia: Sophia, dbpath, dbname: string) =
   sophia.db = sophia.env.sp_getobject("db." & dbname)
   if sophia.db.isNil:
     raise newException(SophiaErr, "db is nil")
+  sophia.name = allocShared0(dbname.len + 1)
+  copyMem(sophia.name, dbname.cstring, dbname.len)
 
 proc open*(sophia: Sophia, dbpath: string) =
   var path = splitPath(dbpath)
@@ -99,6 +102,8 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
     sophia.db = env.sp_getobject("db." & dbname)
     if sophia.db.isNil:
       raise newException(SophiaErr, "db is nil")
+    sophia.name = allocShared0(dbname.len + 1)
+    copyMem(sophia.name, dbname.cstring, dbname.len)
     result.add(sophia)
   env.checkErr env.sp_open()
 
@@ -106,12 +111,18 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
     echo "index count ", dbname, "=", env.sp_getint("db." & dbname & ".index.count")
 
 proc close*(sophia: Sophia) =
+  sophia.name.deallocShared()
   checkErr sophia.env.sp_destroy()
 
 proc close*(sophias: seq[Sophia]) =
   if sophias.len > 0:
+    for s in sophias:
+      s.name.deallocShared()
     let sophia = sophias[0]
     checkErr sophia.env.sp_destroy()
+
+proc checkpoint*(sophia: Sophia) =
+  checkErr sophia.env.sp_setint("db." & $cast[cstring](sophia.name) & ".compaction.checkpoint", 0)
 
 proc backupRun*(sophia: Sophia) =
   checkErr sophia.env.sp_setint("backup.run", 0)
