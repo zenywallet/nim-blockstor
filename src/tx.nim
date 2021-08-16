@@ -1,6 +1,6 @@
 # Copyright (c) 2020 zenywallet
 
-import sequtils, json, algorithm
+import sequtils, json
 import bytes, utils, reader, address, script
 
 type
