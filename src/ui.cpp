@@ -1323,7 +1323,7 @@ static void ShowBlockWindow(bool* p_open, int wid)
                 param["prev_height"] = height;
                 param["delta"] = 0.06f;
                 std::string s = "{\"cmd\":\"block\",\"data\":{\"nid\":" + network_idx_s + ", \"height\":" +
-                                std::to_string(height + 10 + height_gap) + ",  \"count\":21}, \"ref\":\"" + wid_s + "\"}";
+                                std::to_string(height + 10 + height_gap) + ",  \"limit\":21}, \"ref\":\"" + wid_s + "\"}";
                 streamSend(s.c_str(), s.length());
             } else {
                 param["delta"] = delta - io.DeltaTime;
