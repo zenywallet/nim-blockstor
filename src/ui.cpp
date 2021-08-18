@@ -113,6 +113,8 @@ extern "C" void streamRecv(char* data, int size) {
         }
     } else if(j["type"] == "addr") {
         addrInfos["pending"].push_back(j["data"]);
+    } else if(j["type"] == "utxo") {
+        addrInfos["utxo_pending"].push_back(j["data"]);
     } else if(j["type"] == "tx") {
         txInfos["pending"].push_back(j);
     } else if(j["type"] == "block") {
@@ -979,6 +981,67 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 ImGui::PopFont();
                 ImGui::TreePop();
             }
+
+            ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+            if (ImGui::TreeNode(("UTXO (Unspent Transaction Output)##utxo" + wid_s).c_str())) {
+                if (addrInfos.find(address) != addrInfos.end()) {
+                    json& utxos = addrInfos[address]["utxos"];
+                    json& utxostbl = addrInfos[address]["utxostbl"];
+                    int load_count = utxos.size();
+                    int table_count = utxostbl.size();
+                    const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
+                    ImGui::PushFont(monoFont);
+                    static ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg |
+                                            ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable |
+                                            ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable |
+                                            ImGuiTableFlags_ScrollY;
+                    ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 8);
+                    if (ImGui::BeginTable("utxos", 4, flags, outer_size))
+                    {
+                        ImGui::TableSetupScrollFreeze(0, 1);
+                        ImGui::TableSetupColumn("id", ImGuiTableColumnFlags_WidthFixed, 11 * 10.0f);
+                        ImGui::TableSetupColumn("txid", ImGuiTableColumnFlags_WidthFixed, 65 * 10.0f);
+                        ImGui::TableSetupColumn("n", ImGuiTableColumnFlags_WidthFixed, 4 * 10.0f);
+                        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 30 * 10.0f);
+                        ImGui::TableHeadersRow();
+
+                        if (table_count > 0) {
+                            ImGuiListClipper clipper;
+                            clipper.Begin(table_count);
+                            while (clipper.Step()) {
+                                for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++) {
+                                    json el = utxostbl[row_n];
+                                    ImGui::TableNextRow();
+                                    ImGui::TableSetColumnIndex(0);
+                                    ImGui::Text(std::to_string(el["id"].get<uint64_t>()).c_str());
+                                    ImGui::TableSetColumnIndex(1);
+                                    ImGui::Text(el["tx"].get<std::string>().c_str());
+                                    ImGui::TableSetColumnIndex(2);
+                                    ImGui::Text(std::to_string(el["n"].get<int>()).c_str());
+                                    ImGui::TableSetColumnIndex(3);
+                                    ImGui::Text(convCoin(el["val"]).c_str());
+                                }
+                            }
+                        }
+                        ImGui::EndTable();
+                    }
+                    if (addrInfos[address]["utxoload"].get<bool>()) {
+                        ImGui::Text(("downloading... " + std::to_string(load_count)).c_str());
+                        ImGui::PopFont();
+                    } else {
+                        ImGui::PopFont();
+                        if (ImGui::Button("Update")) {
+                            addrInfos[address]["utxoload"] = true;
+                            utxos.clear();
+                            std::string network_idx_s = std::to_string(network_idx);
+                            std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
+                                            network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                            streamSend(cmd_utxo.c_str(), cmd_utxo.length());
+                        }
+                    }
+                }
+                ImGui::TreePop();
+            }
         } else {
             param["addropen"] = false;
             ImGui::PopFont();
@@ -1004,10 +1067,13 @@ static void ShowAddressWindow(bool* p_open, int wid)
             prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
            if (addrInfos.find(address) == addrInfos.end()) {
                 std::string network_idx_s = std::to_string(network_idx);
-                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "utxos": {}, "ref_count": 1})"_json;
+                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "utxos": {}, "utxostbl": [], "utxoload": true, "ref_count": 1})"_json;
                 std::string s = "{\"cmd\":\"addr-on\",\"data\":{\"nid\":" +
                                 network_idx_s + ",\"addr\":\"" + address + "\"}}";
                 streamSend(s.c_str(), s.length());
+                std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
+                                network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                streamSend(cmd_utxo.c_str(), cmd_utxo.length());
             } else {
                 addrInfos[address]["ref_count"] = addrInfos[address]["ref_count"].get<int>() + 1;
             }
@@ -1040,6 +1106,55 @@ static void ShowAddressWindow(bool* p_open, int wid)
             }
         }
         addrInfos["pending"].erase(0);
+    }
+
+    bool utxo_update = true;
+    if (!addrInfos["utxo_delta"].empty()) {
+        float delta = addrInfos["utxo_delta"].get<float>();
+        if (delta > 0.0) {
+            addrInfos["utxo_delta"] = delta - io.DeltaTime;
+            utxo_update = false;
+        }
+    }
+    if (utxo_update) {
+        addrInfos["utxo_delta"] = 0.3f;
+        if (!addrInfos["utxo_pending"].empty()) {
+            auto ainfo = addrInfos["utxo_pending"].at(0);
+            std::string addr = ainfo["addr"].get<std::string>();
+            if (addrInfos.find(addr) != addrInfos.end()) {
+                json& utxos = addrInfos[addr]["utxos"];
+                for (auto& el : ainfo["utxos"]) {
+                    utxos[std::to_string(el["id"].get<uint64_t>())] = el;
+                }
+
+                bool tableupdate = false;
+                if (ainfo.find("next") != ainfo.end()) {
+                    addrInfos[addr]["utxoload"] = true;
+                    std::string network_idx_s = std::to_string(ainfo["nid"].get<int>());
+                    std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
+                                    network_idx_s + ",\"addr\":\"" + addr +
+                                    "\",\"rev\":1,\"lte\":" + ainfo["next"].dump() + "}}";
+                    streamSend(cmd_utxo.c_str(), cmd_utxo.length());
+                    if (utxos.size() <= 1000) {
+                        tableupdate = true;
+                    }
+                } else {
+                    tableupdate = true;
+                    addrInfos[addr]["utxoload"] = false;
+                }
+                if (tableupdate) {
+                    auto& table = addrInfos[addr]["utxostbl"];
+                    table.clear();
+                    for (auto& el : utxos.items()) {
+                        table.push_back(el.value());
+                    }
+                    std::sort(table.begin(), table.end(), [](auto const& p1, auto const& p2) {
+                        return p1["id"] > p2["id"];
+                    });
+                }
+            }
+            addrInfos["utxo_pending"].erase(0);
+        }
     }
     ImGui::End();
 }
