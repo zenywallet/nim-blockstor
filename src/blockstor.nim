@@ -561,34 +561,30 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     let network: Network = params.nodeParams.networkId.getNetwork
     let nid = params.nodeParams.networkId.uint16
 
+    block_check()
+    var blockNew = false
     while not abort:
-      block_check()
-
-      var blockNew = false
       var retHash = rpc.getBlockHash.send(height + 1)
-      while retHash["result"].kind == JString:
+      if retHash["result"].kind == JString:
         var blkRpcHash = retHash["result"].getStr.Hex.toBlockHash
         var retBlock = rpc.getBlock.send($blkRpcHash, 0)
         if retBlock["result"].kind != JString:
           raise newException(BlockstorError, "rpc block not found hash=" & $blkRpcHash)
-
         let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
-        if blk.header.prev != blkHash:
-          continue
-        inc(height)
-        dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
-        nextSeqId = nextSeqId + blk.txs.len.uint64
-        blkHash = blkRpcHash
-        setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
-        if abort:
-          return
-
-        retHash = rpc.getBlockHash.send(height + 1)
+        if blk.header.prev == blkHash:
+          inc(height)
+          dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
+          nextSeqId = nextSeqId + blk.txs.len.uint64
+          blkHash = blkRpcHash
+          setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
+        else:
+          block_check()
         blockNew = true
-
-      mempool.update(blockNew)
-
-      sleep(1000)
+      else:
+        mempool.update(blockNew)
+        blockNew = false
+        sleep(1000)
+        block_check()
 
 var monitorThread: Thread[WrapperMultiParams]
 var startServerThread: Thread[void]
