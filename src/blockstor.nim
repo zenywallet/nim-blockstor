@@ -8,6 +8,7 @@ import posix
 import server
 import monitor
 import utils
+import sequtils
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]
@@ -180,6 +181,98 @@ proc writeBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id
       else:
         dbInst.setAddrval(hash160, ret_addrval.res.value - value, ret_addrval.res.utxo_count - utxo_count)
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
+
+proc rewriteBlock(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64) =
+  dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
+
+  var addrouts = newSeq[seq[AddrVal]](blk.txs.len)
+  var addrins = newSeq[seq[AddrVal]](blk.txs.len)
+
+  if blk.txs.len != blk.txn.int:
+    raise newException(BlockParserError, "txn conflict")
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+    var txid = Hash(tx.txidBin)
+    dbInst.setId(sid, txid)
+    var addrvals: seq[AddrVal]
+    var dustCount = 0
+    for n, o in tx.outs:
+      if o.value <= 546: # dust is less than 546, 546 is not
+        if dustCount >= 2:
+          break
+        inc(dustCount)
+    if dustCount >= 2:
+      dbInst.setTx(txid, height, sid, 1.uint8)
+    else:
+      dbInst.setTx(txid, height, sid)
+      for n, o in tx.outs:
+        var addrHash = getAddressHash160(o.script)
+        dbInst.setTxout(sid, n.uint32, o.value, addrHash.hash160, uint8(addrHash.addressType))
+        dbInst.setUnspent(addrHash.hash160, sid, n.uint32, o.value)
+        addrvals.add((addrHash.hash160, uint8(addrHash.addressType), o.value, 1'u32))
+
+    addrouts[idx] = addrvals.aggregate
+
+  for idx, tx in blk.txs:
+    var addrvals: seq[AddrVal]
+    for i in tx.ins:
+      var in_txid = i.tx
+      var n = i.n
+
+      if n == 0xffffffff'u32:
+        dbInst.setMinedId(seq_id + idx.uint64, height)
+      else:
+        var ret_tx = dbInst.getTx(in_txid)
+        if ret_tx.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "id not found " & $in_txid)
+        if ret_tx.res.skip == 1:
+          echo "skip tx " & $in_txid
+          continue
+
+        var id = ret_tx.res.id
+        var ret_txout = dbInst.getTxout(id, n)
+        if ret_txout.err == DbStatus.NotFound:
+          raise newException(BlockParserError, "txout not found " & $id)
+
+        dbInst.delUnspent(ret_txout.res.address_hash, id, n)
+        addrvals.add((ret_txout.res.address_hash, ret_txout.res.address_type, ret_txout.res.value, 1'u32))
+
+    addrins[idx] = addrvals.aggregate
+
+  var addrHashes: seq[Hash160]
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+
+    var addrvals = addrouts[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      addrHashes.add(hash160)
+      dbInst.setAddrlog(hash160, sid, 1, value, addressType)
+
+  for idx, tx in blk.txs:
+    var sid = seq_id + idx.uint64
+
+    var addrvals = addrins[idx]
+    for addrval in addrvals:
+      var hash160 = addrval.hash160
+      var addressType = uint8(addrval.addressType)
+      var value = addrval.value
+      var utxo_count = addrval.utxo_count
+      addrHashes.add(hash160)
+      dbInst.setAddrlog(hash160, sid, 0, value, addressType)
+
+  for hash160 in addrHashes.deduplicate:
+    var value: uint64
+    var utxo_count: uint32
+    for unspent in dbInst.getUnspents(hash160):
+      value = value + unspent.value
+      inc(utxo_count)
+    dbInst.setAddrval(hash160, value, utxo_count)
 
 proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, seq_id: uint64, network: Network, nid: uint16) =
   dbInst.setBlockHash(height, hash, blk.header.time, seq_id)
@@ -497,7 +590,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
     height = retLastBlock.res.height
     blkHash = retLastBlock.res.hash
-    dbInst.writeBlock(height, blkHash, blk, retLastBlock.res.start_id)
+    dbInst.rewriteBlock(height, blkHash, blk, retLastBlock.res.start_id)
     nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
     setMonitorInfo(params.id, height, blkHash, blk.header.time.int64, height)
 
