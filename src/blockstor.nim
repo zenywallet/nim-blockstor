@@ -648,6 +648,9 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     if abort:
       return
 
+  dbInst.checkpoint()
+  echo "checkpoint"
+
   block rpcMode:
     echo "rpc mode"
     mempool.setParams(params)
