@@ -26,9 +26,22 @@ type
     size: uint32
     blk: Block
 
+  BlockHashObj* = distinct array[32, byte]
+
+  MerkleHashObj* = distinct array[32, byte]
+
+  BlockHeaderObj* = object
+    ver*: int32
+    prev*: BlockHashObj
+    merkle*: MerkleHashObj
+    time*: uint32
+    bits*: uint32
+    nonce*: uint32
 
 proc toBytes*(o: BlockHash | MerkleHash): seq[byte] {.inline.} = cast[seq[byte]](o)
 proc toBytesBE*(o: BlockHash | MerkleHash): seq[byte] {.inline.} = cast[seq[byte]](o)
+proc toBytes*(o: BlockHashObj | MerkleHashObj): seq[byte] {.inline.} = cast[array[32, byte]](o).toBytes
+proc toBytesBE*(o: BlockHashObj | MerkleHashObj): seq[byte] {.inline.} = cast[array[32, byte]](o).toBytes
 
 proc toBytes*(o: seq[Tx]): seq[byte] {.inline.} =
   var s: seq[seq[byte]]
@@ -39,6 +52,8 @@ proc toBytes*(o: seq[Tx]): seq[byte] {.inline.} =
 proc toBlockHash*(x: Hex): BlockHash {.inline.} = x.toBytes.toReverse.BlockHash
 
 proc `$`*(o: BlockHash | MerkleHash): string = $toReverse(cast[seq[byte]](o))
+
+proc `$`*(o: BlockHashObj | MerkleHashObj): string = $toReverse(o.toBytes)
 
 proc toBlock*(data: seq[byte]): Block =
   var reader = newReader(data)
@@ -57,6 +72,8 @@ proc toBlock*(data: seq[byte]): Block =
   result = b
 
 proc `%`*(o: BlockHash | MerkleHash): JsonNode = newJString($toReverse(cast[seq[byte]](o)))
+
+proc `%`*(o: BlockHashObj | MerkleHashObj): JsonNode = newJString($toReverse(o.toBytes))
 
 proc `%`*(o: VarInt): JsonNode = o.uint64.toJson
 
