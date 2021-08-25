@@ -13,7 +13,7 @@ const PAYOUT_ADDRESS = "your payout address"
 
 type
   MinerData = object
-    header: array[80, byte]
+    header: BlockHeaderObj
     target: array[32, byte]
     blockId: uint32
 
@@ -28,7 +28,7 @@ type
 
   Message = ref object
     cmd: MessageCmd
-    header: array[80, byte]
+    header: BlockHeaderObj
     blockId: uint32
     blockHash: BlockHash
 
@@ -41,7 +41,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
   var yhash: YespowerHash
   while not param.abort:
     let data = param.data
-    discard yespower_hash(cast[ptr UncheckedArray[byte]](addr data[].header[0]), 80, yhash)
+    discard yespower_hash(cast[ptr UncheckedArray[byte]](addr data[].header), 80, yhash)
     var find = true
     for j in countdown(31, 0):
       if yhash[j] > data[].target[j]:
@@ -50,10 +50,9 @@ proc miner(param: ptr MinerParam) {.thread.} =
       elif yhash[j] < data[].target[j]:
         break
     if find:
-      let header = cast[ptr array[80, byte]](addr data[].header[0])[]
-      messageChannel[].send(Message(cmd: MessageCmd.FindBlock, header: header,
+      messageChannel[].send(Message(cmd: MessageCmd.FindBlock, header: data[].header,
                                     blockId: data[].blockId, blockHash: yhash.toBytes.BlockHash))
-    inc(cast[var uint32](addr data[].header[76]))
+    inc(cast[var uint32](addr data[].header.nonce))
 
 proc updateBlockInvoker() {.thread.} =
   while not abort:
@@ -179,11 +178,11 @@ proc main() =
         var shift = MINER_THREAD_NUM * (shiftCount mod 2).int
         for i in 0..<MINER_THREAD_NUM:
           let pdata = addr minerDatas[][i + shift]
-          pdata[].header = cast[ptr array[80, byte]](addr rawBlock[0])[]
+          pdata[].header = cast[ptr BlockHeaderObj](addr rawBlock[0])[]
           pdata[].target = cast[ptr array[32, byte]](addr target[0])[]
           pdata[].blockId = blockId
           var nonce = nonceBase + (i * (uint32.high.int / MINER_THREAD_NUM).int).uint32
-          copyMem(addr pdata[].header[76], addr nonce, 4)
+          copyMem(addr pdata[].header.nonce, addr nonce, 4)
           minerParams[][i].data = pdata
         inc(shiftCount)
         statsTimeStart = 0.0
@@ -195,25 +194,25 @@ proc main() =
             for i in 0..<MINER_THREAD_NUM:
               let pdata = addr minerDatas[][i]
               pdata[] = minerDatas[][i + MINER_THREAD_NUM]
-              copyMem(addr pdata[].header[68], addr curTime, 4)
+              copyMem(addr pdata[].header.time, addr curTime, 4)
               minerParams[][i].data = pdata
           else:
             for i in 0..<MINER_THREAD_NUM:
               let pdata = addr minerDatas[][i + MINER_THREAD_NUM]
               pdata[] = minerDatas[][i]
-              copyMem(addr pdata[].header[68], addr curTime, 4)
+              copyMem(addr pdata[].header.time, addr curTime, 4)
               minerParams[][i].data = pdata
           inc(shiftCount)
 
       template statsStart() {.dirty.} =
         statsTimeStart = epochTime()
         for i in 0..<MINER_THREAD_NUM:
-          statsCountStart[i] = minerParams[][i].data[].header[76].toUint32
+          statsCountStart[i] = minerParams[][i].data[].header.nonce
 
       template statsEnd() {.dirty.} =
         statsTimeEnd = epochTime()
         for i in 0..<MINER_THREAD_NUM:
-          statsCountEnd[i] = minerParams[][i].data[].header[76].toUint32
+          statsCountEnd[i] = minerParams[][i].data[].header.nonce
 
       if statsTimeStart > 0:
         if epochTime() - statsTimeStart > 5.0:
