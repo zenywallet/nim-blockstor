@@ -152,6 +152,22 @@ template loadUthashModules*() {.dirty.} =
       h.free()
       h = next
 
+  proc itemExists*[T](kv: ptr KVHandle[T]): bool =
+    var h = cast[KVPair[T]](kv[])
+    if not h.isNil:
+      return true
+    return false
+
+  proc itemExists*[T](kv: ptr KVHandle[T], key: openArray[byte]): bool =
+    var h = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+    while not h.isNil:
+      let next = cast[KVPair[T]](h.hh.hh_next)
+      let hkey = (addr h.key.data).toBytes(h.key.size.int)
+      if hkey == key:
+        return true
+      h = next
+    return false
+
   type
     SortFunc*[T] = proc (a, b: KVPair[T]): cint {.cdecl.}
 
@@ -255,6 +271,11 @@ when isMainModule:
   echo kv[1.toBytesBE]
   for d in kv.items(1.toBytesBE):
     echo d
+
+  echo "exists"
+  echo kv.itemExists()
+  echo kv.itemExists(1.toBytesBE)
+  echo kv.itemExists(6.toBytesBE)
 
   echo "del"
   kv.del(3.toBytesBE)
