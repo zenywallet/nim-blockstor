@@ -366,10 +366,10 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
         break workerMain
 
       try:
-        if json.hasKey("ref"):
+        if json.kind != JNull and json.hasKey("ref"):
           retJson["ref"] = json["ref"]
-        var data = json["data"]
         if channelData.msgType == MsgDataType.Rawtx:
+          var data = json["data"]
           retJson["type"] = newJString("tx")
           if not data.hasKey("txid"):
             errSendBreak(1)
