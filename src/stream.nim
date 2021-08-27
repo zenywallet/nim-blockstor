@@ -355,7 +355,7 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
       break
 
     block workerMain:
-      var retJson = %*{"type": "", "data": {"err": 0, "res": {}}}
+      var retJson = %*{"type": "", "data": {"err": 0, "res": {}, "nid": arg.nodeId}}
       var json = channelData.data
 
       template errSendBreak(err: int) {.dirty.} =
