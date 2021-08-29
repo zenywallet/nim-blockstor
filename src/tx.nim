@@ -22,14 +22,15 @@ type
     witnesses*: seq[seq[Witness]]
     locktime*: uint32
 
-const SIGHASH_ALL* = 1
-const SIGHASH_NONE* = 2
-const SIGHASH_SINGLE* = 3
-const SIGHASH_ANYONECANPAY* = 0x80
+const
+  SIGHASH_ALL* = 1
+  SIGHASH_NONE* = 2
+  SIGHASH_SINGLE* = 3
+  SIGHASH_ANYONECANPAY* = 0x80
 
-const SIGHASH_DEFAULT* = 0
-const SIGHASH_OUTPUT_MASK* = 3
-const SIGHASH_INPUT_MASK* = 0x80
+  SIGHASH_DEFAULT* = 0
+  SIGHASH_OUTPUT_MASK* = 3
+  SIGHASH_INPUT_MASK* = 0x80
 
 
 proc toBytes*(flags: Flags): seq[byte] =
