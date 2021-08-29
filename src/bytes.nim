@@ -105,8 +105,8 @@ proc fixedStr*(str: string, size: int): seq[byte] {.inline.} =
   else:
     concat(cast[seq[byte]](str), pad(size - str.len))
 
-proc toBytes(x: seq[byte]): seq[byte] {.inline.} = x
-proc toBytes(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
+proc toBytes*(x: seq[byte]): seq[byte] {.inline.} = x
+proc toBytes*(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
 proc toBytes*(val: VarInt): seq[byte] {.inline.} = varInt(cast[int](val))
 proc toBytes*(str: VarStr): seq[byte] {.inline.} = varStr(cast[string](str))
 proc toBytes*(len: Pad): seq[byte] {.inline.} = pad(cast[int](len))
