@@ -743,6 +743,65 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         jsonData["ref"] = json["ref"]
       echo "jsonData", jsonData
       result = client.sendCmd(jsonData)
+    elif cmd == "addrlog":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      let astr = reqData["addr"].getStr
+      if nid > streamDbInsts.high or nid < streamDbInsts.low:
+        raise newException(StreamError, "invalid nid")
+      var addrlogs = newJArray()
+      var count = 0
+      var limit = 101
+      if reqData.hasKey("limit"):
+        limit = reqData["limit"].getInt + 1
+        if limit > 1001:
+          limit = 1001
+      var cont = false
+      var next: uint64
+      var rev = 0
+      if reqData.hasKey("rev") and reqData["rev"].getInt > 0:
+        rev = 1
+      var gte = uint64.low
+      var lte = uint64.high
+      if reqData.hasKey("gte"):
+        gte = reqData["gte"].toUint64
+      if reqData.hasKey("lte"):
+        lte = reqData["lte"].toUint64
+      if reqData.hasKey("gt"):
+        let gt = reqData["gt"].toUint64
+        if gt.uint64 == uint64.high:
+          raise newException(StreamError, "invalid gt")
+        gte = gt + 1
+      if reqData.hasKey("lt"):
+        let lt = reqData["lt"].toUint64
+        if lt.uint64 == uint64.low:
+          raise newException(StreamError, "invalid lt")
+        lte = lt - 1
+      var hash160 = getHash160(astr)
+      var addrlist = newSeq[string](AddressType.high.int + 1)
+      for u in streamDbInsts[nid].getAddrlogs(hash160, (gte: gte, lte: lte, rev: rev)):
+        inc(count)
+        if count >= limit:
+          cont = true
+          next = u.id
+          break
+        let retId = streamDbInsts[nid].getId(u.id)
+        if retId.err == DbStatus.NotFound:
+          raise newException(StreamError, "id not found")
+        var address = addrlist[u.address_type.int]
+        if address.len == 0:
+          address = networks[nid].getAddress(hash160, u.address_type.AddressType)
+        addrlogs.add(%*{"id": u.id.toJson, "tx": $retId.res, "trans": u.trans, "val": u.value.toJson,
+                        "addr": address, "addrtype": u.address_type})
+      var jsonData: JsonNode
+      if cont:
+        jsonData = %*{"type": "addrlog", "data": {"nid": nid, "addr": astr, "addrlogs": addrlogs, "next": next.toJson}}
+      else:
+        jsonData = %*{"type": "addrlog", "data": {"nid": nid, "addr": astr, "addrlogs": addrlogs}}
+      if json.hasKey("ref"):
+        jsonData["ref"] = json["ref"]
+      echo "jsonData", jsonData
+      result = client.sendCmd(jsonData)
     elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
     elif cmd == "status":
