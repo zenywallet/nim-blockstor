@@ -220,8 +220,7 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
         if reqHashes.len > 0:
           var hash = reqHashes[0]
           reqHashes = reqHashes[1..^1]
-          if (cast[seq[byte]](prevBlkHash)).len == 0 or
-            cast[seq[byte]](prevBlkHash) == cast[seq[byte]](blk.header.prev):
+          if prevBlkHash == blk.header.prev or prevBlkHash.toBytes.len == 0:
             prevBlkHash = hash
             prevBlkTime = blk.header.time.int64
             inc(height)
