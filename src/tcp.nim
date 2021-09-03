@@ -226,6 +226,12 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
             inc(height)
             if not cb(height, hash, blk):
               abort = true
+          elif reqHashes.len == 0 and blockHashes.len == 0 and hash != prevBlkHash:
+            start_flag = false
+            check_count = 0
+            var data = node.message("getblocks", (node.protocolVersion.uint32, VarInt(1),
+                        prevBlkHash, Pad(32)).toBytes)
+            checkSendErr node.sock.send(data)
 
       of "reject":
         var reader = newReader(message.body)
