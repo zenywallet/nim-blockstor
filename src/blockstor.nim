@@ -672,7 +672,11 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
           dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
           nextSeqId = nextSeqId + blk.txs.len.uint64
           blkHash = blkRpcHash
-          setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, height)
+          var retBlockCount = rpc.getBlockCount.send()
+          if retBlockCount["result"].kind != JInt:
+            raise newException(BlockstorError, "get block count")
+          var lastHeight = retBlockCount["result"].getInt
+          setMonitorInfo(params.id, height, blkRpcHash, blk.header.time.int64, lastHeight)
         else:
           block_check()
         blockNew = true
