@@ -788,11 +788,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         let retId = streamDbInsts[nid].getId(u.id)
         if retId.err == DbStatus.NotFound:
           raise newException(StreamError, "id not found")
-        var address = addrlist[u.address_type.int]
-        if address.len == 0:
-          address = networks[nid].getAddress(hash160, u.address_type.AddressType)
-        addrlogs.add(%*{"id": u.id.toJson, "tx": $retId.res, "trans": u.trans, "val": u.value.toJson,
-                        "addr": address, "addrtype": u.address_type})
+        addrlogs.add(%*{"id": u.id.toJson, "tx": $retId.res, "trans": u.trans, "val": u.value.toJson})
       var jsonData: JsonNode
       if cont:
         jsonData = %*{"type": "addrlog", "data": {"nid": nid, "addr": astr, "addrlogs": addrlogs, "next": next.toJson}}
