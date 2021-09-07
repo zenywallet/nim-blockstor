@@ -726,14 +726,15 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         lte = lt - 1
       for u in streamDbInsts[nid].getUnspents(getHash160(astr), (gte: gte, lte: lte, rev: rev)):
         inc(count)
+        let sid = u.id
         if count >= limit:
           cont = true
-          next = u.id
+          next = sid
           break
-        let retId = streamDbInsts[nid].getId(u.id)
+        let retId = streamDbInsts[nid].getId(sid)
         if retId.err == DbStatus.NotFound:
           raise newException(StreamError, "id not found")
-        utxos.add(%*{"id": u.id.toJson, "tx": $retId.res, "n": u.n, "val": u.value.toJson})
+        utxos.add(%*{"id": sid.toJson, "tx": $retId.res, "n": u.n, "val": u.value.toJson})
       var jsonData: JsonNode
       if cont:
         jsonData = %*{"type": "utxo", "data": {"nid": nid, "addr": astr, "utxos": utxos, "next": next.toJson}}
@@ -781,11 +782,12 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       var addrlist = newSeq[string](AddressType.high.int + 1)
       for u in streamDbInsts[nid].getAddrlogs(hash160, (gte: gte, lte: lte, rev: rev)):
         inc(count)
+        let sid = u.id
         if count >= limit:
           cont = true
-          next = u.id
+          next = sid
           break
-        let retId = streamDbInsts[nid].getId(u.id)
+        let retId = streamDbInsts[nid].getId(sid)
         if retId.err == DbStatus.NotFound:
           raise newException(StreamError, "id not found")
         let txid = retId.res
@@ -797,11 +799,11 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         if retBlock.err == DbStatus.NotFound:
           raise newException(StreamError, "block not found")
         let time = retBlock.res.time
-        let retMined = streamDbInsts[nid].getMinedId(u.id)
+        let retMined = streamDbInsts[nid].getMinedId(sid)
         var mined = 0
         if retMined.err == DbStatus.Success:
           mined = 1
-        addrlogs.add(%*{"id": u.id.toJson, "tx": $txid, "trans": u.trans, "val": u.value.toJson, "height": height, "blktime": time, "mined": mined})
+        addrlogs.add(%*{"id": sid.toJson, "tx": $txid, "trans": u.trans, "val": u.value.toJson, "height": height, "blktime": time, "mined": mined})
       var jsonData: JsonNode
       if cont:
         jsonData = %*{"type": "addrlog", "data": {"nid": nid, "addr": astr, "addrlogs": addrlogs, "next": next.toJson}}
