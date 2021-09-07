@@ -788,7 +788,16 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         let retId = streamDbInsts[nid].getId(u.id)
         if retId.err == DbStatus.NotFound:
           raise newException(StreamError, "id not found")
-        addrlogs.add(%*{"id": u.id.toJson, "tx": $retId.res, "trans": u.trans, "val": u.value.toJson})
+        let txid = retId.res
+        let retTxid = streamDbInsts[nid].getTx(txid)
+        if retTxid.err == DbStatus.NotFound:
+          raise newException(StreamError, "txid not found")
+        let height = retTxid.res.height
+        let retBlock = streamDbInsts[nid].getBlockHash(height)
+        if retBlock.err == DbStatus.NotFound:
+          raise newException(StreamError, "block not found")
+        let time = retBlock.res.time
+        addrlogs.add(%*{"id": u.id.toJson, "tx": $txid, "trans": u.trans, "val": u.value.toJson, "height": height, "blktime": time})
       var jsonData: JsonNode
       if cont:
         jsonData = %*{"type": "addrlog", "data": {"nid": nid, "addr": astr, "addrlogs": addrlogs, "next": next.toJson}}
