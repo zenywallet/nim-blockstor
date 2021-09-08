@@ -1530,6 +1530,7 @@ static void main_loop(void *arg)
 
     if(show_demo_window) {
         ImGui::ShowDemoWindow(&show_demo_window);
+        winTools["demo_chk"] = show_demo_window;
     }
     if (show_connect_status_overlay) {
         ShowConnectStatusOverlay(&show_connect_status_overlay);
@@ -1698,6 +1699,7 @@ static void main_loop(void *arg)
             }
             ImGui::PopFont();
         }
+        winTools["nora_chk"] = show_nora_servers_window;
         ImGui::End();
     }
 
