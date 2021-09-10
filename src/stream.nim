@@ -55,6 +55,7 @@ type
 
   MsgDataType {.pure.} = enum
     Direct
+    DirectOnce
     Rawtx
     BlockTmpl
     Mining
@@ -254,15 +255,30 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
         addMsgAndInvoke()
     else:
       var addNew = false
-      for s in streamTable.items(channelData.tag):
-        var client = clientTable[s.val.toBytes]
-        if not client.isNil:
-          var sobj = cast[ptr StreamObj](client.pStream)
-          if msgId == 0: getMsgId()
-          withWriteLock msgTableLock:
-            setMsg(sobj.streamId, msgId)
-          pendingClient.add(client)
-          addNew = true
+      if channelData.msgType == MsgDataType.DirectOnce:
+        var tagDelClients: seq[ptr Client]
+        for s in streamTable.items(channelData.tag):
+          var client = clientTable[s.val.toBytes]
+          if not client.isNil:
+            var sobj = cast[ptr StreamObj](client.pStream)
+            if msgId == 0: getMsgId()
+            withWriteLock msgTableLock:
+              setMsg(sobj.streamId, msgId)
+            pendingClient.add(client)
+            addNew = true
+            tagDelClients.add(client)
+        for client in tagDelClients:
+          client.delTag(channelData.tag)
+      else:
+        for s in streamTable.items(channelData.tag):
+          var client = clientTable[s.val.toBytes]
+          if not client.isNil:
+            var sobj = cast[ptr StreamObj](client.pStream)
+            if msgId == 0: getMsgId()
+            withWriteLock msgTableLock:
+              setMsg(sobj.streamId, msgId)
+            pendingClient.add(client)
+            addNew = true
       if addNew:
         addMsgAndInvoke()
 
@@ -286,6 +302,9 @@ proc streamSend*(streamId: StreamId, json: JsonNode, msgType: MsgDataType = MsgD
 
 proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = MsgDataType.Direct) =
   streamWorkerChannel[].send((streamId, @[], data, msgType))
+
+proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
+  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.DirectOnce))
 
 proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeParams]) =
   globalDbInsts = dbInsts
@@ -942,6 +961,8 @@ proc invokeSendMain(client: ptr Client): SendResult =
       let data = (addr val.data).toBytes(val.size.int)
       if data.len > 0:
         if msgType == MsgDataType.Direct:
+          result = client.sendCmd(data)
+        elif msgType == MsgDataType.DirectOnce:
           result = client.sendCmd(data)
         elif msgType == MsgDataType.Rawtx:
           result = client.sendCmd(data)
