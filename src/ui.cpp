@@ -1102,18 +1102,43 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         }
                         ImGui::EndTable();
                     }
+                    ImGui::PopFont();
                     if (addrInfos[address]["addrlogload"].get<bool>()) {
+                        if (ImGui::Button("Stop")) {
+                            addrInfos[address]["addrlogload"] = false;
+                        }
+                        ImGui::SameLine();
+                        ImGui::PushFont(monoFont);
                         ImGui::Text(("downloading... " + std::to_string(load_count)).c_str());
                         ImGui::PopFont();
                     } else {
-                        ImGui::PopFont();
                         if (ImGui::Button("Update")) {
-                            addrInfos[address]["addrlogload"] = true;
                             addrlogs.clear();
                             std::string network_idx_s = std::to_string(network_idx);
                             std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
                                             network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                             streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                        }
+                        if (!addrInfos[address]["addrlognext"].empty()) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("More")) {
+                                std::string network_idx_s = std::to_string(network_idx);
+                                std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
+                                                network_idx_s + ",\"addr\":\"" + address +
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["addrlognext"].dump() + "}}";
+                                streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                                addrInfos[address].erase("addrlognext");
+                            }
+                            ImGui::SameLine();
+                            if (ImGui::Button("All")) {
+                                addrInfos[address]["addrlogload"] = true;
+                                std::string network_idx_s = std::to_string(network_idx);
+                                std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
+                                                network_idx_s + ",\"addr\":\"" + address +
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["addrlognext"].dump() + "}}";
+                                streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                                addrInfos[address].erase("addrlognext");
+                            }
                         }
                     }
                 }
@@ -1144,7 +1169,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
             prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
            if (addrInfos.find(address) == addrInfos.end()) {
                 std::string network_idx_s = std::to_string(network_idx);
-                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "addrlogstbl": [], "addrlogload": true, "utxos": {}, "utxostbl": [], "utxoload": true, "ref_count": 1})"_json;
+                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "addrlogstbl": [], "addrlogload": false, "utxos": {}, "utxostbl": [], "utxoload": true, "ref_count": 1})"_json;
                 std::string s = "{\"cmd\":\"addr-on\",\"data\":{\"nid\":" +
                                 network_idx_s + ",\"addr\":\"" + address + "\"}}";
                 streamSend(s.c_str(), s.length());
@@ -1258,13 +1283,17 @@ static void ShowAddressWindow(bool* p_open, int wid)
 
                 bool tableupdate = false;
                 if (ainfo.find("next") != ainfo.end()) {
-                    addrInfos[addr]["addrlogload"] = true;
-                    std::string network_idx_s = std::to_string(ainfo["nid"].get<int>());
-                    std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                    network_idx_s + ",\"addr\":\"" + addr +
-                                    "\",\"rev\":1,\"lte\":" + ainfo["next"].dump() + "}}";
-                    streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
-                    if (addrlogs.size() <= 1000) {
+                    if (addrInfos[addr]["addrlogload"]) {
+                        std::string network_idx_s = std::to_string(ainfo["nid"].get<int>());
+                        std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
+                                        network_idx_s + ",\"addr\":\"" + addr +
+                                        "\",\"rev\":1,\"lte\":" + ainfo["next"].dump() + "}}";
+                        streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                        if (addrlogs.size() <= 1000) {
+                            tableupdate = true;
+                        }
+                    } else {
+                        addrInfos[addr]["addrlognext"] = ainfo["next"];
                         tableupdate = true;
                     }
                 } else {
