@@ -306,6 +306,8 @@ proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = Msg
 proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
   streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.DirectOnce))
 
+proc streamTagExists*(tag: seq[byte]): bool = streamTable.itemExists(tag)
+
 proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeParams]) =
   globalDbInsts = dbInsts
   globalNetworks = networks
