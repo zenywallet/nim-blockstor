@@ -376,6 +376,9 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
       dbInst.setAddrlog(hash160, sid, 0, value, addressType)
 
   if streamActive:
+    streamSend(("height", nid.uint16).toBytes,
+              %*{"type": "height", "data": {"height": height, "sid": seq_id}})
+
     for k, v in streamAddrs.pairs:
       let hash160 = k[0..19].Hash160
       let addressType = k[20].AddressType
@@ -561,6 +564,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
   var node = newNode(params.nodeParams)
   var dbInst = params.dbInst
   var height = 0.int
+  var curSeqId = 0'u64
   var nextSeqId = 0'u64
   var blkHash = BlockHash(pad(32))
 
@@ -589,9 +593,10 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
     let blk = retBlock["result"].getStr.Hex.toBytes.toBlock
     height = retLastBlock.res.height
+    curSeqId = retLastBlock.res.start_id
     blkHash = retLastBlock.res.hash
-    dbInst.rewriteBlock(height, blkHash, blk, retLastBlock.res.start_id)
-    nextSeqId = retLastBlock.res.start_id + blk.txs.len.uint64
+    dbInst.rewriteBlock(height, blkHash, blk, curSeqId)
+    nextSeqId = curSeqId + blk.txs.len.uint64
     setMonitorInfo(params.id, height, blkHash, blk.header.time.int64, height)
 
   # block check
@@ -670,6 +675,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
         if blk.header.prev == blkHash:
           inc(height)
           dbInst.writeBlockStream(height, blkRpcHash, blk, nextSeqId, network, nid)
+          curSeqId = nextSeqId
           nextSeqId = nextSeqId + blk.txs.len.uint64
           blkHash = blkRpcHash
           var retBlockCount = rpc.getBlockCount.send()
@@ -683,6 +689,10 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
       else:
         mempool.update(blockNew)
         blockNew = false
+        if streamActive:
+          var onceTag = ("heightonce", nid.uint16).toBytes
+          if streamTagExists(onceTag):
+            streamSendOnce(onceTag, %*{"type": "height", "data": {"height": height, "sid": curSeqId}})
         sleep(1000)
         block_check()
 
