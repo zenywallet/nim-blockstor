@@ -331,7 +331,8 @@ proc abort() =
   abortFlag = true
   quitServer()
 
-include stream
+when not isMainModule:
+  include stream
 
 proc initClient() =
   var p = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
