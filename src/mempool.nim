@@ -298,16 +298,19 @@ proc mempoolTx*(poolId: int, txid: Hash, network: Network): JsonNode =
   else:
     result = newJNull()
 
+proc reset*() =
+  withWriteLock kvLock:
+    kvAddrSpents.clear()
+    kvAddrTxouts.clear()
+    kvTxAddrs.clear()
+    kvTxTxouts.clear()
+    kvTxSpents.clear()
+    kvUnconfs.clear()
+  txsTable.clear()
+
 proc update*(reset: bool) =
   if reset:
-    withWriteLock kvLock:
-      kvAddrSpents.clear()
-      kvAddrTxouts.clear()
-      kvTxAddrs.clear()
-      kvTxTxouts.clear()
-      kvTxSpents.clear()
-      kvUnconfs.clear()
-    txsTable.clear()
+    reset()
 
   var mpool = rpc.getRawMemPool.send()
   var mResult = mpool["result"]
