@@ -81,6 +81,19 @@ when not DYNAMIC_FILES:
     except KeyError:
       discard
 
+  proc getAcmeChallenge*(file: string): tuple[content: string, mime: string] =
+    try:
+      if file.startsWith("/.well-known/acme-challenge/"):
+        let fileSplit = splitFile(file)
+        if fileSplit.dir == "/.well-known/acme-challenge":
+          let challengeFile = getCurrentDir() /
+                              "public/.well-known/acme-challenge" / fileSplit.name
+          let data = readFile(challengeFile)
+          let mime = "text/plain"
+          result = (data, mime)
+    except:
+      discard
+
 else:
   var currentPublicDir {.threadvar.}: string
   var mimes {.threadvar.}: MimeDB

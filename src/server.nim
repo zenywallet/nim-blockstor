@@ -620,6 +620,10 @@ when not declared(webMain):
               return client.send(file.deflate.addHeaderDeflate(file.md5, Status200, file.mime))
         return client.send(file.content.addHeader(file.md5, Status200, file.mime))
     else:
+      when not DYNAMIC_FILES:
+        var fileAcme = getAcmeChallenge(url)
+        if fileAcme.content.len > 0:
+          return client.send(fileAcme.content.addHeader(Status200, fileAcme.mime))
       return client.send(NotFound.addHeader(Status404))
 
 when not declared(streamMain):
