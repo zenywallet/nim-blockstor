@@ -1579,6 +1579,7 @@ static void ShowBlockWindow(bool* p_open, int wid)
             ImGui::TableHeadersRow();
 
             if (!blkInfos[wid_s].empty()) {
+                param["hash"] = "";
                 int pos = 0;
                 for (auto& el : blkInfos[wid_s]["blocks"]) {
                     ImGui::TableNextRow();
