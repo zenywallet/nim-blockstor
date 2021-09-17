@@ -835,18 +835,29 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       echo "jsonData", jsonData
       result = client.sendCmd(jsonData)
     elif cmd == "height":
-      let reqData = json["data"]
-      let nid = reqData["nid"].getInt
-      if nid > streamDbInsts.high or nid < streamDbInsts.low:
-        raise newException(StreamError, "invalid nid")
-      if cmdSwitch == ParseCmdSwitch.On:
-        client.setTag(("heightonce", nid.uint16).toBytes)
-        client.setTag(("height", nid.uint16).toBytes)
-      elif cmdSwitch == ParseCmdSwitch.Off:
-        client.delTag(("heightonce", nid.uint16).toBytes)
-        client.delTag(("height", nid.uint16).toBytes)
+      if json.hasKey("data") and json["data"].hasKey("nid"):
+        let reqData = json["data"]
+        let nid = reqData["nid"].getInt
+        if nid > streamDbInsts.high or nid < streamDbInsts.low:
+          raise newException(StreamError, "invalid nid")
+        if cmdSwitch == ParseCmdSwitch.On:
+          client.setTag(("heightonce", nid.uint16).toBytes)
+          client.setTag(("height", nid.uint16).toBytes)
+        elif cmdSwitch == ParseCmdSwitch.Off:
+          client.delTag(("heightonce", nid.uint16).toBytes)
+          client.delTag(("height", nid.uint16).toBytes)
+        else:
+          client.setTag(("heightonce", nid.uint16).toBytes)
       else:
-        client.setTag(("heightonce", nid.uint16).toBytes)
+        for nid in streamDbInsts.low..streamDbInsts.high:
+          if cmdSwitch == ParseCmdSwitch.On:
+            client.setTag(("heightonce", nid.uint16).toBytes)
+            client.setTag(("height", nid.uint16).toBytes)
+          elif cmdSwitch == ParseCmdSwitch.Off:
+            client.delTag(("heightonce", nid.uint16).toBytes)
+            client.delTag(("height", nid.uint16).toBytes)
+          else:
+            client.setTag(("heightonce", nid.uint16).toBytes)
       return
     elif cmd == "noralist":
       result = client.sendCmd(%*{"type": "noralist", "data": SERVER_LABELS})
