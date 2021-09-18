@@ -40,6 +40,17 @@ task deps, "Build deps":
     exec "./configure"
     exec "make"
 
+  withDir "deps/secp256k1":
+    exec "./autogen.sh"
+    exec "./configure"
+    exec "make"
+
+  withDir "deps/wasm-secp256k1":
+    exec "./autogen.sh"
+    exec "emconfigure ./configure"
+    exec "sed -i 's/\\.\\/\\$(gen_context_BIN)/\\.\\.\\/secp256k1\\/\\$(gen_context_BIN)/' Makefile"
+    exec "emmake make"
+
 task ui, "Build ui":
   if dirExists("preload_tmp"):
     exec "rm -rf preload_tmp"
