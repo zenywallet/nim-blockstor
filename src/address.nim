@@ -88,7 +88,7 @@ proc getSegwitAddress*(network: Network, pub: seq[byte]): string {.inline.} =
   network.p2wpkh_address(ripemd160hash(pub))
 
 proc getAddress*(network: Network, hash160: Hash160, addressType: AddressType): string =
-  case addressType:
+  case addressType
   of P2PKH:
     result = network.p2pkh_address(hash160)
   of P2SH:

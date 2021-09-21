@@ -188,7 +188,7 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
 
     if queue > 0:
       var message = node.messageChannel[].recv()
-      case message.header.command:
+      case message.header.command
       of "version":
         checkSendErr node.sock.send(node.message("verack"))
 
