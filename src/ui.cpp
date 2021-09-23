@@ -1731,6 +1731,7 @@ static void main_loop(void *arg)
     {
         static bool noralistRequested = false;
         static bool statusOnRequested = false;
+        static bool heightOnRequested = false;
 
         if (streamActive) {
             if (!noralistRequested) {
@@ -1742,6 +1743,11 @@ static void main_loop(void *arg)
                 std::string s = "{\"cmd\": \"status-on\"}";
                 streamSend(s.c_str(), s.length());
                 statusOnRequested = true;
+            }
+            if (!heightOnRequested) {
+                std::string s = "{\"cmd\": \"height-on\"}";
+                streamSend(s.c_str(), s.length());
+                heightOnRequested = true;
             }
         }
     }
