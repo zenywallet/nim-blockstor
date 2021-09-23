@@ -203,7 +203,6 @@ var curStreamId: int
 var streamWorkerThread: Thread[WrapperStreamThreadArg]
 var invokeWorkerThread: Thread[WrapperStreamThreadArg]
 var miningWorkerThread: Thread[WrapperStreamThreadArg]
-var testMessageGeneratorThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
 type
   StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
@@ -557,13 +556,6 @@ proc initStream*() =
       inc(threadId)
   createThread(miningWorkerThread, streamThreadWrapper, (miningWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
 
-  proc testMessageGenerator(arg: StreamThreadArg) {.thread.} =
-    while streamActive:
-      streamSend("testmessage".toBytes, %*{"type": "push", "data": "hello!"})
-      sleep(3000)
-  createThread(testMessageGeneratorThread, streamThreadWrapper,
-              (testMessageGenerator, StreamThreadArg(type: StreamThreadArgType.Void)))
-
 proc freeStream*() =
   streamActive = false
   for i in 0..<RPC_NODE_COUNT:
@@ -571,7 +563,6 @@ proc freeStream*() =
       rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.Direct))
   streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
   var threads: seq[Thread[WrapperStreamThreadArg]]
-  threads.add(testMessageGeneratorThread)
   threads.add(miningWorkerThread)
   threads.add(invokeWorkerThread)
   threads.add(streamWorkerThread)
@@ -940,9 +931,6 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
         try:
           var json = parseJson(decBuf.toString(decLen))
           result = client.parseCmd(json)
-
-          sobj.streamId.setTag("testmessage".toBytes)
-
           return SendResult.Success
         except:
           let e = getCurrentException()
