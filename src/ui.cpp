@@ -1727,27 +1727,23 @@ static void main_loop(void *arg)
         ShowFramerateOverlay(&show_framerate_overlay);
     }
 
-
     {
-        static bool noralistRequested = false;
-        static bool statusOnRequested = false;
-        static bool heightOnRequested = false;
-
+        static bool firstCommandRequested = false;
         if (streamActive) {
-            if (!noralistRequested) {
-                std::string s = "{\"cmd\": \"noralist\"}";
-                streamSend(s.c_str(), s.length());
-                noralistRequested = true;
-            }
-            if (!statusOnRequested) {
-                std::string s = "{\"cmd\": \"status-on\"}";
-                streamSend(s.c_str(), s.length());
-                statusOnRequested = true;
-            }
-            if (!heightOnRequested) {
-                std::string s = "{\"cmd\": \"height-on\"}";
-                streamSend(s.c_str(), s.length());
-                heightOnRequested = true;
+            if (!firstCommandRequested) {
+                {
+                    std::string s = "{\"cmd\": \"noralist\"}";
+                    streamSend(s.c_str(), s.length());
+                }
+                {
+                    std::string s = "{\"cmd\": \"status-on\"}";
+                    streamSend(s.c_str(), s.length());
+                }
+                {
+                    std::string s = "{\"cmd\": \"height-on\"}";
+                    streamSend(s.c_str(), s.length());
+                }
+                firstCommandRequested = true;
             }
         }
     }
