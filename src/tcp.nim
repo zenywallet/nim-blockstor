@@ -164,6 +164,8 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
     if queue < 500 and reqHashes.len < 500 and blockHashes.len > 0:
       var data = node.message("getblocks", (node.protocolVersion.uint32, VarInt(1),
                         blockHashes[^1], Pad(32)).toBytes)
+      # The last hash may not be the next one, but the latest one.
+      # In that case, it will be resolved after processing the blocks.
       checkSendErr node.sock.send(data)
 
       var invs: seq[byte]
