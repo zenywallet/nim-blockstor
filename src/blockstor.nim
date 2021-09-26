@@ -361,7 +361,7 @@ proc writeBlockStream(dbInst: DbInst, height: int, hash: BlockHash, blk: Block, 
 
   if streamActive:
     streamSend(("height", nid.uint16).toBytes,
-              %*{"type": "height", "data": {"height": height, "sid": seq_id}})
+              %*{"type": "height", "data": {"height": height, "sid": seq_id, "nid": nid}})
 
     for k, v in streamAddrs.pairs:
       let hash160 = k[0..19].Hash160
@@ -676,7 +676,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
         if streamActive:
           var onceTag = ("heightonce", nid.uint16).toBytes
           if streamTagExists(onceTag):
-            streamSendOnce(onceTag, %*{"type": "height", "data": {"height": height, "sid": curSeqId}})
+            streamSendOnce(onceTag, %*{"type": "height", "data": {"height": height, "sid": curSeqId, "nid": nid}})
         sleep(1000)
         block_check()
 
