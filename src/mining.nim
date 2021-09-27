@@ -127,6 +127,10 @@ proc main() =
 
     if updateBlockTemplate:
       var retTmpl = getBlockTemplate.send(blockTemplateParam)
+      if retTmpl["error"].kind != JNull:
+        echo "get template failed ", retTmpl
+        doAbort()
+        break
       var blockTmpl = retTmpl["result"]
       prevHash = blockTmpl["previousblockhash"].getStr.Hex.toBlockHash
       var transactions = blockTmpl["transactions"]
