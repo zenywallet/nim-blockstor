@@ -1751,7 +1751,7 @@ static void main_loop(void *arg)
     ImVec2 toolPos;
     ImVec2 toolSize;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_NoResize)) {
+    if (ImGui::Begin("Tools", nullptr)) {
         if (ImGui::Checkbox("Nora Servers", &show_nora_servers_window)) {
             winTools["nora_chk"] = show_nora_servers_window;
             MarkSettingsDirty();
