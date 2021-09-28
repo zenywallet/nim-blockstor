@@ -822,6 +822,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
     bool valid = param["valid"].get<bool>();
     int prefix = param["prefix"].get<int>();
     int network_idx = param["nid"].get<int>();
+    std::string nid_s = std::to_string(network_idx);
     std::string addr1 = param["addr1"].get<std::string>();
     std::string addr3 = param["addr3"].get<std::string>();
     std::string addr4 = param["addr4"].get<std::string>();
@@ -840,10 +841,11 @@ static void ShowAddressWindow(bool* p_open, int wid)
         std::string header;
         std::string amount;
         if (address.length() > 0) {
-            if (addrInfos.find(address) != addrInfos.end() &&
-                addrInfos[address].find("val") != addrInfos[address].end() &&
-                addrInfos[address]["unused"].get<int>() == 0) {
-                amount = convCoin(addrInfos[address]["val"]);
+            if (addrInfos.find(nid_s) != addrInfos.end() &&
+                addrInfos[nid_s].find(address) != addrInfos[nid_s].end() &&
+                addrInfos[nid_s][address].find("val") != addrInfos[nid_s][address].end() &&
+                addrInfos[nid_s][address]["unused"].get<int>() == 0) {
+                amount = convCoin(addrInfos[nid_s][address]["val"]);
                 header = address + " " + amount + "##ha" + wid_s;
             } else {
                 header = address + "##ha" + wid_s;
@@ -911,8 +913,9 @@ static void ShowAddressWindow(bool* p_open, int wid)
 
             ImGui::Separator();
 
-            if (addrInfos.find(address) != addrInfos.end()) {
-                int unused = addrInfos[address]["unused"].get<int>();
+            if (addrInfos.find(nid_s) != addrInfos.end() &&
+                addrInfos[nid_s].find(address) != addrInfos[nid_s].end()) {
+                int unused = addrInfos[nid_s][address]["unused"].get<int>();
                 if (unused == 0) {
                     ImGui::Text("status:"); ImGui::SameLine();
                     ImGui::Text("used");
@@ -922,7 +925,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                     ImGui::PopFont();
                     ImGui::Text("utxo count:"); ImGui::SameLine();
                     ImGui::PushFont(monoFont);
-                    ImGui::Text(std::to_string(addrInfos[address]["utxo_count"].get<uint32_t>()).c_str());
+                    ImGui::Text(std::to_string(addrInfos[nid_s][address]["utxo_count"].get<uint32_t>()).c_str());
                     ImGui::PopFont();
                 } else if (unused == 1) {
                     ImGui::Text("status:"); ImGui::SameLine();
@@ -986,9 +989,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
 
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::TreeNode(("UTXO (Unspent Transaction Output)##utxo" + wid_s).c_str())) {
-                if (addrInfos.find(address) != addrInfos.end()) {
-                    json& utxos = addrInfos[address]["utxos"];
-                    json& utxostbl = addrInfos[address]["utxostbl"];
+                if (addrInfos.find(nid_s) != addrInfos.end() &&
+                    addrInfos[nid_s].find(address) != addrInfos[nid_s].end()) {
+                    json& utxos = addrInfos[nid_s][address]["utxos"];
+                    json& utxostbl = addrInfos[nid_s][address]["utxostbl"];
                     int load_count = utxos.size();
                     int table_count = utxostbl.size();
                     const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
@@ -1028,9 +1032,9 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         ImGui::EndTable();
                     }
                     ImGui::PopFont();
-                    if (addrInfos[address]["utxoload"].get<bool>()) {
+                    if (addrInfos[nid_s][address]["utxoload"].get<bool>()) {
                         if (ImGui::Button("Stop")) {
-                            addrInfos[address]["utxoload"] = false;
+                            addrInfos[nid_s][address]["utxoload"] = false;
                         }
                         ImGui::SameLine();
                         ImGui::PushFont(monoFont);
@@ -1044,25 +1048,25 @@ static void ShowAddressWindow(bool* p_open, int wid)
                                             network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                             streamSend(cmd_utxo.c_str(), cmd_utxo.length());
                         }
-                        if (!addrInfos[address]["utxonext"].empty()) {
+                        if (!addrInfos[nid_s][address]["utxonext"].empty()) {
                             ImGui::SameLine();
                             if (ImGui::Button("More")) {
                                 std::string network_idx_s = std::to_string(network_idx);
                                 std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
                                                 network_idx_s + ",\"addr\":\"" + address +
-                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["utxonext"].dump() + "}}";
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[nid_s][address]["utxonext"].dump() + "}}";
                                 streamSend(cmd_utxo.c_str(), cmd_utxo.length());
-                                addrInfos[address].erase("utxonext");
+                                addrInfos[nid_s][address].erase("utxonext");
                             }
                             ImGui::SameLine();
                             if (ImGui::Button("All")) {
-                                addrInfos[address]["utxoload"] = true;
+                                addrInfos[nid_s][address]["utxoload"] = true;
                                 std::string network_idx_s = std::to_string(network_idx);
                                 std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
                                                 network_idx_s + ",\"addr\":\"" + address +
-                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["utxonext"].dump() + "}}";
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[nid_s][address]["utxonext"].dump() + "}}";
                                 streamSend(cmd_utxo.c_str(), cmd_utxo.length());
-                                addrInfos[address].erase("utxonext");
+                                addrInfos[nid_s][address].erase("utxonext");
                             }
                         }
                     }
@@ -1072,9 +1076,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
 
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::TreeNode(("Transaction Logs##addrlog" + wid_s).c_str())) {
-                if (addrInfos.find(address) != addrInfos.end()) {
-                    json& addrlogs = addrInfos[address]["addrlogs"];
-                    json& addrlogstbl = addrInfos[address]["addrlogstbl"];
+                if (addrInfos.find(nid_s) != addrInfos.end() &&
+                    addrInfos[nid_s].find(address) != addrInfos[nid_s].end()) {
+                    json& addrlogs = addrInfos[nid_s][address]["addrlogs"];
+                    json& addrlogstbl = addrInfos[nid_s][address]["addrlogstbl"];
                     int load_count = addrlogs.size();
                     int table_count = addrlogstbl.size();
                     const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
@@ -1128,9 +1133,9 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         ImGui::EndTable();
                     }
                     ImGui::PopFont();
-                    if (addrInfos[address]["addrlogload"].get<bool>()) {
+                    if (addrInfos[nid_s][address]["addrlogload"].get<bool>()) {
                         if (ImGui::Button("Stop")) {
-                            addrInfos[address]["addrlogload"] = false;
+                            addrInfos[nid_s][address]["addrlogload"] = false;
                         }
                         ImGui::SameLine();
                         ImGui::PushFont(monoFont);
@@ -1144,25 +1149,25 @@ static void ShowAddressWindow(bool* p_open, int wid)
                                             network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                             streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
                         }
-                        if (!addrInfos[address]["addrlognext"].empty()) {
+                        if (!addrInfos[nid_s][address]["addrlognext"].empty()) {
                             ImGui::SameLine();
                             if (ImGui::Button("More")) {
                                 std::string network_idx_s = std::to_string(network_idx);
                                 std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
                                                 network_idx_s + ",\"addr\":\"" + address +
-                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["addrlognext"].dump() + "}}";
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[nid_s][address]["addrlognext"].dump() + "}}";
                                 streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
-                                addrInfos[address].erase("addrlognext");
+                                addrInfos[nid_s][address].erase("addrlognext");
                             }
                             ImGui::SameLine();
                             if (ImGui::Button("All")) {
-                                addrInfos[address]["addrlogload"] = true;
+                                addrInfos[nid_s][address]["addrlogload"] = true;
                                 std::string network_idx_s = std::to_string(network_idx);
                                 std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
                                                 network_idx_s + ",\"addr\":\"" + address +
-                                                "\",\"rev\":1,\"lte\":" + addrInfos[address]["addrlognext"].dump() + "}}";
+                                                "\",\"rev\":1,\"lte\":" + addrInfos[nid_s][address]["addrlognext"].dump() + "}}";
                                 streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
-                                addrInfos[address].erase("addrlognext");
+                                addrInfos[nid_s][address].erase("addrlognext");
                             }
                         }
                     }
@@ -1179,11 +1184,13 @@ static void ShowAddressWindow(bool* p_open, int wid)
         update = false;
         std::string prev_address = param["prev_address"].get<std::string>();
         int prev_nid = param["prev_nid"].get<int>();
-        if (prev_address.length() > 0 && addrInfos.find(prev_address) != addrInfos.end()) {
-            if (addrInfos[prev_address]["ref_count"].get<int>() > 1) {
-                addrInfos[prev_address]["ref_count"] = addrInfos[prev_address]["ref_count"].get<int>() - 1;
+        std::string prev_nid_s = std::to_string(prev_nid);
+        if (prev_address.length() > 0 && addrInfos.find(prev_nid_s) != addrInfos.end() &&
+            addrInfos[prev_nid_s].find(prev_address) != addrInfos[prev_nid_s].end()) {
+            if (addrInfos[prev_nid_s][prev_address]["ref_count"].get<int>() > 1) {
+                addrInfos[prev_nid_s][prev_address]["ref_count"] = addrInfos[prev_nid_s][prev_address]["ref_count"].get<int>() - 1;
             } else {
-                addrInfos.erase(prev_address);
+                addrInfos[prev_nid_s].erase(prev_address);
                 std::string s = "{\"cmd\":\"addr-off\",\"data\":{\"nid\":" +
                                 std::to_string(prev_nid) + ",\"addr\":\"" + prev_address + "\"}}";
                 streamSend(s.c_str(), s.length());
@@ -1192,20 +1199,22 @@ static void ShowAddressWindow(bool* p_open, int wid)
         }
         if (valid) {
             prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
-           if (addrInfos.find(address) == addrInfos.end()) {
-                std::string network_idx_s = std::to_string(network_idx);
-                addrInfos[address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "addrlogstbl": [], "addrlogload": false, "utxos": {}, "utxostbl": [], "utxoload": false, "ref_count": 1})"_json;
+            if (addrInfos.find(nid_s) == addrInfos.end()) {
+                addrInfos[nid_s] = R"({})"_json;
+            }
+            if (addrInfos[nid_s].find(address) == addrInfos[nid_s].end()) {
+                addrInfos[nid_s][address] =  R"({"sid": -1, "unused": -1, "val": 0, "utxo_count": 0, "addrlogs": {}, "addrlogstbl": [], "addrlogload": false, "utxos": {}, "utxostbl": [], "utxoload": false, "ref_count": 1})"_json;
                 std::string s = "{\"cmd\":\"addr-on\",\"data\":{\"nid\":" +
-                                network_idx_s + ",\"addr\":\"" + address + "\"}}";
+                                nid_s + ",\"addr\":\"" + address + "\"}}";
                 streamSend(s.c_str(), s.length());
                 std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
-                                network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                                nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                 streamSend(cmd_utxo.c_str(), cmd_utxo.length());
                 std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                                nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                 streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
             } else {
-                addrInfos[address]["ref_count"] = addrInfos[address]["ref_count"].get<int>() + 1;
+                addrInfos[nid_s][address]["ref_count"] = addrInfos[nid_s][address]["ref_count"].get<int>() + 1;
             }
             param["prev_address"] = address;
             param["prev_nid"] = network_idx;
@@ -1226,13 +1235,14 @@ static void ShowAddressWindow(bool* p_open, int wid)
     while (!addrInfos["pending"].empty()) {
         auto ainfo = addrInfos["pending"].at(0);
         std::string addr = ainfo["addr"].get<std::string>();
-        if (addrInfos.find(addr) != addrInfos.end()) {
+        std::string ainfo_nid_s = std::to_string(ainfo["nid"].get<int>());
+        if (addrInfos[ainfo_nid_s].find(addr) != addrInfos[ainfo_nid_s].end()) {
             if (ainfo.find("val") == ainfo.end()) {
-                addrInfos[addr]["unused"] = 1;
+                addrInfos[ainfo_nid_s][addr]["unused"] = 1;
             } else {
-                addrInfos[addr]["unused"] = 0;
-                addrInfos[addr]["val"] = ainfo["val"];
-                addrInfos[addr]["utxo_count"] = ainfo["utxo_count"];
+                addrInfos[ainfo_nid_s][addr]["unused"] = 0;
+                addrInfos[ainfo_nid_s][addr]["val"] = ainfo["val"];
+                addrInfos[ainfo_nid_s][addr]["utxo_count"] = ainfo["utxo_count"];
             }
         }
         addrInfos["pending"].erase(0);
@@ -1251,33 +1261,33 @@ static void ShowAddressWindow(bool* p_open, int wid)
         if (!addrInfos["utxo_pending"].empty()) {
             auto ainfo = addrInfos["utxo_pending"].at(0);
             std::string addr = ainfo["addr"].get<std::string>();
-            if (addrInfos.find(addr) != addrInfos.end()) {
-                json& utxos = addrInfos[addr]["utxos"];
+            std::string ainfo_nid_s = std::to_string(ainfo["nid"].get<int>());
+            if (addrInfos[ainfo_nid_s].find(addr) != addrInfos[ainfo_nid_s].end()) {
+                json& utxos = addrInfos[ainfo_nid_s][addr]["utxos"];
                 for (auto& el : ainfo["utxos"]) {
                     utxos[std::to_string(el["id"].get<uint64_t>())] = el;
                 }
 
                 bool tableupdate = false;
                 if (ainfo.find("next") != ainfo.end()) {
-                    if (addrInfos[addr]["utxoload"]) {
-                        std::string network_idx_s = std::to_string(ainfo["nid"].get<int>());
+                    if (addrInfos[ainfo_nid_s][addr]["utxoload"]) {
                         std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
-                                        network_idx_s + ",\"addr\":\"" + addr +
+                                        ainfo_nid_s + ",\"addr\":\"" + addr +
                                         "\",\"rev\":1,\"lte\":" + ainfo["next"].dump() + "}}";
                         streamSend(cmd_utxo.c_str(), cmd_utxo.length());
                         if (utxos.size() <= 1000) {
                             tableupdate = true;
                         }
                     } else {
-                        addrInfos[addr]["utxonext"] = ainfo["next"];
+                        addrInfos[ainfo_nid_s][addr]["utxonext"] = ainfo["next"];
                         tableupdate = true;
                     }
                 } else {
                     tableupdate = true;
-                    addrInfos[addr]["utxoload"] = false;
+                    addrInfos[ainfo_nid_s][addr]["utxoload"] = false;
                 }
                 if (tableupdate) {
-                    auto& table = addrInfos[addr]["utxostbl"];
+                    auto& table = addrInfos[ainfo_nid_s][addr]["utxostbl"];
                     table.clear();
                     for (auto& el : utxos.items()) {
                         table.push_back(el.value());
@@ -1304,33 +1314,33 @@ static void ShowAddressWindow(bool* p_open, int wid)
         if (!addrInfos["addrlog_pending"].empty()) {
             auto ainfo = addrInfos["addrlog_pending"].at(0);
             std::string addr = ainfo["addr"].get<std::string>();
-            if (addrInfos.find(addr) != addrInfos.end()) {
-                json& addrlogs = addrInfos[addr]["addrlogs"];
+            std::string ainfo_nid_s = std::to_string(ainfo["nid"].get<int>());
+            if (addrInfos[ainfo_nid_s].find(addr) != addrInfos[ainfo_nid_s].end()) {
+                json& addrlogs = addrInfos[ainfo_nid_s][addr]["addrlogs"];
                 for (auto& el : ainfo["addrlogs"]) {
                     addrlogs[std::to_string(el["id"].get<uint64_t>())] = el;
                 }
 
                 bool tableupdate = false;
                 if (ainfo.find("next") != ainfo.end()) {
-                    if (addrInfos[addr]["addrlogload"]) {
-                        std::string network_idx_s = std::to_string(ainfo["nid"].get<int>());
+                    if (addrInfos[ainfo_nid_s][addr]["addrlogload"]) {
                         std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                        network_idx_s + ",\"addr\":\"" + addr +
+                                        ainfo_nid_s + ",\"addr\":\"" + addr +
                                         "\",\"rev\":1,\"lte\":" + ainfo["next"].dump() + "}}";
                         streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
                         if (addrlogs.size() <= 1000) {
                             tableupdate = true;
                         }
                     } else {
-                        addrInfos[addr]["addrlognext"] = ainfo["next"];
+                        addrInfos[ainfo_nid_s][addr]["addrlognext"] = ainfo["next"];
                         tableupdate = true;
                     }
                 } else {
                     tableupdate = true;
-                    addrInfos[addr]["addrlogload"] = false;
+                    addrInfos[ainfo_nid_s][addr]["addrlogload"] = false;
                 }
                 if (tableupdate) {
-                    auto& table = addrInfos[addr]["addrlogstbl"];
+                    auto& table = addrInfos[ainfo_nid_s][addr]["addrlogstbl"];
                     table.clear();
                     for (auto& el : addrlogs.items()) {
                         table.push_back(el.value());
@@ -1918,13 +1928,14 @@ static void main_loop(void *arg)
         std::string key = el.get<std::string>();
         json& param = winAddress["windows"][el.get<std::string>()];
         std::string prev_address = param["prev_address"].get<std::string>();
-        int prev_nid = param["prev_nid"].get<int>();
-        if (prev_address.length() > 0 && addrInfos.find(prev_address) != addrInfos.end()) {
-            if (addrInfos[prev_address]["ref_count"].get<int>() > 1) {
-                addrInfos[prev_address]["ref_count"] = addrInfos[prev_address]["ref_count"].get<int>() - 1;
+        std::string prev_nid_s = std::to_string(param["prev_nid"].get<int>());
+        if (prev_address.length() > 0 && addrInfos.find(prev_nid_s) != addrInfos.end() &&
+            addrInfos[prev_nid_s].find(prev_address) != addrInfos[prev_nid_s].end()) {
+            if (addrInfos[prev_nid_s][prev_address]["ref_count"].get<int>() > 1) {
+                addrInfos[prev_nid_s][prev_address]["ref_count"] = addrInfos[prev_nid_s][prev_address]["ref_count"].get<int>() - 1;
             } else {
-                addrInfos.erase(prev_address);
-                std::string s = "{\"cmd\":\"addr-off\",\"data\":{\"nid\":" + std::to_string(prev_nid) +
+                addrInfos[prev_nid_s].erase(prev_address);
+                std::string s = "{\"cmd\":\"addr-off\",\"data\":{\"nid\":" + prev_nid_s +
                                 ",\"addr\":\"" + prev_address + "\"}}";
                 streamSend(s.c_str(), s.length());
             }
