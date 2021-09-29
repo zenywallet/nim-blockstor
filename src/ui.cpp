@@ -38,6 +38,7 @@ json winBlock;
 json blkInfos;
 json winTx;
 json txInfos;
+json heightInfos;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -121,6 +122,8 @@ extern "C" void streamRecv(char* data, int size) {
         txInfos["pending"].push_back(j);
     } else if(j["type"] == "block") {
         blkInfos["pending"].push_back(j);
+    } else if(j["type"] == "height") {
+        heightInfos["pending"].push_back(j["data"]);
     }
 }
 
@@ -1210,9 +1213,6 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 std::string cmd_utxo = "{\"cmd\":\"utxo\",\"data\":{\"nid\":" +
                                 nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
                 streamSend(cmd_utxo.c_str(), cmd_utxo.length());
-                std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
-                streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
             } else {
                 addrInfos[nid_s][address]["ref_count"] = addrInfos[nid_s][address]["ref_count"].get<int>() + 1;
             }
@@ -1243,6 +1243,17 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 addrInfos[ainfo_nid_s][addr]["unused"] = 0;
                 addrInfos[ainfo_nid_s][addr]["val"] = ainfo["val"];
                 addrInfos[ainfo_nid_s][addr]["utxo_count"] = ainfo["utxo_count"];
+
+                if (addrInfos[ainfo_nid_s][addr].find("nextid") != addrInfos[ainfo_nid_s][addr].end()) {
+                    uint64_t nextid = addrInfos[ainfo_nid_s][addr]["nextid"].get<uint64_t>();
+                    std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
+                                    ainfo_nid_s + ",\"addr\":\"" + address + "\",\"gte\":" + std::to_string(nextid) + "}}";
+                    streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                } else {
+                    std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
+                                    ainfo_nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                    streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
+                }
             }
         }
         addrInfos["pending"].erase(0);
@@ -1317,8 +1328,18 @@ static void ShowAddressWindow(bool* p_open, int wid)
             std::string ainfo_nid_s = std::to_string(ainfo["nid"].get<int>());
             if (addrInfos[ainfo_nid_s].find(addr) != addrInfos[ainfo_nid_s].end()) {
                 json& addrlogs = addrInfos[ainfo_nid_s][addr]["addrlogs"];
+                uint64_t latest_id = 0;
                 for (auto& el : ainfo["addrlogs"]) {
-                    addrlogs[std::to_string(el["id"].get<uint64_t>())] = el;
+                    uint64_t id = el["id"].get<uint64_t>();
+                    addrlogs[std::to_string(id)] = el;
+                    if (id > latest_id) {
+                        latest_id = id;
+                    }
+                }
+                if (latest_id == 0) {
+                    addrInfos[ainfo_nid_s][addr]["nextid"] = 0;
+                } else {
+                    addrInfos[ainfo_nid_s][addr]["nextid"] = latest_id + 1;
                 }
 
                 bool tableupdate = false;
@@ -1651,6 +1672,55 @@ static void ShowBlockWindow(bool* p_open, int wid)
     ImGui::End();
 }
 
+static void CheckHeightAndRollback()
+{
+    while (!heightInfos["pending"].empty()) {
+        auto hinfo = heightInfos["pending"].at(0);
+        int nid = hinfo["nid"].get<int>();
+        std::string nid_s = std::to_string(nid);
+        if (heightInfos.find(nid_s) != heightInfos.end()) {
+            int64_t prev_height = heightInfos[nid_s]["height"];
+            int64_t height = hinfo["height"].get<int64_t>();
+            if (height <= prev_height) {
+                std::cout << "rollback prev=" << std::to_string(prev_height) << " " << hinfo.dump() << std::endl;
+                uint64_t sid = hinfo["sid"].get<uint64_t>();
+                if (addrInfos.find(nid_s) != addrInfos.end()) {
+                    for (auto& el : addrInfos[nid_s].items()) {
+                        std::cout << el.key() << std::endl;
+                        auto& ainfo = addrInfos[nid_s][el.key()];
+                        if (ainfo.find("addrlogs") != ainfo.end()) {
+                            ainfo["addrlogsdel"] = R"([])"_json;
+                            for (auto& el : ainfo["addrlogs"]) {
+                                if (el["id"].get<uint64_t>() >= sid) {
+                                    ainfo["addrlogsdel"].push_back(std::to_string(el["id"].get<uint64_t>()));
+                                }
+                            }
+                            for (auto& el : ainfo["addrlogsdel"]) {
+                                ainfo["addrlogs"].erase(el.get<std::string>());
+                            }
+                            ainfo.erase("addrlogsdel");
+                        }
+
+                        while (!ainfo["addrlogstbl"].empty()) {
+                            auto& table = ainfo["addrlogstbl"].at(0);
+                            if (table["id"].get<uint64_t>() >= sid) {
+                                ainfo["addrlogstbl"].erase(0);
+                                continue;
+                            }
+                            break;
+                        }
+                        ainfo["nextid"] = sid;
+                    }
+                    std::cout << addrInfos.dump() << std::endl;
+                }
+
+            }
+        }
+        heightInfos[nid_s] = hinfo;
+        heightInfos["pending"].erase(0);
+    }
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -1757,6 +1827,8 @@ static void main_loop(void *arg)
             }
         }
     }
+
+    CheckHeightAndRollback();
 
     ImVec2 toolPos;
     ImVec2 toolSize;
