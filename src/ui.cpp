@@ -1145,15 +1145,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         ImGui::Text(("downloading... " + std::to_string(load_count)).c_str());
                         ImGui::PopFont();
                     } else {
-                        if (ImGui::Button("Update")) {
-                            addrlogs.clear();
-                            std::string network_idx_s = std::to_string(network_idx);
-                            std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                            network_idx_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
-                            streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
-                        }
                         if (!addrInfos[nid_s][address]["addrlognext"].empty()) {
-                            ImGui::SameLine();
                             if (ImGui::Button("More")) {
                                 std::string network_idx_s = std::to_string(network_idx);
                                 std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
