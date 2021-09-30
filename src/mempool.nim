@@ -12,9 +12,9 @@ export uthash
 
 # spents - address_hash = address_type, txid, n, value, txid_out
 # txouts - address_hash = address_type, txid, n, value
-# txaddrs = txid = address_hash, address_type, trans (0 - out | 1 - in), val
-# txtxouts = txid = n, value, address_hash, address_type
-# txspents = txid_out = txid, n, value, address_hash, address_type
+# txaddrs - txid = address_hash, address_type, trans (0 - out | 1 - in), val
+# txtxouts - txid = n, value, address_hash, address_type
+# txspents - txid_out = txid, n, value, address_hash, address_type
 # unconfs - address_hash, address_type = val_out, val_in
 
 type
