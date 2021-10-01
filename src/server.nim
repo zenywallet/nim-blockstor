@@ -41,7 +41,7 @@ when ENABLE_SSL:
   const REDIRECT_URL = "https://" & HTTPS_HOST_NAME
   const DEBUG_LOG = false
 
-  const CERT_PATH = "./"
+  const CERT_PATH = "."
   const CERT_FILE = CERT_PATH / "cert.pem"
   const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
   const CHAIN_FILE = CERT_PATH / "fullchain.pem"
