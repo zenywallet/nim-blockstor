@@ -1116,7 +1116,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     var clientSock = accept(serverSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     var clientFd = clientSock.int
     var ip = sockAddress.sin_addr.s_addr
-    var address = $inet_ntoa(sockAddress.sin_addr)
+    var address = inet_ntoa(sockAddress.sin_addr)
 
     if clientFd < 0:
       if errno == EINTR:
@@ -1127,7 +1127,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       error "error: accept errno=", errno
       abort()
 
-    debug "client ip=", address, " fd=", clientFd
+    debug "client ip=", $address, " fd=", clientFd
 
     when ENABLE_SSL:
       when SSL_AUTO_RELOAD:
@@ -1165,7 +1165,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
 
     var reqCount = reqStats.checkReq(ip)
     if reqCount > REQ_LIMIT_HTTPS_ACCEPT_MAX:
-      error "error: too many ", address
+      error "error: too many ", $address
       clientSock.sendInstant(TooMany.addHeader(Status429))
       clientSock.close()
       continue
@@ -1198,7 +1198,7 @@ proc http(arg: ThreadArg) {.thread.} =
     var clientSock = accept(httpSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     var clientFd = clientSock.int
     var ip = sockAddress.sin_addr.s_addr
-    var address = $inet_ntoa(sockAddress.sin_addr)
+    var address = inet_ntoa(sockAddress.sin_addr)
 
     if clientFd < 0:
       if errno == EINTR:
@@ -1209,7 +1209,7 @@ proc http(arg: ThreadArg) {.thread.} =
       error "error: accept errno=", errno
       abort()
 
-    debug "client ip=", address, " fd=", clientFd
+    debug "client ip=", $address, " fd=", clientFd
 
     template busyErrorContinue() =
       clientSock.sendInstant(BusyBody.addHeader(Status503))
@@ -1222,7 +1222,7 @@ proc http(arg: ThreadArg) {.thread.} =
 
     var reqCount = reqStats.checkReq(ip)
     if reqCount > REQ_LIMIT_HTTP_ACCEPT_MAX:
-      error "error: too many ", address
+      error "error: too many ", $address
       clientSock.sendInstant(TooMany.addHeader(Status429))
       clientSock.close()
       continue
