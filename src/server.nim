@@ -512,7 +512,7 @@ proc getFrame(data: ptr UncheckedArray[byte],
                                 payload: ptr UncheckedArray[byte], payloadSize: int,
                                 next: ptr UncheckedArray[byte], size: int] =
   if size < 2:
-    return (false, false, -1.int8, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+    return (false, false, -1.int8, nil, 0, data, size)
 
   var b1 = data[1]
   var mask = ((b1 and 0x80.byte) != 0)
@@ -528,23 +528,23 @@ proc getFrame(data: ptr UncheckedArray[byte],
     frameHeadSize = 6
   elif payloadLen == 126:
     if size < 4:
-      return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+      return (false, fin, opcode, nil, 0, data, size)
     payloadLen = data[2].toUint16BE.int
     frameHeadSize = 8
   elif payloadLen == 127:
     if size < 10:
-      return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+      return (false, fin, opcode, nil, 0, data, size)
     payloadLen = data[2].toUint64BE.int # exception may occur. value out of range [RangeDefect]
     frameHeadSize = 14
   else:
-    return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+    return (false, fin, opcode, nil, 0, data, size)
 
   var frameSize = frameHeadSize + payloadLen
   if frameSize > MAX_FRAME_SIZE:
     raise newException(ServerError, "websocket frame size is too big frameSize=" & $frameSize)
 
   if size < frameSize:
-    return (false, fin, opcode, cast[ptr UncheckedArray[byte]](nil), 0, data, size)
+    return (false, fin, opcode, nil, 0, data, size)
 
   var maskData: array[4, byte]
   copyMem(addr maskData[0], addr data[frameHeadSize - 4], 4)
