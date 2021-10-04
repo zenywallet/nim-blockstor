@@ -24,6 +24,8 @@ when (compiles do: include config):
 else:
   include config_default
 
+setUlimit(ULIMIT_SIZE)
+
 var dbnames: seq[string]
 for node in nodes:
   dbnames.add($node.networkId)

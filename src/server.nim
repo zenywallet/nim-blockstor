@@ -10,7 +10,7 @@ import base64
 import times
 import stats
 
-const ULIMIT_SIZE = 65536
+const ULIMIT_SIZE* = 65536
 const CLIENT_MAX = 32000
 const CLIENT_SEARCH_LIMIT = 30000
 const WORKER_THREAD_NUM = 16
@@ -259,7 +259,7 @@ var httpThread: Thread[WrapperThreadArg]
 var monitorThread: Thread[WrapperThreadArg]
 var mainThread: Thread[WrapperThreadArg]
 
-proc setUlimit(rlim: int): bool {.discardable.} =
+proc setUlimit*(rlim: int): bool {.discardable.} =
   var rlp: RLimit
   var ret = getrlimit(RLIMIT_NOFILE, rlp)
   if ret != 0: return false
@@ -1343,7 +1343,6 @@ proc main(arg: ThreadArg) {.thread.} =
       break
 
 proc start*(noBlocking: bool = true): Thread[WrapperThreadArg] {.discardable.} =
-  setUlimit(ULIMIT_SIZE)
   if noBlocking:
     createThread(mainThread, threadWrapper, (main, ThreadArg(type: ThreadArgType.Void)))
     result = mainThread
@@ -1360,6 +1359,7 @@ when isMainModule:
     debug "bye from signal ", sig
     quitServer()
 
+  setUlimit(ULIMIT_SIZE)
   var thread: Thread[WrapperThreadArg]
   thread = start()
   joinThread(thread)
