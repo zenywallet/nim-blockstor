@@ -17,10 +17,17 @@ import rpc
 import blocks, tx, script
 import mempool
 
+when (compiles do: include config):
+  include config
+else:
+  include config_default
+
 const DECODE_BUF_SIZE = 1048576
-const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
+when not declared(SERVER_LABELS):
+  const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
 const RPC_NODE_COUNT = SERVER_LABELS.len
-const RPC_WORKER_NUM = 2
+when not declared(RPC_WORKER_NUM):
+  const RPC_WORKER_NUM = 2
 const RPC_WORKER_TOTAL = RPC_WORKER_NUM * RPC_NODE_COUNT
 
 type

@@ -17,3 +17,9 @@ when declared(blockstor):
               rpcUrl: "http://127.0.0.1:19252/",
               rpcUserPass: "rpcuser:rpcpassword",
               workerEnable: true)]
+
+elif declared(server):
+  const SERVER_LABELS = [
+          "Bitcoin_mainnet",
+          "BitZeny_testnet"]
+  const RPC_WORKER_NUM = 2
