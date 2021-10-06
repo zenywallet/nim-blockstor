@@ -84,7 +84,7 @@ proc toTx*(reader: Reader): Tx =
   tx.locktime = reader.getUint32
   tx
 
-proc toTx*(data: seq[byte]): Tx =
+proc toTx*(data: seq[byte]): Tx {.inline.} =
   var reader = newReader(data)
   reader.toTx()
 
