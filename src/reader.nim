@@ -6,36 +6,38 @@ type
   Reader* = ref object
     data*: seq[byte]
     pos*: int
+    size*: int
 
   ReaderError* = object of CatchableError
 
 
 proc newReader*(data: seq[byte]): Reader =
-  Reader(data: data, pos: 0)
+  Reader(data: data, pos: 0, size: data.len.int)
 
 proc newReader*[T](data: T): Reader =
-  Reader(data: cast[seq[byte]](data), pos: 0)
+  let data = cast[seq[byte]](data)
+  Reader(data: data, pos: 0, size: data.len.int)
 
 proc getUint64*(r: Reader): uint64 =
-  if r.data.len < r.pos + 8:
+  if r.size < r.pos + 8:
     raise newException(ReaderError, "uint64: out of range")
   result = r.data[r.pos].toUint64
   inc(r.pos, 8)
 
 proc getUint32*(r: Reader): uint32 =
-  if r.data.len < r.pos + 4:
+  if r.size < r.pos + 4:
     raise newException(ReaderError, "uint32: out of range")
   result = r.data[r.pos].toUint32
   inc(r.pos, 4)
 
 proc getUint16*(r: Reader): uint16 =
-  if r.data.len < r.pos + 2:
+  if r.size < r.pos + 2:
     raise newException(ReaderError, "uint16: out of range")
   result = r.data[r.pos].toUint16
   inc(r.pos, 2)
 
 proc getUint8*(r: Reader): uint8 =
-  if r.data.len < r.pos + 1:
+  if r.size < r.pos + 1:
     raise newException(ReaderError, "uint8: out of range")
   result = r.data[r.pos].toUint8
   inc(r.pos)
@@ -49,7 +51,7 @@ template getInt16*(r: Reader): int16 = cast[int16](getUint16(r))
 template getInt8*(r: Reader): int8 = cast[int8](getUint8(r))
 
 proc skip*(r: Reader, skipByte: int) =
-  if r.data.len < r.pos + skipByte:
+  if r.size < r.pos + skipByte:
     raise newException(ReaderError, "skip: out of range")
   inc(r.pos, skipByte)
 
@@ -72,7 +74,7 @@ proc getVarInt*(r: Reader): int =
     result = u64.int
 
 proc getBytes*(r: Reader, size: int): seq[byte] =
-  if r.data.len < r.pos + size:
+  if r.size < r.pos + size:
     raise newException(ReaderError, "bytes: out of range")
   result = r.data[r.pos..<r.pos+size]
   inc(r.pos, size)
@@ -82,8 +84,8 @@ proc getVarStr*(r: Reader): string =
   var data = r.getBytes(len)
   result = data.toString
 
-proc readable*(r: Reader): bool = r.data.len > r.pos
+proc readable*(r: Reader): bool = r.size > r.pos
 
-proc left*(r: Reader): int = r.data.len - r.pos
+proc left*(r: Reader): int = r.size - r.pos
 
-proc len*(r: Reader): int = r.data.len
+proc len*(r: Reader): int = r.size
