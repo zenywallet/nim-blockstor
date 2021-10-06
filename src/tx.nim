@@ -58,28 +58,27 @@ proc `$`*(data: Flags): string = $cast[uint8](data)
 proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
 
 proc toTx*(reader: Reader): Tx =
-  var tx = new Tx
+  let tx = new Tx
   tx.ver = reader.getInt32
   var insLen = reader.getVarInt
   if insLen == 0:
     tx.flags = Flags(reader.getUint8)
     insLen = reader.getVarInt
   for i in 0..<insLen:
-    var hash = Hash(reader.getBytes(32))
-    var n = reader.getUint32
-    var sigLen = reader.getVarInt
+    let hash = Hash(reader.getBytes(32))
+    let n = reader.getUint32
+    let sigLen = reader.getVarInt
     tx.ins.add((hash, n, Sig(reader.getBytes(sigLen)), reader.getUint32))
-  var outsLen = reader.getVarInt
+  let outsLen = reader.getVarInt
   for i in 0..<outsLen:
-    var value = reader.getUint64
-    var scriptLen = reader.getVarInt
+    let value = reader.getUint64
+    let scriptLen = reader.getVarInt
     tx.outs.add((value, Script(reader.getBytes(scriptLen))))
   if tx.flags.uint8 == 1'u8:
     for i in 0..<insLen:
-      var witnessLen = reader.getVarInt
-      var witness: seq[Witness]
+      let witnessLen = reader.getVarInt
       for j in 0..<witnessLen:
-        var witnessSize = reader.getVarInt
+        let witnessSize = reader.getVarInt
         witness.add(Witness(reader.getBytes(witnessSize)))
       tx.witnesses.add(witness)
   tx.locktime = reader.getUint32
