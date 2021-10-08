@@ -57,7 +57,7 @@ proc `$`*(data: Flags): string = $cast[uint8](data)
 
 proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
 
-proc toTx*(reader: Reader): Tx =
+proc toTx*(reader: Reader | PtrReader): Tx =
   let tx = new Tx
   tx.ver = reader.getInt32
   var insLen = reader.getVarInt
@@ -86,6 +86,10 @@ proc toTx*(reader: Reader): Tx =
 
 proc toTx*(data: seq[byte]): Tx {.inline.} =
   var reader = newReader(data)
+  reader.toTx()
+
+proc toTx*(data: ptr UncheckedArray[byte], size: int): Tx {.inline.} =
+  var reader = newReader(data, size)
   reader.toTx()
 
 proc stripWitness(tx: Tx): Tx =

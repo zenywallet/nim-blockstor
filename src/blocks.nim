@@ -55,9 +55,7 @@ proc `$`*(o: BlockHash | MerkleHash): string = $toReverse(cast[seq[byte]](o))
 
 proc `$`*(o: BlockHashObj | MerkleHashObj): string = $toReverse(o.toBytes)
 
-proc toBlock*(data: seq[byte]): Block =
-  var reader = newReader(data)
-
+proc toBlock*(reader: Reader | PtrReader): Block =
   var b = new Block
   b.header = new BlockHeader
   b.header.ver = reader.getInt32
@@ -70,6 +68,14 @@ proc toBlock*(data: seq[byte]): Block =
   for i in 0..<b.txn.int:
     b.txs.add(reader.toTx)
   result = b
+
+proc toBlock*(data: seq[byte]): Block {.inline.} =
+  var reader = newReader(data)
+  reader.toBlock()
+
+proc toBlock*(data: ptr UncheckedArray[byte], size: int): Block {.inline.} =
+  var reader = newReader(data, size)
+  reader.toBlock()
 
 proc `%`*(o: BlockHash | MerkleHash): JsonNode = newJString($toReverse(cast[seq[byte]](o)))
 
