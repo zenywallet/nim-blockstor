@@ -1,7 +1,17 @@
 # Copyright (c) 2020 zenywallet
 
-import sophia, bytes, json
+import bytes, json
 import blocks
+
+const DB_SOPHIA = defined(DB_SOPHIA) or (not defined(DB_SOPHIA) and not defined(DB_ROCKSDB))
+const DB_ROCKSDB = defined(DB_ROCKSDB) and not defined(DB_SOPHIA)
+
+when DB_SOPHIA:
+  import sophia
+
+elif DB_ROCKSDB:
+  import rocksdblib
+  import os
 
 type Prefix* {.pure.} = enum
   params = 0  # param_id = value
@@ -29,39 +39,81 @@ type
     of DbStatus.NotFound:
       discard
 
-  DbInst* = distinct Sophia
-  DbInsts* = seq[DbInst]
+when DB_SOPHIA:
+  type
+    DbInst* = distinct Sophia
+    DbInsts* = seq[DbInst]
 
-converter toSophia*(dbInst: DbInst): Sophia = dbInst.Sophia
-converter toDbInst*(sophia: Sophia): DbInst = sophia.DbInst
-converter toDbInsts*(sophias: seq[Sophia]): DbInsts = sophias.DbInsts
+  converter toSophia*(dbInst: DbInst): Sophia = dbInst.Sophia
+  converter toDbInst*(sophia: Sophia): DbInst = sophia.DbInst
+  converter toDbInsts*(sophias: seq[Sophia]): DbInsts = sophias.DbInsts
 
-proc open*(datapath: string): DbInst =
-  var dbInst = new Sophia
-  dbInst.open(datapath)
-  dbInst
+  proc open*(datapath: string): DbInst =
+    var dbInst = new Sophia
+    dbInst.open(datapath)
+    dbInst
 
-proc open*(dbpath, dbname: string): DbInst =
-  var dbInst = new Sophia
-  dbInst.open(dbpath, dbname)
-  dbInst
+  proc open*(dbpath, dbname: string): DbInst =
+    var dbInst = new Sophia
+    dbInst.open(dbpath, dbname)
+    dbInst
 
-proc opens*(dbpath: string, dbnames: seq[string]): DbInsts = sophia.opens(dbpath, dbnames)
+  proc opens*(dbpath: string, dbnames: seq[string]): DbInsts = sophia.opens(dbpath, dbnames)
 
-proc close*(dbInst: DbInst) =
-  sophia.close(dbInst)
+  proc close*(dbInst: DbInst) =
+    sophia.close(dbInst)
 
-proc close*(dbInsts: DbInsts) =
-  sophia.close(cast[seq[Sophia]](dbInsts))
+  proc close*(dbInsts: DbInsts) =
+    sophia.close(cast[seq[Sophia]](dbInsts))
 
-proc checkpoint*(dbInst: DbInst) =
-  sophia.checkpoint(dbInst)
+  proc checkpoint*(dbInst: DbInst) =
+    sophia.checkpoint(dbInst)
 
-proc backupRun*(dbInst: DbInst) =
-  sophia.backupRun(dbInst)
+  proc backupRun*(dbInst: DbInst) =
+    sophia.backupRun(dbInst)
 
-proc backupRun*(dbInsts: DbInsts) =
-  sophia.backupRun(dbInsts[0])
+  proc backupRun*(dbInsts: DbInsts) =
+    sophia.backupRun(dbInsts[0])
+
+elif DB_ROCKSDB:
+  type
+    DbInst* = distinct RocksDb
+    DbInsts* = seq[DbInst]
+
+  converter toRocksDb*(dbInst: DbInst): RocksDb = dbInst.RocksDb
+  converter toDbInst*(rocksdb: RocksDb): DbInst = rocksdb.DbInst
+
+  proc open*(datapath: string): DbInst =
+    var dbInst = new RocksDb
+    dbInst.open(datapath)
+    dbInst
+
+  proc open*(dbpath, dbname: string): DbInst =
+    var dbInst = new RocksDb
+    dbInst.open(dbpath / dbname)
+    dbInst
+
+  proc opens*(dbpath: string, dbnames: seq[string]): DbInsts =
+    for dbname in dbnames:
+      var dbInst = new RocksDb
+      dbInst.open(dbpath / dbname)
+      result.add(dbInst)
+
+  proc close*(dbInst: DbInst) =
+    rocksdblib.close(dbInst)
+
+  proc close*(dbInsts: DbInsts) =
+    for dbInst in dbInsts:
+      rocksdblib.close(dbInst)
+
+  template checkpoint*(dbInst: DbInst) =
+    discard
+
+  template backupRun*(dbInst: DbInst) =
+    discard
+
+  template backupRun*(dbInsts: DbInsts) =
+    discard
 
 proc setBlockHash*(db: DbInst, height: int, hash: BlockHash, time: uint32, start_id: uint64) =
   let key = BytesBE(Prefix.blocks, height.uint32)
