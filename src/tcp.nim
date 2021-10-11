@@ -82,7 +82,6 @@ proc newNode*(params: NodeParams): Node =
   node.sin.sin_family = type(node.sin.sin_family)(Domain.AF_INET.toInt)
   copyMem(addr node.sin.sin_addr, unsafeAddr address.address_v4[0], sizeof(node.sin.sin_addr))
   node.sin.sin_port = nativesockets.ntohs(node.port)
-  node.sock = createNativeSocket()
   node
 
 proc nodeRecvThread(params: tuple[sock: SocketHandle, recvBufLen: int, messageChannel: ptr Channel[Message]]) {.thread.} =
@@ -116,14 +115,19 @@ proc startRecvThread(node: Node) =
   createThread(node.recvThread, nodeRecvThread, (node.sock, tcp_rmem, node.messageChannel))
 
 proc connect*(node: Node): bool =
+  node.sock = createNativeSocket()
   result = node.sock.connect(cast[ptr SockAddr](addr node.sin), sizeof(node.sin).SockLen) == 0
   node.messageChannel = cast[ptr Channel[Message]](allocShared0(sizeof(Channel[Message])))
   node.messageChannel[].open()
   node.startRecvThread()
 
 proc close*(node: Node) =
-  discard node.sock.shutdown(SHUT_RDWR)
-  node.sock.close()
+  try:
+    discard node.sock.shutdown(SHUT_RDWR)
+    node.sock.close()
+  except:
+    let e = getCurrentException()
+    echo e.name, ": ", e.msg
   node.recvThread.joinThread()
   node.messageChannel[].close()
   deallocShared(node.messageChannel)
@@ -148,6 +152,8 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
   var reqHashes: seq[BlockHash]
   var prevBlkHash: BlockHash
   var prevBlkTime: int64
+  var prevReqHash0: BlockHash
+  var reqHashesWaitCount: int = 0
   when SEND_PING:
     var prevSendTime: float = epochTime()
 
@@ -258,10 +264,20 @@ proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: Bloc
       if start_flag:
         if reqHashes.len == 0 and blockHashes.len == 0:
           break
+        if reqHashesWaitCount > 0:
+            dec(reqHashesWaitCount)
+        elif reqHashes.len > 0:
+          if prevReqHash0 == reqHashes[0]:
+            let curEpochTime = epochTime()
+            checkSendErr node.sock.send(node.message("ping", curEpochTime.uint64.toBytes))
+            reqHashesWaitCount = 200
+          else:
+            prevReqHash0 = reqHashes[0]
       else:
         inc(check_count)
         if check_count >= 200:
           break
+
 
 proc stop*() =
   abort = true

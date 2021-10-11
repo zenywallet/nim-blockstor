@@ -581,6 +581,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     height = retLastBlock.res.height
     curSeqId = retLastBlock.res.start_id
     blkHash = retLastBlock.res.hash
+
     dbInst.rewriteBlock(height, blkHash, blk, curSeqId)
     nextSeqId = curSeqId + blk.txs.len.uint64
     setMonitorInfo(params.id, height, blkHash, blk.header.time.int64, height)
@@ -614,13 +615,6 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
   block_check()
 
   block tcpMode:
-    if not node.connect():
-      raise newException(BlockstorError, "connect failed: " & $node.networkId)
-    echo "connect: ", node.networkId
-
-    defer:
-      node.close()
-
     updateLastHeight(params.id)
     var lastBlockCheckerThread: Thread[WrapperParams]
     createThread(lastBlockCheckerThread, threadWrapper, (lastBlockChecker, params))
@@ -628,11 +622,24 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool =
       dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
       height = tcpHeight
+      blkHash = hash
       nextSeqId = nextSeqId + blk.txs.len.uint64
       setMonitorInfo(params.id, height, hash, blk.header.time.int64)
       result = not abort
 
-    node.start(params.nodeParams, height, blkHash, cb)
+    while true:
+      if not node.connect():
+        raise newException(BlockstorError, "connect failed: " & $node.networkId)
+      echo "connect: ", node.networkId
+      try:
+        node.start(params.nodeParams, height, blkHash, cb)
+        break
+      except:
+        let e = getCurrentException()
+        echo e.name, ": ", e.msg
+        node.close()
+
+    node.close()
 
     lastBlockChekcerParam[params.id].abort = true
     lastBlockCheckerThread.joinThread()
