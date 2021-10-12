@@ -77,6 +77,7 @@ proc toTx*(reader: Reader | PtrReader): Tx =
   if tx.flags.uint8 == 1'u8:
     for i in 0..<insLen:
       let witnessLen = reader.getVarInt
+      var witness: seq[Witness]
       for j in 0..<witnessLen:
         let witnessSize = reader.getVarInt
         witness.add(Witness(reader.getBytes(witnessSize)))
