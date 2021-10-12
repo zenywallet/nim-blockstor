@@ -4,17 +4,13 @@ import sequtils, strutils, nimcrypto
 import script, segwit, opcodes, bytes, utils, base58
 
 type
-  Network* = ref object
+  Network* = object
     pubKeyPrefix*: uint8
     scriptPrefix*: uint8
     wif*: uint8
     bech32*: string
     bech32Extra*: seq[string]
     testnet*: bool
-
-  NetworkId* {.pure.} = enum
-    BitZeny_mainnet
-    BitZeny_testnet
 
   AddressType* {.pure.} = enum
     Unknown
@@ -23,26 +19,12 @@ type
     P2SH_P2WPKH
     P2WPKH
 
-proc getNetwork*(networkId: NetworkId): Network =
-  case networkId
-  of NetworkId.BitZeny_mainnet:
-    var bitzeny = new Network
-    bitzeny.pubKeyPrefix = 81'u8
-    bitzeny.scriptPrefix = 5'u8
-    bitzeny.wif = 128'u8
-    bitzeny.bech32 = "sz"
-    bitzeny.bech32Extra = @["bz"]
-    bitzeny.testnet = false
-    result = bitzeny
+when (compiles do: include config):
+  include config
+else:
+  include config_default
 
-  of NetworkId.BitZeny_testnet:
-    var bitzeny_test = new Network
-    bitzeny_test.pubKeyPrefix = 111'u8
-    bitzeny_test.scriptPrefix = 196'u8
-    bitzeny_test.wif = 239'u8
-    bitzeny_test.bech32 = "tz"
-    bitzeny_test.testnet = true
-    result = bitzeny_test
+proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 
 proc ripemd160hash*(pub: seq[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)

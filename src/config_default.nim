@@ -23,3 +23,24 @@ elif declared(server):
           "Bitcoin_mainnet",
           "BitZeny_testnet"]
   const RPC_WORKER_NUM = 2
+
+elif declared(address):
+  type
+    NetworkId* {.pure.} = enum
+      BitZeny_mainnet
+      BitZeny_testnet
+  const
+    Networks = [
+      Network(
+        pubKeyPrefix: 81'u8,
+        scriptPrefix: 5'u8,
+        wif: 128'u8,
+        bech32: "sz",
+        bech32Extra: @["bz"],
+        testnet: false),
+      Network(
+        pubKeyPrefix: 111'u8,
+        scriptPrefix: 196'u8,
+        wif: 239'u8,
+        bech32: "tz",
+        testnet: true)]
