@@ -19,10 +19,22 @@ type
     P2SH_P2WPKH
     P2WPKH
 
-when (compiles do: include config):
-  include config
-else:
-  include config_default
+import os, macros
+macro includeConfig: untyped =
+  const configFile = currentSourcePath().parentDir() / "config.nim"
+  if fileExists(configFile):
+    nnkStmtList.newTree(
+      nnkIncludeStmt.newTree(
+        newIdentNode("config")
+      )
+    )
+  else:
+    nnkStmtList.newTree(
+      nnkIncludeStmt.newTree(
+        newIdentNode("config_default")
+      )
+    )
+includeConfig()
 
 proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 
