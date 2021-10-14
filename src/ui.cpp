@@ -1239,11 +1239,11 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 if (addrInfos[ainfo_nid_s][addr].find("nextid") != addrInfos[ainfo_nid_s][addr].end()) {
                     uint64_t nextid = addrInfos[ainfo_nid_s][addr]["nextid"].get<uint64_t>();
                     std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                    ainfo_nid_s + ",\"addr\":\"" + address + "\",\"gte\":" + std::to_string(nextid) + "}}";
+                                    ainfo_nid_s + ",\"addr\":\"" + addr + "\",\"gte\":" + std::to_string(nextid) + "}}";
                     streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
                 } else {
                     std::string cmd_addrlog = "{\"cmd\":\"addrlog\",\"data\":{\"nid\":" +
-                                    ainfo_nid_s + ",\"addr\":\"" + address + "\",\"rev\":1}}";
+                                    ainfo_nid_s + ",\"addr\":\"" + addr + "\",\"rev\":1}}";
                     streamSend(cmd_addrlog.c_str(), cmd_addrlog.length());
                 }
             }
