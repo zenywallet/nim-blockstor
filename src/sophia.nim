@@ -74,6 +74,7 @@ proc open*(sophia: Sophia, dbpath, dbname: string) =
   checkErr sophia.env.sp_setstring("sophia.path", dbpath.cstring, 0)
   checkErr sophia.env.sp_setstring("db", dbname.cstring, 0)
   checkErr sophia.env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
+  checkErr sophia.env.sp_setint("db." & dbname & ".compaction.gc_period", 0)
   checkErr sophia.env.sp_open()
   sophia.db = sophia.env.sp_getobject("db." & dbname)
   if sophia.db.isNil:
@@ -97,6 +98,7 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
   for dbname in dbnames:
     env.checkErr env.sp_setstring("db", dbname.cstring, 0)
     env.checkErr env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
+    env.checkErr env.sp_setint("db." & dbname & ".compaction.gc_period", 0)
     var sophia = new Sophia
     sophia.env = env
     sophia.db = env.sp_getobject("db." & dbname)
