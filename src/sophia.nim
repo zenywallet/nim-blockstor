@@ -125,6 +125,7 @@ proc close*(sophias: seq[Sophia]) =
 
 proc checkpoint*(sophia: Sophia) =
   checkErr sophia.env.sp_setint("db." & $cast[cstring](sophia.name) & ".compaction.checkpoint", 0)
+  checkErr sophia.env.sp_setint("scheduler.run", 0)
 
 proc backupRun*(sophia: Sophia) =
   checkErr sophia.env.sp_setint("backup.run", 0)
