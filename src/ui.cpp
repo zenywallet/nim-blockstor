@@ -39,6 +39,7 @@ json blkInfos;
 json winTx;
 json txInfos;
 json heightInfos;
+json winTotp;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -161,6 +162,8 @@ extern "C" {
     char* get_address(int nid, char* hash160, int size, uint8_t address_type);
     char* get_address_from_hex(int nid, char* hash160_hex, uint8_t address_type);
     bool* check_address(char* address);
+
+    char *call_totp(char* key, uint64_t sec, int digit, int timestep, int algo);
 }
 
 std::string getTime(int64_t tval)
@@ -1713,6 +1716,62 @@ static void CheckHeightAndRollback()
     }
 }
 
+static void ShowTotpWindow(bool* p_open)
+{
+    static int digit = 6;
+    static int timestep = 30;
+    static int algo = 0;
+    static std::string key_s = "";
+    static std::string totp_s = "";
+    static uint64_t epochTime;
+    static float delta = 0;
+
+    ImGui::SetNextWindowSize(ImVec2(700, 220), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("TOTP", p_open)) {
+        bool update = false;
+        if (ImGui::SliderInt("Digits", &digit, 1, 8)) {
+            if (digit < 1) {
+                digit = 1;
+            } else if (digit > 8) {
+                digit = 8;
+            }
+            update = true;
+        }
+        ImGui::SameLine(); HelpMarker("CTRL+click to input value.");
+        if (ImGui::InputInt("Time step (sec)", &timestep)) {
+            update = true;
+        }
+        if (ImGui::Combo("Algorithm", &algo, "SHA1\0SHA256\0SHA512\0\0")) {
+            update = true;
+        }
+        char key_str[257];
+        copyString(key_s, key_str, sizeof(key_str));
+        if (ImGui::InputText("Key (base32)", key_str, IM_ARRAYSIZE(key_str))) {
+            key_s = std::string(key_str);
+            update = true;
+        }
+        if ((update || delta <= 0) && key_s.length() > 0) {
+            epochTime = (uint64_t)EM_ASM_INT({
+                return Math.floor((new Date).getTime() / 1000);
+            });
+            totp_s = std::string(call_totp(key_str, epochTime, digit, timestep, algo));
+            delta = 1.0f;
+        } else {
+            ImGuiIO& io = ImGui::GetIO();
+            delta = delta - io.DeltaTime;
+        }
+        ImGui::Text("TOTP:");
+        if (key_s.length() > 0) {
+            ImGui::SameLine();
+            ImGui::Text(totp_s.c_str());
+            ImGui::Text("Expire:");
+            ImGui::SameLine();
+            ImGui::Text(std::to_string(timestep - epochTime % timestep).c_str());
+        }
+    }
+    ImGui::End();
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -1724,6 +1783,7 @@ static void main_loop(void *arg)
     static bool show_nora_servers_window = false;
     static bool show_same_address_window = false;
     static bool show_same_transaction_window = false;
+    static bool show_totp_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -1739,6 +1799,7 @@ static void main_loop(void *arg)
         winTools = db_get_json("winTools");
         winTx = db_get_json("winTx");
         winBlock = db_get_json("winBlock");
+        winTotp = db_get_json("winTotp");
         std::string settings = db_get_string("settings");
         ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
         if (winTools.find("nora_chk") != winTools.end()) {
@@ -1752,6 +1813,9 @@ static void main_loop(void *arg)
         }
         if (winTools.find("demo_chk") != winTools.end()) {
             show_demo_window = winTools["demo_chk"].get<bool>();
+        }
+        if (winTotp.find("totp_chk") != winTotp.end()) {
+            show_totp_window = winTotp["totp_chk"].get<bool>();
         }
         if (winAddress.find("samewin") != winAddress.end()) {
             show_same_address_window = winAddress["samewin"].get<bool>();
@@ -1778,6 +1842,7 @@ static void main_loop(void *arg)
         db_set("winTools", winTools.dump().c_str());
         db_set("winTx", winTx.dump().c_str());
         db_set("winBlock", winBlock.dump().c_str());
+        db_set("winTotp", winTotp.dump().c_str());
         size_t out_size;
         const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
         std::string settings(s, out_size);
@@ -1864,6 +1929,10 @@ static void main_loop(void *arg)
             int wid = winBip44["wid"].get<int>() + 1;
             winBip44["wid"] = wid;
             winBip44["windows"][std::to_string(wid)] = R"({"nid": 0, "testnet": false, "prev_testnet": false, "seed": "", "prev_seed": "", "xprv": "", "xpub": "", "animate": false, "progress": 0, "b44p": 44, "b44c": 123, "b44a": 0, "bip44update": false, "bip44_0": [], "bip44_1": [], "bip44xprv": "", "bip44xpub": "", "bip44_idx0": 0, "bip44_idx1": 0, "seedbit": 1, "seedvalid": false, "seederr": false})"_json;
+        }
+        if (ImGui::Checkbox("TOTP", &show_totp_window)) {
+            winTotp["totp_chk"] = show_totp_window;
+            MarkSettingsDirty();
         }
         ImGui::Separator();
         if (ImGui::Button("Save window")) {
@@ -1965,6 +2034,11 @@ static void main_loop(void *arg)
         }
         winTools["nora_chk"] = show_nora_servers_window;
         ImGui::End();
+    }
+
+    if(show_totp_window) {
+        ShowTotpWindow(&show_totp_window);
+        winTotp["totp_chk"] = show_totp_window;
     }
 
     for (auto& el : winBip44["windows"].items()) {
