@@ -19,8 +19,6 @@ proc get_address*(networkId: int, hash160: ptr UncheckedArray[byte], size: cint,
   result = strtmp.cstring
 
 proc get_address_from_hex*(networkId: int, hash160_hex: cstring, addressType: uint8): cstring {.exportc.} =
-  echo ($hash160_hex).Hex.toBytes.Hash160
-  echo $hash160_hex
   strtmp = getAddress(networks[networkId], ($hash160_hex).Hex.toBytes.Hash160, addressType.AddressType) & "\0"
   result = strtmp.cstring
 
