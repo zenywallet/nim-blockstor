@@ -40,3 +40,6 @@
 [submodule "deps/json"]
 	path = deps/json
 	url = https://github.com/nlohmann/json
+[submodule "deps/zbar"]
+	path = deps/zbar
+	url = https://github.com/mchehab/zbar
