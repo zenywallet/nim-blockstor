@@ -12,6 +12,7 @@ import bip32c
 import base58c
 import address_c
 import otp_c
+import zbar
 
 const srcPath = currentSourcePath().parentDir()
 const imguiPath = srcPath / "../deps/imgui"

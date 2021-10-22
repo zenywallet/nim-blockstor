@@ -13,8 +13,10 @@
 #include <string>
 #include <ctime>
 #include <iomanip>
+#include "../deps/zbar/include/zbar.h"
 
 using json = nlohmann::json;
+using namespace zbar;
 
 SDL_Window*     g_Window = NULL;
 SDL_GLContext   g_GLContext = NULL;
@@ -40,6 +42,7 @@ json winTx;
 json txInfos;
 json heightInfos;
 json winTotp;
+json winQrreader;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -1772,6 +1775,136 @@ static void ShowTotpWindow(bool* p_open)
     ImGui::End();
 }
 
+static void ShowQrreaderWindow(bool* p_open, bool reset = false)
+{
+    static zbar_image_scanner_t *scanner = nullptr;
+    static zbar_image_t *image = nullptr;
+    static int prev_width = -1;
+    static int prev_height = -1;
+    static std::string qr_results = "";
+
+    if (reset) {
+        if (image == nullptr) {
+            zbar_image_destroy(image);
+        }
+        if (scanner == nullptr) {
+            zbar_image_scanner_destroy(scanner);
+        }
+        prev_width = -1;
+        prev_height = -1;
+        qr_results = "";
+        return;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(700, 760), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("QR Reader", p_open)) {
+        if (ImGui::Button("Change Camera")) {
+            EM_ASM({ deoxy.next(); });
+        }
+
+        void* videodata = nullptr;
+        videodata = (char*)EM_ASM_INT({
+            var video = deoxy.qrvideo;
+            if (video) {
+                var canvas = deoxy.qrcanvas;
+                var ctx = canvas.getContext('2d');
+                if(video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    var image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    var grayData = [];
+                    var d = image.data;
+                    for(var i = 0, j = 0; i < d.length; i += 4, j++) {
+                      grayData[j] = (d[i] * 66 + d[i + 1] * 129 + d[i + 2] * 25 + 4096) >> 8;
+                    }
+                    var rect8 = new Uint8Array((new Uint32Array([image.width, image.height])).buffer);
+                    var imagedata = new Uint8Array(rect8.length + image.width * image.height * 4 + image.width * image.height);
+                    imagedata.set(rect8);
+                    imagedata.set(image.data, rect8.length);
+                    imagedata.set(grayData, rect8.length + image.width * image.height * 4);
+                    var buf = deoxy.alloc(imagedata.length);
+                    buf.set(imagedata);
+                    return buf;
+                } else{
+                    return 0;
+                }
+            } else {
+                return 0;
+            }
+        });
+        if (videodata != nullptr) {
+            static GLuint image_texture;
+            static bool initTexture = false;
+            if (!initTexture) {
+                glGenTextures(1, &image_texture); // WARNING: Do not call every time
+                glBindTexture(GL_TEXTURE_2D, image_texture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+                initTexture = true;
+            }
+            int width = *(uint32_t *)videodata;
+            int height = *((uint32_t *)videodata + 1);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (uint8_t *)videodata + 8);
+            uint8_t *raw = (uint8_t *)videodata + 8 + width * height * 4;
+
+            if (scanner == nullptr) {
+                scanner = zbar_image_scanner_create();
+                zbar_image_scanner_set_config(scanner, (zbar_symbol_type_t)0, ZBAR_CFG_X_DENSITY, 1);
+                zbar_image_scanner_set_config(scanner, (zbar_symbol_type_t)0, ZBAR_CFG_Y_DENSITY, 1);
+            }
+            if (prev_width != width || prev_height != height) {
+                if (image != nullptr) {
+                    zbar_image_destroy(image);
+                }
+                image = zbar_image_create();
+                zbar_image_set_format(image, zbar_fourcc('Y', '8', '0', '0'));
+                zbar_image_set_size(image, width, height);
+                prev_width = width;
+                prev_height = height;
+            }
+            zbar_image_set_data(image, raw, width * height, nullptr);
+            int n = zbar_scan_image(scanner, image);
+
+            const zbar_symbol_t *symbol = zbar_image_first_symbol(image);
+            for(; symbol; symbol = zbar_symbol_next(symbol)) {
+                zbar_symbol_type_t typ = zbar_symbol_get_type(symbol);
+                const char *data = zbar_symbol_get_data(symbol);
+                unsigned poly_size = zbar_symbol_get_loc_size(symbol);
+                int poly[poly_size * 2];
+                unsigned u = 0;
+                for(unsigned p = 0; p < poly_size; p++) {
+                    poly[u] = zbar_symbol_get_loc_x(symbol, p);
+                    poly[u + 1] = zbar_symbol_get_loc_y(symbol, p);
+                    u += 2;
+                }
+
+                qr_results = std::string(data) + "\n" + qr_results;
+                if (qr_results.length() >= 512 * 8) {
+                    qr_results = qr_results.substr(0, 512 * 8 - 1);
+                    qr_results = qr_results.substr(0, qr_results.find_last_of("\n"));
+                }
+            }
+
+            ImGui::Image((void*)image_texture, ImVec2(640, 480));
+            free(videodata);
+
+            char qr_str[512 * 8];
+            copyString(qr_results, qr_str, sizeof(qr_str));
+            ImGui::InputTextMultiline("##qrresult", qr_str, IM_ARRAYSIZE(qr_str),
+                ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 8),
+                ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AllowTabInput);
+
+        }
+    }
+    ImGui::End();
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -1784,6 +1917,7 @@ static void main_loop(void *arg)
     static bool show_same_address_window = false;
     static bool show_same_transaction_window = false;
     static bool show_totp_window = false;
+    static bool show_qrreader_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -1800,6 +1934,7 @@ static void main_loop(void *arg)
         winTx = db_get_json("winTx");
         winBlock = db_get_json("winBlock");
         winTotp = db_get_json("winTotp");
+        winQrreader = db_get_json("winQrreader");
         std::string settings = db_get_string("settings");
         ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
         if (winTools.find("nora_chk") != winTools.end()) {
@@ -1816,6 +1951,9 @@ static void main_loop(void *arg)
         }
         if (winTotp.find("totp_chk") != winTotp.end()) {
             show_totp_window = winTotp["totp_chk"].get<bool>();
+        }
+        if (winQrreader.find("qrreader_chk") != winQrreader.end()) {
+            show_qrreader_window = winQrreader["qrreader_chk"].get<bool>();
         }
         if (winAddress.find("samewin") != winAddress.end()) {
             show_same_address_window = winAddress["samewin"].get<bool>();
@@ -1843,6 +1981,7 @@ static void main_loop(void *arg)
         db_set("winTx", winTx.dump().c_str());
         db_set("winBlock", winBlock.dump().c_str());
         db_set("winTotp", winTotp.dump().c_str());
+        db_set("winQrreader", winQrreader.dump().c_str());
         size_t out_size;
         const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
         std::string settings(s, out_size);
@@ -1932,6 +2071,10 @@ static void main_loop(void *arg)
         }
         if (ImGui::Checkbox("TOTP", &show_totp_window)) {
             winTotp["totp_chk"] = show_totp_window;
+            MarkSettingsDirty();
+        }
+        if (ImGui::Checkbox("QR Reader", &show_qrreader_window)) {
+            winQrreader["qrreader_chk"] = show_qrreader_window;
             MarkSettingsDirty();
         }
         ImGui::Separator();
@@ -2039,6 +2182,26 @@ static void main_loop(void *arg)
     if(show_totp_window) {
         ShowTotpWindow(&show_totp_window);
         winTotp["totp_chk"] = show_totp_window;
+    }
+
+    static bool prev_qrreader_show = false;
+    if(show_qrreader_window) {
+        if (!prev_qrreader_show) {
+            EM_ASM({
+                deoxy.qrstart();
+            });
+            prev_qrreader_show = show_qrreader_window;
+        }
+        ShowQrreaderWindow(&show_qrreader_window);
+        winQrreader["qrreader_chk"] = show_qrreader_window;
+    } else {
+        if (prev_qrreader_show) {
+            ShowQrreaderWindow(&show_qrreader_window, true);
+            EM_ASM({
+                deoxy.qrstop();
+            });
+            prev_qrreader_show = show_qrreader_window;
+        }
     }
 
     for (auto& el : winBip44["windows"].items()) {
@@ -2221,6 +2384,98 @@ extern "C" int guimain()
         clipboard.focus();
         document.execCommand('paste');  // workaround first take
         deoxy.clipboard = clipboard;
+
+        var camDevice = (function() {
+          var cam_ids = [];
+          var sel_cam = null;
+          var sel_cam_index = 0;
+          if(navigator.mediaDevices) {
+            navigator.mediaDevices.enumerateDevices().then(function(devices) {
+              devices.forEach(function(device) {
+                if(device.kind == 'videoinput') {
+                  cam_ids.push(device);
+                }
+              });
+            });
+          }
+          return {
+            set_current: function(deviceId) {
+              var new_cam_index = 0;
+              for(var i in cam_ids) {
+                if(deviceId == cam_ids[i].deviceId) {
+                  new_cam_index = i;
+                  break;
+                }
+              }
+              sel_cam_index = new_cam_index;
+              sel_cam = cam_ids[sel_cam_index].deviceId;
+            },
+            next: function() {
+              if(cam_ids.length > 0) {
+                if(sel_cam == null) {
+                  sel_cam_index = cam_ids.length - 1;
+                  sel_cam = cam_ids[sel_cam_index].deviceId;
+                } else {
+                  sel_cam_index++;
+                  if(sel_cam_index >= cam_ids.length) {
+                    sel_cam_index = 0;
+                  }
+                  sel_cam = cam_ids[sel_cam_index].deviceId;
+                }
+              }
+              return sel_cam;
+            },
+            count: function() {
+              return cam_ids.length;
+            }
+          };
+        })();
+
+        var current_deviceId = null;
+        deoxy.qrstart = function() {
+            deoxy.qrvideo = document.createElement("video");
+            deoxy.qrcanvas = document.createElement("canvas");
+            var constraints;
+            if(!current_deviceId) {
+                constraints = {video: {facingMode: "environment"}};
+            } else {
+                constraints = {video: {deviceId: current_deviceId}};
+            }
+            navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+                if(!current_deviceId) {
+                    var envcam;
+                    stream.getTracks().forEach(function(track) {
+                        envcam = track.getSettings().deviceId;
+                        return true;
+                    });
+                    if(envcam) {
+                        camDevice.set_current(envcam);
+                    }
+                }
+                deoxy.qrvideo.srcObject = stream;
+                deoxy.qrvideo.setAttribute("playsinline", true);
+                deoxy.qrvideo.play();
+            }).catch((e) => {
+                throw e;
+            });
+        };
+
+        deoxy.qrstop = function() {
+            deoxy.qrvideo.pause();
+            if(deoxy.qrvideo.srcObject) {
+                deoxy.qrvideo.srcObject.getTracks().forEach(function(track) {
+                    track.stop();
+                });
+            }
+            deoxy.qrvideo.removeAttribute('src');
+            deoxy.qrvideo.load();
+        };
+
+        deoxy.next = function() {
+            deoxy.qrstop();
+            current_deviceId = camDevice.next();
+            deoxy.qrstart();
+        };
     });
 
     bip32_init();
