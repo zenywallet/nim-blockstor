@@ -51,6 +51,12 @@ task deps, "Build deps":
     exec "sed -i 's/\\.\\/\\$(gen_context_BIN)/\\.\\.\\/secp256k1\\/\\$(gen_context_BIN)/' Makefile"
     exec "emmake make"
 
+  withDir "deps/zbar":
+    exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
+    exec "autoreconf -vfi"
+    exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
+    exec "emmake make"
+
 task ui, "Build ui":
   if dirExists("preload_tmp"):
     exec "rm -rf preload_tmp"
