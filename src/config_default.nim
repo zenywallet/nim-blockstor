@@ -20,7 +20,7 @@ when declared(blockstor):
 
 elif declared(server):
   const SERVER_LABELS = [
-          "Bitcoin_mainnet",
+          "BitZeny_mainnet",
           "BitZeny_testnet"]
   const RPC_WORKER_NUM = 2
 
