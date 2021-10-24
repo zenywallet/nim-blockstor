@@ -36,6 +36,11 @@ const preloadPath = srcPath / "../preload_tmp"
 #include <emscripten.h>
 """.}
 
+when (compiles do: include config):
+  include config
+else:
+  include config_default
+
 const DECODE_BUF_SIZE = 1048576
 
 type
@@ -201,4 +206,4 @@ proc uiMain() {.exportc.} =
     });
   """.}
 
-  stream = streamConnect("ws://localhost:8000/ws", "deoxy-0.1")
+  stream = streamConnect(WEBSOCKET_ENTRY_URL, WEBSOCKET_PROTOCOL)
