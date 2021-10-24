@@ -12,7 +12,6 @@ const BTC_ECKEY_COMPRESSED_LENGTH* = 33
 
 type
   uint8_t = uint8
-  csize_t = cint
 
 ## * Encode a SegWit address
 ##
