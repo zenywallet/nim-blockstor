@@ -746,7 +746,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       for u in streamDbInsts[nid].getUnspents(getHash160(astr), (gte: gte, lte: lte, rev: rev)):
         inc(count)
         let sid = u.id
-        if count >= limit:
+        if count >= limit and (sid < lte or sid > gte):
           cont = true
           next = sid
           break
@@ -802,7 +802,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       for u in streamDbInsts[nid].getAddrlogs(hash160, (gte: gte, lte: lte, rev: rev)):
         inc(count)
         let sid = u.id
-        if count >= limit:
+        if count >= limit and (sid < lte or sid > gte):
           cont = true
           next = sid
           break
