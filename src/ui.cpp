@@ -1225,7 +1225,12 @@ static void ShowAddressWindow(bool* p_open, int wid)
             param["addr3"] = addr3;
             param["addr4"] = addr4;
         } else {
-            prefix = -1;
+            if (prefix != -1) {
+                prefix = -1;
+                param["addr1"] = "";
+                param["addr3"] = "";
+                param["addr4"] = "";
+            }
         }
         param["prefix"] = prefix;
     }
