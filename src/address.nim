@@ -244,6 +244,7 @@ proc getHash160AddressType*(network: Network, address: string): tuple[hash160: H
       if address.startsWith(bech32):
         let s = p2wpkh_script(address, network.bech32)
         result = (s[2..^1].Hash160, AddressType.P2WPKH)
+        break
 
 
 when isMainModule:
