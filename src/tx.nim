@@ -57,6 +57,8 @@ proc `$`*(data: Flags): string = $cast[uint8](data)
 
 proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
 
+const USE_SEQOFCAP_FOR_TX = true
+
 proc toTx*(reader: Reader | PtrReader): Tx =
   let tx = new Tx
   tx.ver = reader.getInt32
@@ -64,12 +66,16 @@ proc toTx*(reader: Reader | PtrReader): Tx =
   if insLen == 0:
     tx.flags = Flags(reader.getUint8)
     insLen = reader.getVarInt
+  when USE_SEQOFCAP_FOR_TX:
+    tx.ins = newSeqOfCap[TxIn](insLen)
   for i in 0..<insLen:
     let hash = Hash(reader.getBytes(32))
     let n = reader.getUint32
     let sigLen = reader.getVarInt
     tx.ins.add((hash, n, Sig(reader.getBytes(sigLen)), reader.getUint32))
   let outsLen = reader.getVarInt
+  when USE_SEQOFCAP_FOR_TX:
+    tx.outs = newSeqOfCap[TxOut](outsLen)
   for i in 0..<outsLen:
     let value = reader.getUint64
     let scriptLen = reader.getVarInt
@@ -77,7 +83,10 @@ proc toTx*(reader: Reader | PtrReader): Tx =
   if tx.flags.uint8 == 1'u8:
     for i in 0..<insLen:
       let witnessLen = reader.getVarInt
-      var witness: seq[Witness]
+      when USE_SEQOFCAP_FOR_TX:
+        var witness = newSeqOfCap[Witness](witnessLen)
+      else:
+        var witness: seq[Witness]
       for j in 0..<witnessLen:
         let witnessSize = reader.getVarInt
         witness.add(Witness(reader.getBytes(witnessSize)))
