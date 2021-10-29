@@ -238,12 +238,12 @@ proc getHash160AddressType*(network: Network, address: string): tuple[hash160: H
       result = (binaddr[1..^5].Hash160, AddressType.P2SH)
   elif address.startsWith(network.bech32):
     let s = p2wpkh_script(address, network.bech32)
-    result = (s[1..^1].Hash160, AddressType.P2WPKH)
+    result = (s[2..^1].Hash160, AddressType.P2WPKH)
   else:
     for bech32 in network.bech32Extra:
       if address.startsWith(bech32):
         let s = p2wpkh_script(address, network.bech32)
-        result = (s[1..^1].Hash160, AddressType.P2WPKH)
+        result = (s[2..^1].Hash160, AddressType.P2WPKH)
 
 
 when isMainModule:
