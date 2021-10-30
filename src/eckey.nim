@@ -1,6 +1,5 @@
 # Copyright (c) 2021 zenywallet
 
-import bytes
 import sequtils
 import secp256k1
 
