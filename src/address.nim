@@ -66,7 +66,7 @@ proc p2sh_p2wpkh_address*(network: Network, hash160: Hash160): string =
 proc p2wpkh_address*(network: Network, hash160: Hash160): string =
   var data = hash160.toBytes
   var output = newString(128)
-  let ret = segwit_addr_encode(output, network.bech32, 0.cint, unsafeAddr data[0], data.len.cint)
+  let ret = segwit_addr_encode(output, network.bech32, 0.cint, unsafeAddr data[0], data.len.csize_t)
   if ret == 1:
     var pos = 0
     for i, c in output:
@@ -183,7 +183,7 @@ proc getHash160*(address: string): Hash160 =
 proc p2wpkh_hash160(address: string, bech32Prefix: string): Hash160 =
   var version: cint = 0
   var programm = newSeq[byte](40)
-  var programmlen: cint = 0
+  var programmlen: csize_t = 0
   if segwit_addr_decode(addr version, addr programm[0], addr programmlen, bech32Prefix, address) == 1:
     if programmlen == 20:
       result = Hash160(programm[0..<20])
@@ -210,7 +210,7 @@ proc p2sh_script*(address: string): seq[byte] =
 proc p2wpkh_script*(address: string, bech32Prefix: string): seq[byte] =
   var version: cint = 0
   var programm = newSeq[byte](40)
-  var programmlen: cint = 0
+  var programmlen: csize_t = 0
   if segwit_addr_decode(addr version, addr programm[0], addr programmlen, bech32Prefix, address) == 1:
     if programmlen == 20:
       result = (OP_0, ChunkData(programm[0..<20])).toBytes
