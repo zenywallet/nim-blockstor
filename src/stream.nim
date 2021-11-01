@@ -544,6 +544,7 @@ proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
 
 proc initStream*() =
   ptlockInit(tableLock)
+  ptlockInit(msgTableLock)
   curStreamId = 1
   streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
   streamWorkerChannel[].open()
