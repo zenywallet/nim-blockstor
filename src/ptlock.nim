@@ -21,9 +21,9 @@ proc rdlock*(a: ptr Pthread_rwlock) =
   if pthread_rwlock_rdlock(a) != 0:
     raise newException(PthreadLockError, "pthread rdlock")
 
-proc rwlock*(a: ptr Pthread_rwlock) =
+proc wrlock*(a: ptr Pthread_rwlock) =
   if pthread_rwlock_wrlock(a) != 0:
-    raise newException(PthreadLockError, "pthread rwlock")
+    raise newException(PthreadLockError, "pthread wrlock")
 
 proc unlock*(a: ptr Pthread_rwlock) =
   if pthread_rwlock_unlock(a) != 0:
@@ -41,7 +41,7 @@ template withReadLock*(a: ptr Pthread_rwlock, body: untyped) =
 
 template withWriteLock*(a: ptr Pthread_rwlock, body: untyped) =
   if pthread_rwlock_wrlock(a) != 0:
-    raise newException(PthreadLockError, "pthread rwlock")
+    raise newException(PthreadLockError, "pthread wrlock")
   {.locks: [a].}:
     try:
       body
