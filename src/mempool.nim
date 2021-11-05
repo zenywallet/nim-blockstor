@@ -221,8 +221,8 @@ var kvHandles: ptr UncheckedArray[KVHandles]
 var kvs*: ptr UncheckedArray[KVs]
 var kvsLen*: int
 
-var kvLockObj: PthreadLock
-var kvLock: ptr PthreadLock = addr kvLockObj
+var kvLockObj: RWLock
+var kvLock: ptr RWLock = addr kvLockObj
 
 proc init*(mempoolNumber: int) =
   kvHandles = cast[ptr UncheckedArray[KVHandles]](allocShared0(sizeof(KVHandles) * mempoolNumber))
