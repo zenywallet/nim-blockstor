@@ -97,7 +97,7 @@ deoxyMod = JsObject{
         deoxy.onMessage(stream, p, size)
         Module_free(p)
 
-      ws.onclose =  proc() =
+      ws.onclose = proc() =
         deoxy.onClose(stream)
         discard jsDelete(deoxy.streams[stream])
 
