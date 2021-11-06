@@ -9,43 +9,43 @@ type
 
 
 {.push stackTrace: off.}
-proc ptlockInit*(a: ptr RWLock) =
-  if pthread_rwlock_init(a, nil) != 0:
+proc ptlockInit*(a: var RWLock) =
+  if pthread_rwlock_init(addr a, nil) != 0:
     raise newException(PthreadLockError, "pthread lock init")
 
-proc ptlockDestroy*(a: ptr RWLock) =
-  if pthread_rwlock_destroy(a) != 0:
+proc ptlockDestroy*(a: var RWLock) =
+  if pthread_rwlock_destroy(addr a) != 0:
     raise newException(PthreadLockError, "pthread lock destroy")
 
-proc rdlock*(a: ptr RWLock) =
-  if pthread_rwlock_rdlock(a) != 0:
+proc rdlock*(a: var RWLock) =
+  if pthread_rwlock_rdlock(addr a) != 0:
     raise newException(PthreadLockError, "pthread rdlock")
 
-proc wrlock*(a: ptr RWLock) =
-  if pthread_rwlock_wrlock(a) != 0:
+proc wrlock*(a: var RWLock) =
+  if pthread_rwlock_wrlock(addr a) != 0:
     raise newException(PthreadLockError, "pthread wrlock")
 
-proc unlock*(a: ptr RWLock) =
-  if pthread_rwlock_unlock(a) != 0:
+proc unlock*(a: var RWLock) =
+  if pthread_rwlock_unlock(addr a) != 0:
     raise newException(PthreadLockError, "pthread unlock")
 
-template withReadLock*(a: ptr RWLock, body: untyped) =
-  if pthread_rwlock_rdlock(a) != 0:
+template withReadLock*(a: var RWLock, body: untyped) =
+  if pthread_rwlock_rdlock(addr a) != 0:
     raise newException(PthreadLockError, "pthread rdlock")
   {.locks: [a].}:
     try:
       body
     finally:
-      if pthread_rwlock_unlock(a) != 0:
+      if pthread_rwlock_unlock(addr a) != 0:
         raise newException(PthreadLockError, "pthread unlock")
 
-template withWriteLock*(a: ptr RWLock, body: untyped) =
-  if pthread_rwlock_wrlock(a) != 0:
+template withWriteLock*(a: var RWLock, body: untyped) =
+  if pthread_rwlock_wrlock(addr a) != 0:
     raise newException(PthreadLockError, "pthread wrlock")
   {.locks: [a].}:
     try:
       body
     finally:
-      if pthread_rwlock_unlock(a) != 0:
+      if pthread_rwlock_unlock(addr a) != 0:
         raise newException(PthreadLockError, "pthread unlock")
 {.pop.}

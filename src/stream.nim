@@ -129,8 +129,7 @@ var streamTable: ptr KVHandle[StreamId] = addr streamTableObj
 var tagTableObj: KVHandle[StreamIdToTag] = nil
 var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
 
-var tableLockObj: RWLock
-var tableLock: ptr RWLock = addr tableLockObj
+var tableLock: RWLock
 
 
 # msgId - streamId
@@ -145,8 +144,7 @@ var msgTable: ptr KVHandle[KVPair[StreamId]] = addr msgTableObj
 var msgDataTableObj: KVHandle[MsgData] = nil
 var msgDataTable: ptr KVHandle[MsgData] = addr msgDataTableObj
 
-var msgTableLockObj: RWLock
-var msgTableLock: ptr RWLock = addr msgTableLockObj
+var msgTableLock: RWLock
 
 
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
