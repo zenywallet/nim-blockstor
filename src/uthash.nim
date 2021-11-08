@@ -41,9 +41,6 @@ type
   KVHandle*[T] = ptr KVPairObj[T]
 
 
-converter KVPairToPtr*[T](p: KVPair[T]): pointer = cast[pointer](p)
-converter KVObjToPtr*[T](p: KVHandle[T]): pointer = cast[pointer](p)
-
 template loadUthashModules*() {.dirty.} =
   proc newKVPair*[T](key: openArray[byte], val: T): KVPair[T] =
     let kvpair = cast[KVPair[T]](allocShared0(sizeof(KVPairObj[T]) + key.len))
