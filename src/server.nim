@@ -1315,12 +1315,7 @@ proc main(arg: ThreadArg) {.thread.} =
     createThread(httpThread, threadWrapper, (http, ThreadArg(type: ThreadArgType.Void)))
     createThread(monitorThread, threadWrapper, (serverMonitor, ThreadArg(type: ThreadArgType.Void)))
 
-    var waitThreads: seq[Thread[WrapperThreadArg]]
-    waitThreads.add(dispatcherThread)
-    waitThreads.add(acceptThread)
-    waitThreads.add(httpThread)
-    waitThreads.add(monitorThread)
-    joinThreads(waitThreads)
+    joinThreads(monitorThread, httpThread, acceptThread, dispatcherThread)
 
     for i in 0..<WORKER_THREAD_NUM:
       workerChannel[].send((0, 0, 0'u32, 0'u64))
@@ -1342,7 +1337,7 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*(noBlocking: bool = true): Thread[WrapperThreadArg] {.discardable.} =
+proc start*(noBlocking: bool = true): var Thread[WrapperThreadArg] {.discardable.} =
   if noBlocking:
     createThread(mainThread, threadWrapper, (main, ThreadArg(type: ThreadArgType.Void)))
     result = mainThread

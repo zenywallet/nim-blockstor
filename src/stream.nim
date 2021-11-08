@@ -568,11 +568,7 @@ proc freeStream*() =
     for j in 0..<RPC_WORKER_NUM:
       rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.Direct))
   streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
-  var threads: seq[Thread[WrapperStreamThreadArg]]
-  threads.add(miningWorkerThread)
-  threads.add(invokeWorkerThread)
-  threads.add(streamWorkerThread)
-  threads.joinThreads()
+  joinThreads(miningWorkerThread, invokeWorkerThread, streamWorkerThread)
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i][].close()
     rpcWorkerChannels[i].deallocShared()
