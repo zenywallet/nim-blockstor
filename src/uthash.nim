@@ -41,6 +41,8 @@ type
   KVHandle*[T] = ptr KVPairObj[T]
 
 
+converter KVHandleToVar*[T](p: ptr KVHandle[T]): var KVHandle[T] {.inline.} = p[]
+
 template loadUthashModules*() {.dirty.} =
   proc newKVPair*[T](key: openArray[byte], val: T): KVPair[T] =
     let kvpair = cast[KVPair[T]](allocShared0(sizeof(KVPairObj[T]) + key.len))
@@ -57,66 +59,66 @@ template loadUthashModules*() {.dirty.} =
     pair.val.freeVal()
     pair.deallocShared()
 
-  proc add*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T) =
+  proc add*[T](kv: var KVHandle[T], key: openArray[byte], val: T) =
     var keyval = newKVPair[T](key, val)
-    kv.hash_add(keyval)
+    kv.addr.hash_add(keyval)
 
-  proc addRet*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T): KVPair[T] =
+  proc addRet*[T](kv: var KVHandle[T], key: openArray[byte], val: T): KVPair[T] =
     var keyval = newKVPair[T](key, val)
-    kv.hash_add(keyval)
+    kv.addr.hash_add(keyval)
     result = keyval
 
-  proc `[]=`*[T](kv: ptr KVHandle[T], key: openArray[byte], val: T) =
-    var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  proc `[]=`*[T](kv: var KVHandle[T], key: openArray[byte], val: T) =
+    var pair = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     if pair.isNil:
       var keyval = newKVPair[T](key, val)
-      kv.hash_add(keyval)
+      kv.addr.hash_add(keyval)
     else:
       var oldval = pair.val
       pair.val = val
       oldval.freeVal()
 
-  proc `[]`*[T](kv: ptr KVHandle[T], key: openArray[byte]): T =
-    var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  proc `[]`*[T](kv: var KVHandle[T], key: openArray[byte]): T =
+    var pair = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     if not pair.isNil:
       result = pair.val
 
-  proc len*(kv: ptr KVHandle): int = kv.hash_count().int
+  proc len*(kv: var KVHandle): int = kv.addr.hash_count().int
 
-  proc del*[T](kv: ptr KVHandle[T], pair: KVPair[T]) =
+  proc del*[T](kv: var KVHandle[T], pair: KVPair[T]) =
     if not pair.isNil:
-      kv.hash_delete(pair)
+      kv.addr.hash_delete(pair)
       pair.free()
 
-  proc del*[T](kv: ptr KVHandle[T], key: openArray[byte]) =
-    var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  proc del*[T](kv: var KVHandle[T], key: openArray[byte]) =
+    var pair = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     while not pair.isNil:
       let next = cast[KVPair[T]](pair.hh.hh_next)
       let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
       if hkey == key:
-        kv.hash_delete(pair)
+        kv.addr.hash_delete(pair)
         pair.free()
       pair = next
 
-  proc del*[T](kv: ptr KVHandle[T], key: openArray[byte], pred: proc (x: T): bool) =
-    var pair = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  proc del*[T](kv: var KVHandle[T], key: openArray[byte], pred: proc (x: T): bool) =
+    var pair = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     while not pair.isNil:
       let next = cast[KVPair[T]](pair.hh.hh_next)
       let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
       if hkey == key and pred(pair.val):
-        kv.hash_delete(pair)
+        kv.addr.hash_delete(pair)
         pair.free()
       pair = next
 
-  iterator items*[T](kv: ptr KVHandle[T]): tuple[key: seq[byte], val: T] =
-    var h = cast[KVPair[T]](kv[])
+  iterator items*[T](kv: var KVHandle[T]): tuple[key: seq[byte], val: T] =
+    var h = cast[KVPair[T]](kv)
     while not h.isNil:
       var next = cast[KVPair[T]](h.hh.next)
       yield(key: (addr h.key.data).toBytes(h.key.size.int), val: h.val)
       h = next
 
-  iterator items*[T](kv: ptr KVHandle[T], key: openArray[byte]): tuple[key: seq[byte], val: T] =
-    var h = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  iterator items*[T](kv: var KVHandle[T], key: openArray[byte]): tuple[key: seq[byte], val: T] =
+    var h = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     if not h.isNil:
       while true:
         let next = cast[KVPair[T]](h.hh.hh_next)
@@ -132,8 +134,8 @@ template loadUthashModules*() {.dirty.} =
           break
         h = prev
 
-  iterator itemsRev*[T](kv: ptr KVHandle[T], key: openArray[byte]): tuple[key: seq[byte], val: T] =
-    var h = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  iterator itemsRev*[T](kv: var KVHandle[T], key: openArray[byte]): tuple[key: seq[byte], val: T] =
+    var h = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     while not h.isNil:
       let next = cast[KVPair[T]](h.hh.hh_next)
       let hkey = (addr h.key.data).toBytes(h.key.size.int)
@@ -141,22 +143,22 @@ template loadUthashModules*() {.dirty.} =
         yield(key: hkey, val: h.val)
       h = next
 
-  proc clear*[T](kv: ptr KVHandle[T]) =
-    var h = cast[KVPair[T]](kv[])
+  proc clear*[T](kv: var KVHandle[T]) =
+    var h = cast[KVPair[T]](kv)
     while not h.isNil:
       var next = cast[KVPair[T]](h.hh.next)
-      kv.hash_delete(h)
+      kv.addr.hash_delete(h)
       h.free()
       h = next
 
-  proc itemExists*[T](kv: ptr KVHandle[T]): bool =
-    var h = cast[KVPair[T]](kv[])
+  proc itemExists*[T](kv: var KVHandle[T]): bool =
+    var h = cast[KVPair[T]](kv)
     if not h.isNil:
       return true
     return false
 
-  proc itemExists*[T](kv: ptr KVHandle[T], key: openArray[byte]): bool =
-    var h = cast[KVPair[T]](kv.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
+  proc itemExists*[T](kv: var KVHandle[T], key: openArray[byte]): bool =
+    var h = cast[KVPair[T]](kv.addr.hash_find(cast[ptr UncheckedArray[byte]](unsafeAddr key[0]), key.len.cint))
     while not h.isNil:
       let next = cast[KVPair[T]](h.hh.hh_next)
       let hkey = (addr h.key.data).toBytes(h.key.size.int)
@@ -168,8 +170,8 @@ template loadUthashModules*() {.dirty.} =
   type
     SortFunc*[T] = proc (a, b: KVPair[T]): cint {.cdecl.}
 
-  proc sort*[T](kv: ptr KVHandle[T], sortFunc: SortFunc[T]) =
-    kv.hash_sort(cast[SortFuncNative](sortFunc))
+  proc sort*[T](kv: var KVHandle[T], sortFunc: SortFunc[T]) =
+    kv.addr.hash_sort(cast[SortFuncNative](sortFunc))
 
 
 when isMainModule:
@@ -212,11 +214,8 @@ when isMainModule:
 
   loadUthashModules()
 
-  var kvObj: KVHandle[TestVal] = nil
-  var kv: ptr KVHandle[TestVal] = addr kvObj
-
-  var kv2Obj: KVHandle[TestVal2] = nil
-  var kv2 = cast[ptr KVHandle[TestVal2]](addr kv2Obj)
+  var kv: KVHandle[TestVal]
+  var kv2: KVHandle[TestVal2]
 
   for i in 1..5:
     kv[i.toBytesBE] = newTestVal(i, 0)
