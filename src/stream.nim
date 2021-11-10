@@ -541,8 +541,8 @@ proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
     abort()
 
 proc initStream*() =
-  ptlockInit(tableLock)
-  ptlockInit(msgTableLock)
+  rwlockInit(tableLock)
+  rwlockInit(msgTableLock)
   curStreamId = 1
   streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
   streamWorkerChannel[].open()
@@ -578,13 +578,13 @@ proc freeStream*() =
     tagTable.clear()
     streamTable.clear()
     clientTable.clear()
-  ptlockDestroy(tableLock)
+  rwlockDestroy(tableLock)
 
   withWriteLock msgTableLock:
     msgDataTable.clear()
     msgRevTable.clear()
     msgTable.clear()
-  ptlockDestroy(msgTableLock)
+  rwlockDestroy(msgTableLock)
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()

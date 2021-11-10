@@ -9,11 +9,11 @@ type
 
 
 {.push stackTrace: off.}
-proc ptlockInit*(a: var RWLock) =
+proc rwlockInit*(a: var RWLock) =
   if pthread_rwlock_init(addr a, nil) != 0:
     raise newException(PthreadLockError, "pthread lock init")
 
-proc ptlockDestroy*(a: var RWLock) =
+proc rwlockDestroy*(a: var RWLock) =
   if pthread_rwlock_destroy(addr a) != 0:
     raise newException(PthreadLockError, "pthread lock destroy")
 

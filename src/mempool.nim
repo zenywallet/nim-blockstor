@@ -235,12 +235,12 @@ proc init*(mempoolNumber: int) =
     kvs[i].kvTxSpents = addr kvHandles[i].kvTxSpentsHandle
     kvs[i].kvUnconfs = addr kvHandles[i].kvUnconfsHandle
   kvsLen = mempoolNumber
-  ptlockInit(kvLock)
+  rwlockInit(kvLock)
 
 proc deinit*() =
   kvs.deallocShared()
   kvHandles.deallocShared()
-  ptlockDestroy(kvLock)
+  rwlockDestroy(kvLock)
 
 proc setParams*(mempoolParams: MempoolParams) =
   txsTable = initTable[string, Tx]()
