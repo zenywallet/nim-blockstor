@@ -651,11 +651,10 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let astr = reqData["addr"].getStr
       if nid > streamDbInsts.high or nid < streamDbInsts.low:
         raise newException(StreamError, "invalid nid")
+      let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
       if cmdSwitch == ParseCmdSwitch.On:
-        let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
         client.setTag((hash160, addressType, nid.uint16).toBytes)
       elif cmdSwitch == ParseCmdSwitch.Off:
-        let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
         client.delTag((hash160, addressType, nid.uint16).toBytes)
         return
       var resJson: JsonNode
@@ -663,7 +662,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         resJson = %*{"type": "addr", "data": {}, "ref": json["ref"]}
       else:
         resJson = %*{"type": "addr", "data": {}}
-      var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+      var aval = streamDbInsts[nid].getAddrval(networks[nid].getHash160(astr))
       if aval.err == DbStatus.Success:
         resJson["data"] = %*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count}
       else:
@@ -690,7 +689,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
           var astr = a.getStr
           let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
           client.setTag((hash160, addressType, nid.uint16).toBytes)
-          var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+          var aval = streamDbInsts[nid].getAddrval(networks[nid].getHash160(astr))
           if aval.err == DbStatus.Success:
             resData.add(%*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count})
           else:
@@ -698,7 +697,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       else:
         for a in reqData["addrs"]:
           var astr = a.getStr
-          var aval = streamDbInsts[nid].getAddrval(getHash160(astr))
+          var aval = streamDbInsts[nid].getAddrval(networks[nid].getHash160(astr))
           if aval.err == DbStatus.Success:
             resData.add(%*{"nid": nid, "addr": astr, "val": aval.res.value.toJson, "utxo_count": aval.res.utxo_count})
           else:
@@ -738,7 +737,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         if lt.uint64 == uint64.low:
           raise newException(StreamError, "invalid lt")
         lte = lt - 1
-      for u in streamDbInsts[nid].getUnspents(getHash160(astr), (gte: gte, lte: lte, rev: rev)):
+      for u in streamDbInsts[nid].getUnspents(networks[nid].getHash160(astr), (gte: gte, lte: lte, rev: rev)):
         inc(count)
         let sid = u.id
         if count >= limit and (sid < lte or sid > gte):
@@ -792,9 +791,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
         if lt.uint64 == uint64.low:
           raise newException(StreamError, "invalid lt")
         lte = lt - 1
-      var hash160 = getHash160(astr)
       var addrlist = newSeq[string](AddressType.high.int + 1)
-      for u in streamDbInsts[nid].getAddrlogs(hash160, (gte: gte, lte: lte, rev: rev)):
+      for u in streamDbInsts[nid].getAddrlogs(networks[nid].getHash160(astr), (gte: gte, lte: lte, rev: rev)):
         inc(count)
         let sid = u.id
         if count >= limit and (sid < lte or sid > gte):
