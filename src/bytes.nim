@@ -215,7 +215,9 @@ proc toHash160*(x: var byte): Hash160 {.inline.} = Hash160((cast[ptr array[20, b
 proc toHash160*(x: seq[byte]): Hash160 {.inline.} = Hash160(x)
 proc toHash160*(x: openarray[byte]): Hash160 {.inline.} = Hash160(x.toSeq)
 
-proc toString*(s: seq[byte]): string = cast[string](s)
+when not defined(CSTRING_SAFE):
+  proc toString*(s: seq[byte]): string = cast[string](s)
+
 proc toString*(s: openarray[byte]): string =
   result = newStringOfCap(len(s))
   for c in s:

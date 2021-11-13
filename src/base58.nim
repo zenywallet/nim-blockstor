@@ -54,8 +54,13 @@ proc enc*(data: seq[byte]): string =
   let offset = pos - zerolen
   for i in zeroLen..<bLen:
     b[i] = base58Chars[b[i + offset]].byte
-  b.setLen(bLen)
-  result = cast[string](cast[seq[char]](b))
+  when defined(CSTRING_SAFE):
+    result = newStringOfCap(bLen)
+    for i in 0..<bLen:
+      result.add(cast[char](b[i]))
+  else:
+    b.setLen(bLen)
+    result = cast[string](b)
 
 proc dec*(data: string): seq[byte] =
   var zeroLen = 0
@@ -136,6 +141,7 @@ when isMainModule:
   import times, sequtils
 
   var d = cast[seq[byte]]("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toSeq)
+
   var a1 = epochTime()
   for i in 0..<10000:
     discard dec_reference(enc_reference(d))
