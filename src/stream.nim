@@ -17,11 +17,6 @@ import rpc
 import blocks, tx, script
 import mempool
 
-when (compiles do: include config):
-  include config
-else:
-  include config_default
-
 const DECODE_BUF_SIZE = 1048576
 when not declared(SERVER_LABELS):
   const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]

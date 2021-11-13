@@ -34,25 +34,12 @@ when ENABLE_SSL:
   import openssl
   import nimcrypto
 
-  const HTTP_PORT = 80
-  const HTTPS_PORT = 443
-  const HTTP_HOST_NAME = "localhost"
-  const HTTPS_HOST_NAME = "localhost"
-  const REDIRECT_URL = "https://" & HTTPS_HOST_NAME
-  const DEBUG_LOG = false
 
-  const CERT_PATH = "."
-  const CERT_FILE = CERT_PATH / "cert.pem"
-  const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
-  const CHAIN_FILE = CERT_PATH / "fullchain.pem"
-  const SSL_AUTO_RELOAD = true
+when (compiles do: include config):
+  include config
 else:
-  const HTTP_PORT = 8080
-  const HTTPS_PORT = 8000
-  const HTTP_HOST_NAME = "localhost:8080"
-  const HTTPS_HOST_NAME = "localhost:8000"
-  const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
-  const DEBUG_LOG = true
+  include config_default
+
 
 type
   ClientBase* = ref object of RootObj

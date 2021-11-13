@@ -19,6 +19,29 @@ when declared(blockstor):
               workerEnable: true)]
 
 elif declared(server):
+  # server
+  when ENABLE_SSL:
+    const HTTP_PORT = 80
+    const HTTPS_PORT = 443
+    const HTTP_HOST_NAME = "localhost"
+    const HTTPS_HOST_NAME = "localhost"
+    const REDIRECT_URL = "https://" & HTTPS_HOST_NAME
+    const DEBUG_LOG = false
+
+    const CERT_PATH = "."
+    const CERT_FILE = CERT_PATH / "cert.pem"
+    const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
+    const CHAIN_FILE = CERT_PATH / "fullchain.pem"
+    const SSL_AUTO_RELOAD = true
+  else:
+    const HTTP_PORT = 8080
+    const HTTPS_PORT = 8000
+    const HTTP_HOST_NAME = "localhost:8080"
+    const HTTPS_HOST_NAME = "localhost:8000"
+    const REDIRECT_URL = "http://" & HTTPS_HOST_NAME
+    const DEBUG_LOG = true
+
+  # stream
   const SERVER_LABELS = [
           "BitZeny_mainnet",
           "BitZeny_testnet"]
