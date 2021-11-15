@@ -232,7 +232,7 @@ const TOHEX_COMPACT = false
 when TOHEX_COMPACT:
   const hexChars = "0123456789abcdef"
 
-  proc toHex(a: openarray[byte]): string =
+  proc toHex*(a: openarray[byte]): string =
     result = newStringOfCap(a.len * 2)
     for i in 0..a.high:
       result.add(hexChars[(a[i] and 0xf0'u8) shr 4])
