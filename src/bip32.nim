@@ -32,7 +32,7 @@ type
 converter toBytes*(o: ChainCode): seq[byte] {.inline.} = cast[seq[byte]](o)
 converter toChainCode*(s: seq[byte]): ChainCode {.inline.} = ChainCode(s)
 
-proc master*(seed: seq[byte], testnet: bool = false): HDNode =
+proc master*(seed: seq[byte], versionPub: uint32, versionPrv: uint32): HDNode =
   var I = sha512.hmac("Bitcoin seed", seed).data
   var privateKey: PrivateKey = I[0..31].toBytes
   var chainCode: ChainCode = I[32..63].toBytes
@@ -43,13 +43,15 @@ proc master*(seed: seq[byte], testnet: bool = false): HDNode =
   node.chainCode = chainCode
   node.privateKey = privateKey
   node.publicKey = pub(privateKey)
-  if testnet:
-    node.versionPub = VersionTestnetPublic
-    node.versionPrv = VersionTestnetPrivate
-  else:
-    node.versionPub = VersionMainnetPublic
-    node.versionPrv = VersionMainnetPrivate
+  node.versionPub = versionPub
+  node.versionPrv = versionPrv
   result = node
+
+proc master*(seed: seq[byte], testnet: bool = false): HDNode =
+  if testnet:
+    result = master(seed, VersionTestnetPublic, VersionTestnetPrivate)
+  else:
+    result = master(seed, VersionMainnetPublic, VersionMainnetPrivate)
 
 proc addCheck*(data: seq[byte]): seq[byte] = concat(data, sha256d(data)[0..3])
 
