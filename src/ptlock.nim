@@ -4,7 +4,7 @@ import posix
 
 type
   RWLock* = Pthread_rwlock
-  SpinLock = Pthread_spinlock
+  SpinLock* = Pthread_spinlock
 
   PthreadLockError* = object of CatchableError
 
