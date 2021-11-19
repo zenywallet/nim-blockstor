@@ -51,8 +51,8 @@ template withWriteLock*(a: var RWLock, body: untyped) =
         raise newException(PthreadLockError, "pthread unlock")
 
 
-proc spinLockInit*(a: var SpinLock) =
-  if pthread_spin_init(addr a, PTHREAD_PROCESS_PRIVATE.cint) != 0:
+proc spinLockInit*(a: var SpinLock, pshared: cint = PTHREAD_PROCESS_PRIVATE) =
+  if pthread_spin_init(addr a, pshared) != 0:
     raise newException(PthreadLockError, "pthread spin lock init")
 
 proc spinLockDestroy*(a: var SpinLock) =
