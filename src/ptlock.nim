@@ -8,9 +8,6 @@ type
 
   PthreadLockError* = object of CatchableError
 
-const PTHREAD_PROCESS_SHARED = 1
-const PTHREAD_PROCESS_PRIVATE = 2
-
 
 {.push stackTrace: off.}
 proc rwlockInit*(a: var RWLock) =
