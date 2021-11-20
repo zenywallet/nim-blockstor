@@ -25,7 +25,8 @@ type
 
 
 template loadHashTableModules*() {.dirty.} =
-  import std/bitops
+  when not declared(bitops):
+    import std/bitops
 
   when not declared(DISABLE_HASHTABLEDATA_DELETE):
     const DISABLE_HASHTABLEDATA_DELETE = defined(DISABLE_HASHTABLEDATA_DELETE)
