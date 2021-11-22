@@ -36,6 +36,7 @@ task deps, "Build deps":
     exec "make"
 
   withDir "deps/libressl":
+    exec "git checkout master"
     exec "./autogen.sh"
     exec "./configure"
     exec "make"
