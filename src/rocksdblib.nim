@@ -181,6 +181,18 @@ proc getsRev*(rocks: RocksDb, key: KeyType): seq[ResultKeyValue] =
   else:
     rocksdb_iter_seek_for_prev(iter, cast[cstring](unsafeAddr lastkey[0]), lastkey.len.csize_t)
   block prev:
+    if cast[bool](rocksdb_iter_valid(iter)):
+      let kv = get_iter_key_value(iter)
+      var i = key.high
+      if kv.key.high < i:
+        break prev
+      if kv.key.high != lastkey.high or kv.key != lastkey:
+        while i >= 0:
+          if kv.key[i] != key[i]:
+            break prev
+          dec(i)
+        result.add(get_iter_key_value(iter))
+      rocksdb_iter_prev(iter)
     while cast[bool](rocksdb_iter_valid(iter)):
       let kv = get_iter_key_value(iter)
       var i = key.high
@@ -204,6 +216,18 @@ iterator getsRev*(rocks: RocksDb, key: KeyType): ResultKeyValue =
     else:
       rocksdb_iter_seek_for_prev(iter, cast[cstring](unsafeAddr lastkey[0]), lastkey.len.csize_t)
     block prev:
+      if cast[bool](rocksdb_iter_valid(iter)):
+        let kv = get_iter_key_value(iter)
+        var i = key.high
+        if kv.key.high < i:
+          break prev
+        if kv.key.high != lastkey.high or kv.key != lastkey:
+          while i >= 0:
+            if kv.key[i] != key[i]:
+              break prev
+            dec(i)
+          yield kv
+        rocksdb_iter_prev(iter)
       while cast[bool](rocksdb_iter_valid(iter)):
         let kv = get_iter_key_value(iter)
         var i = key.high
@@ -230,6 +254,11 @@ iterator getsRev_nobreak*(rocks: RocksDb, key: KeyType): ResultKeyValue =
       rocksdb_iter_seek(iter, cast[cstring](unsafeAddr lastkey[0]), lastkey.len.csize_t)
     else:
       rocksdb_iter_seek_for_prev(iter, cast[cstring](unsafeAddr lastkey[0]), lastkey.len.csize_t)
+    if cast[bool](rocksdb_iter_valid(iter)):
+      let kv = get_iter_key_value(iter)
+      if kv.key.high != lastkey.high or kv.key != lastkey:
+        yield kv
+      rocksdb_iter_prev(iter)
     while cast[bool](rocksdb_iter_valid(iter)):
       let kv = get_iter_key_value(iter)
       yield kv
@@ -284,6 +313,16 @@ iterator getsRev*(rocks: RocksDb, startkey: openarray[byte],
     else:
       rocksdb_iter_seek_for_prev(iter, cast[cstring](unsafeAddr lastkey[0]), lastkey.len.csize_t)
     block prev:
+      if cast[bool](rocksdb_iter_valid(iter)):
+        let kv = get_iter_key_value(iter)
+        if kv.key.high < endkey.high:
+          break prev
+        for i in 0..endkey.high:
+          if kv.key[i] < endkey[i]:
+            break prev
+        if kv.key.high != lastkey.high or kv.key != lastkey:
+          yield kv
+        rocksdb_iter_prev(iter)
       while cast[bool](rocksdb_iter_valid(iter)):
         let kv = get_iter_key_value(iter)
         if kv.key.high < endkey.high:
