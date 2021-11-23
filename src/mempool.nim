@@ -329,8 +329,12 @@ proc update*(reset: bool) =
       raise newException(MempoolError, "rpc failed")
     var txNews: seq[tuple[txid: Hash, tx: Tx]]
     for i, txid in txids:
+      let rpcResult = rpcResults[i]["result"]
+      if rpcResult.kind != JString:
+        info "INFO: mempool[", poolId, "] getRawTransaction null txid=", txid, " ", rpcResult
+        continue
       if not txsTable.hasKey(txid):
-        let tx = rpcResults[i]["result"].getStr.Hex.toBytes.toTx
+        let tx = rpcResult.getStr.Hex.toBytes.toTx
         txsTable[txid] = tx
         txNews.add((txid.Hex.toHash, tx))
         debug "mempool[", poolId, "] txid=", txid
