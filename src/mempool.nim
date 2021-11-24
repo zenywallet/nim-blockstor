@@ -351,7 +351,7 @@ proc update*(reset: bool) =
         let addrHash = txout.script.getAddressHash160
         var addrHashFixed: Hash160
         if addrHash.addressType == AddressType.Unknown:
-          info "INFO: mempool unknown address chunks=", txout.script.getScriptChunks
+          info "INFO: mempool unknown address tx=", txid, " script=", txout.script
           addrHashFixed = addrHash.hash160.toFixedHash160
         else:
           addrHashFixed = addrHash.hash160
