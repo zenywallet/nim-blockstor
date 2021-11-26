@@ -29,34 +29,34 @@ task deps, "Build deps":
       exec "rm sophia/std/ss_lz4filter.c"
     if fileExists("sophia/std/ss_zstdfilter.c"):
       exec "rm sophia/std/ss_zstdfilter.c"
-    exec "make"
+    exec "make -j$(nproc)"
 
   withDir "deps/openssl":
     exec "./Configure"
-    exec "make"
+    exec "make -j$(nproc)"
 
   withDir "deps/libressl":
     exec "git checkout master"
     exec "./autogen.sh"
     exec "./configure"
-    exec "make"
+    exec "make -j$(nproc)"
 
   withDir "deps/secp256k1":
     exec "./autogen.sh"
     exec "./configure"
-    exec "make"
+    exec "make -j$(nproc)"
 
   withDir "deps/wasm-secp256k1":
     exec "./autogen.sh"
     exec "emconfigure ./configure"
     exec "sed -i 's/\\.\\/\\$(gen_context_BIN)/\\.\\.\\/secp256k1\\/\\$(gen_context_BIN)/' Makefile"
-    exec "emmake make"
+    exec "emmake make -j$(nproc)"
 
   withDir "deps/zbar":
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
     exec "autoreconf -vfi"
     exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
-    exec "emmake make"
+    exec "emmake make -j$(nproc)"
 
 task ui, "Build ui":
   if dirExists("preload_tmp"):
