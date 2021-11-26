@@ -43,3 +43,6 @@
 [submodule "deps/zbar"]
 	path = deps/zbar
 	url = https://github.com/mchehab/zbar
+[submodule "deps/rocksdb"]
+	path = deps/rocksdb
+	url = https://github.com/facebook/rocksdb
