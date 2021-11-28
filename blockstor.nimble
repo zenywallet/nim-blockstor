@@ -58,6 +58,10 @@ task deps, "Build deps":
     exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
     exec "emmake make -j$(nproc)"
 
+  withDir "deps/rocksdb":
+    exec "DEBUG_LEVEL=0 make liblz4.a -j$(nproc)"
+    exec "PLUS_INCLUDE_PATH=./lz4-1.9.3/lib make static_lib -j$(nproc)"
+
 task ui, "Build ui":
   if dirExists("preload_tmp"):
     exec "rm -rf preload_tmp"
