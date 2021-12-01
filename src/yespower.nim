@@ -80,7 +80,7 @@ type
 
 type
   yespower_binary_t* {.bycopy.} = object
-    uc*: array[32, cuchar]
+    uc*: array[32, uint8]
 
 
 ## *

@@ -10,8 +10,8 @@ proc paymentCode*(node: HDNode): string =
   var d = (0x47'u8, 0x01'u8, 0x00'u8, node.publicKey, node.chainCode, Pad(13)).toBytes.addCheck
   base58.enc(d)
 
-var ecdhFunc: secp256k1_ecdh_hash_function = proc (output: ptr cuchar;
-                                                  x32: ptr cuchar; y32: ptr cuchar;
+var ecdhFunc: secp256k1_ecdh_hash_function = proc (output: ptr uint8;
+                                                  x32: ptr uint8; y32: ptr uint8;
                                                   data: pointer): cint {.cdecl.} =
   copyMem(output, x32, 32)
   result = 1.cint
@@ -22,9 +22,9 @@ proc ecdh*(prv: PrivateKey, pub: PublicKeyObj): seq[byte] =
   var output = newSeq[byte](32)
   let prvSeq = prv.toBytes
   let pubSeq = pub.toBytes
-  if secp256k1_ecdh(ctx(), cast[ptr cuchar](addr output[0]),
+  if secp256k1_ecdh(ctx(), cast[ptr uint8](addr output[0]),
                     cast[ptr secp256k1_pubkey](unsafeAddr pubSeq[0]),
-                    cast[ptr cuchar](unsafeAddr prvSeq[0]), ecdhFunc, nil) == 0:
+                    cast[ptr uint8](unsafeAddr prvSeq[0]), ecdhFunc, nil) == 0:
     raise newException(EcError, "secp256k1_ecdh")
   result = output
 

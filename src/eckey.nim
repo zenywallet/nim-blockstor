@@ -38,13 +38,13 @@ proc ctx*(): ptr secp256k1_context =
 
 proc ecPubKeyCreate*(privateKey: PrivateKey): secp256k1_pubkey =
   if secp256k1_ec_pubkey_create(ctx(), addr result,
-                                cast[ptr cuchar](addr cast[ptr seq[byte]](unsafeAddr privateKey)[0])) == 0:
+                                cast[ptr uint8](addr cast[ptr seq[byte]](unsafeAddr privateKey)[0])) == 0:
     raise newException(EcError, "Impressive! verify privateKey failed")
 
 proc ecPubKeySerializeCompressed*(pubkey: secp256k1_pubkey): seq[byte] =
   var publicKey = newSeq[byte](33)
   var outputlen = publicKey.len.csize_t
-  if secp256k1_ec_pubkey_serialize(secp256k1_context_no_precomp, cast[ptr cuchar](addr publicKey[0]),
+  if secp256k1_ec_pubkey_serialize(secp256k1_context_no_precomp, cast[ptr uint8](addr publicKey[0]),
                                   addr outputlen, unsafeAddr pubkey, SECP256K1_EC_COMPRESSED) == 0:
     raise newException(EcError, "ecp256k1_ec_pubkey_serialize")
   result = publicKey
@@ -52,7 +52,7 @@ proc ecPubKeySerializeCompressed*(pubkey: secp256k1_pubkey): seq[byte] =
 proc ecPubKeySerializeUncompressed*(pubkey: secp256k1_pubkey): seq[byte] =
   var publicKey = newSeq[byte](65)
   var outputlen = publicKey.len.csize_t
-  if secp256k1_ec_pubkey_serialize(secp256k1_context_no_precomp, cast[ptr cuchar](addr publicKey[0]),
+  if secp256k1_ec_pubkey_serialize(secp256k1_context_no_precomp, cast[ptr uint8](addr publicKey[0]),
                                   addr outputlen, unsafeAddr pubkey, SECP256K1_EC_UNCOMPRESSED) == 0:
     raise newException(EcError, "ecp256k1_ec_pubkey_serialize")
   result = publicKey
@@ -82,7 +82,7 @@ proc pubObj*(privateKey: PrivateKey): PublicKeyObj =
 
 proc pubObj*(publicKey: PublicKey): PublicKeyObj =
   var pubkey: secp256k1_pubkey
-  let srcPub = cast[ptr cuchar](unsafeAddr cast[ptr seq[byte]](unsafeAddr publicKey)[0])
+  let srcPub = cast[ptr uint8](unsafeAddr cast[ptr seq[byte]](unsafeAddr publicKey)[0])
   if secp256k1_ec_pubkey_parse(secp256k1_context_no_precomp, addr pubkey,
                               srcPub, publicKey.len.csize_t) == 0:
     raise newException(EcError, "secp256k1_ec_pubkey_parse")
@@ -90,8 +90,8 @@ proc pubObj*(publicKey: PublicKey): PublicKeyObj =
 
 proc sign*(privateKey: PrivateKey, hash32: openArray[byte], grind: bool = true): seq[byte] =
   var sig: secp256k1_ecdsa_signature
-  let priv = cast[ptr cuchar](unsafeAddr cast[ptr seq[byte]](unsafeAddr privateKey)[0])
-  if secp256k1_ecdsa_sign(ctx(), addr sig, cast[ptr cuchar](unsafeAddr hash32[0]), priv,
+  let priv = cast[ptr uint8](unsafeAddr cast[ptr seq[byte]](unsafeAddr privateKey)[0])
+  if secp256k1_ecdsa_sign(ctx(), addr sig, cast[ptr uint8](unsafeAddr hash32[0]), priv,
                           secp256k1_nonce_function_rfc6979, nil) != 1:
     raise newException(EcError, "secp256k1_ecdsa_sign")
   if grind and not cast[array[64, byte]](sig)[31] < 0x80.byte:
@@ -99,7 +99,7 @@ proc sign*(privateKey: PrivateKey, hash32: openArray[byte], grind: bool = true):
     var counter: uint32 = 1
     while true:
       copyMem(addr ndata[0], addr counter, sizeof(counter))
-      if secp256k1_ecdsa_sign(ctx(), addr sig, cast[ptr cuchar](unsafeAddr hash32[0]), priv,
+      if secp256k1_ecdsa_sign(ctx(), addr sig, cast[ptr uint8](unsafeAddr hash32[0]), priv,
                               secp256k1_nonce_function_rfc6979, addr ndata[0]) != 1:
         raise newException(EcError, "secp256k1_ecdsa_sign")
       if cast[array[64, byte]](sig)[31] < 0x80.byte:
@@ -107,18 +107,18 @@ proc sign*(privateKey: PrivateKey, hash32: openArray[byte], grind: bool = true):
       inc(counter)
   var der = newSeq[byte](75)
   var derLen = 75.csize_t
-  if secp256k1_ecdsa_signature_serialize_der(ctx(), cast[ptr cuchar](addr der[0]), addr derLen, addr sig) != 1:
+  if secp256k1_ecdsa_signature_serialize_der(ctx(), cast[ptr uint8](addr der[0]), addr derLen, addr sig) != 1:
     raise newException(EcError, "secp256k1_ecdsa_signature_serialize_der")
   result = der[0..<derLen]
 
 proc verify*(publicKeyObj: PublicKeyObj, hash: openArray[byte], der: openArray[byte]): bool =
   var sig: secp256k1_ecdsa_signature
   var derLen = der.len.csize_t
-  if secp256k1_ecdsa_signature_parse_der(ctx(), addr sig, cast[ptr cuchar](unsafeAddr der[0]), derLen) != 1:
+  if secp256k1_ecdsa_signature_parse_der(ctx(), addr sig, cast[ptr uint8](unsafeAddr der[0]), derLen) != 1:
     return false
   secp256k1_ecdsa_signature_normalize(ctx(), addr sig, addr sig)
   let pubkey = cast[ptr secp256k1_pubkey](unsafeAddr cast[ptr seq[byte]](unsafeAddr publicKeyObj)[0])
-  result = secp256k1_ecdsa_verify(ctx(), addr sig, cast[ptr cuchar](unsafeAddr hash[0]), pubkey) == 1
+  result = secp256k1_ecdsa_verify(ctx(), addr sig, cast[ptr uint8](unsafeAddr hash[0]), pubkey) == 1
 
 proc verify*(publicKey: PublicKey, hash: openArray[byte], der: openArray[byte]): bool {.inline.} =
   publicKey.pubObj.verify(hash, der)
@@ -127,8 +127,8 @@ proc tweakAdd*(privateKey: PrivateKey, tweak: seq[byte]): PrivateKey =
   if privateKey.len != 32 or tweak.len != 32:
     raise newException(EcError, "tweakAdd privateKey len=" & $privateKey.len & " tweak len=" & $tweak.len)
   var output: seq[byte] = privateKey
-  if secp256k1_ec_privkey_tweak_add(ctx(), cast[ptr cuchar](addr output[0]),
-                                    cast[ptr cuchar](unsafeAddr tweak[0])) == 0:
+  if secp256k1_ec_privkey_tweak_add(ctx(), cast[ptr uint8](addr output[0]),
+                                    cast[ptr uint8](unsafeAddr tweak[0])) == 0:
     raise newException(EcError, "secp256k1_ec_privkey_tweak_add")
   result = output
 
@@ -137,6 +137,6 @@ proc tweakAdd*(publicKeyObj: PublicKeyObj, tweak: seq[byte]): PublicKeyObj =
     raise newException(EcError, "tweakAdd publicKeyObj len=" & $publicKeyObj.len & " tweak len=" & $tweak.len)
   var output: seq[byte] = publicKeyObj
   if secp256k1_ec_pubkey_tweak_add(ctx(), cast[ptr secp256k1_pubkey](addr output[0]),
-                                  cast[ptr cuchar](unsafeAddr tweak[0])) == 0:
+                                  cast[ptr uint8](unsafeAddr tweak[0])) == 0:
     raise newException(EcError, "secp256k1_ec_pubkey_tweak_add")
   result = output

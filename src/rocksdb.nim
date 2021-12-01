@@ -111,7 +111,7 @@ proc rocksdb_open*(options: rocksdb_options_t; name: cstring; errptr: ptr cstrin
 proc rocksdb_open_with_ttl*(options: rocksdb_options_t; name: cstring; ttl: cint;
                            errptr: ptr cstring): rocksdb_t {.importc, cdecl.}
 proc rocksdb_open_for_read_only*(options: rocksdb_options_t; name: cstring;
-                                error_if_wal_file_exists: cuchar;
+                                error_if_wal_file_exists: uint8;
                                 errptr: ptr cstring): rocksdb_t {.importc, cdecl.}
 proc rocksdb_open_as_secondary*(options: rocksdb_options_t; name: cstring;
                                secondary_path: cstring; errptr: ptr cstring): rocksdb_t {.importc, cdecl.}
@@ -122,7 +122,7 @@ proc rocksdb_backup_engine_open_opts*(options: rocksdb_backupable_db_options_t;
 proc rocksdb_backup_engine_create_new_backup*(be: rocksdb_backup_engine_t;
     db: rocksdb_t; errptr: ptr cstring) {.importc, cdecl.}
 proc rocksdb_backup_engine_create_new_backup_flush*(
-    be: rocksdb_backup_engine_t; db: rocksdb_t; flush_before_backup: cuchar;
+    be: rocksdb_backup_engine_t; db: rocksdb_t; flush_before_backup: uint8;
     errptr: ptr cstring) {.importc, cdecl.}
 proc rocksdb_backup_engine_purge_old_backups*(be: rocksdb_backup_engine_t;
     num_backups_to_keep: uint32_t; errptr: ptr cstring) {.importc, cdecl.}
@@ -159,21 +159,21 @@ proc rocksdb_backupable_db_options_set_backup_dir*(
 proc rocksdb_backupable_db_options_set_env*(
     options: rocksdb_backupable_db_options_t; env: rocksdb_env_t) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_set_share_table_files*(
-    options: rocksdb_backupable_db_options_t; val: cuchar) {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t; val: uint8) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_get_share_table_files*(
-    options: rocksdb_backupable_db_options_t): cuchar {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_backupable_db_options_set_sync*(
-    options: rocksdb_backupable_db_options_t; val: cuchar) {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t; val: uint8) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_get_sync*(
-    options: rocksdb_backupable_db_options_t): cuchar {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_backupable_db_options_set_destroy_old_data*(
-    options: rocksdb_backupable_db_options_t; val: cuchar) {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t; val: uint8) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_get_destroy_old_data*(
-    options: rocksdb_backupable_db_options_t): cuchar {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_backupable_db_options_set_backup_log_files*(
-    options: rocksdb_backupable_db_options_t; val: cuchar) {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t; val: uint8) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_get_backup_log_files*(
-    options: rocksdb_backupable_db_options_t): cuchar {.importc, cdecl.}
+    options: rocksdb_backupable_db_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_backupable_db_options_set_backup_rate_limit*(
     options: rocksdb_backupable_db_options_t; limit: uint64_t) {.importc, cdecl.}
 proc rocksdb_backupable_db_options_get_backup_rate_limit*(
@@ -221,7 +221,7 @@ proc rocksdb_open_for_read_only_column_families*(options: rocksdb_options_t;
     name: cstring; num_column_families: cint; column_family_names: ptr cstring;
     column_family_options: ptr rocksdb_options_t;
     column_family_handles: ptr rocksdb_column_family_handle_t;
-    error_if_wal_file_exists: cuchar; errptr: ptr cstring): rocksdb_t {.importc, cdecl.}
+    error_if_wal_file_exists: uint8; errptr: ptr cstring): rocksdb_t {.importc, cdecl.}
 proc rocksdb_open_as_secondary_column_families*(options: rocksdb_options_t;
     name: cstring; secondary_path: cstring; num_column_families: cint;
     column_family_names: ptr cstring;
@@ -305,7 +305,7 @@ proc rocksdb_multi_get_cf*(db: rocksdb_t; options: rocksdb_readoptions_t;
 proc rocksdb_key_may_exist*(db: rocksdb_t; options: rocksdb_readoptions_t;
                            key: cstring; key_len: csize_t; value: ptr cstring;
                            val_len: ptr csize_t; timestamp: cstring;
-                           timestamp_len: csize_t; value_found: ptr cuchar): cuchar {.importc, cdecl.}
+                           timestamp_len: csize_t; value_found: ptr uint8): uint8 {.importc, cdecl.}
 ##  The value is only allocated (using malloc) and returned if it is found and
 ##  value_found isn't NULL. In that case the user is responsible for freeing it.
 
@@ -313,7 +313,7 @@ proc rocksdb_key_may_exist_cf*(db: rocksdb_t;
                               options: rocksdb_readoptions_t; column_family: rocksdb_column_family_handle_t;
                               key: cstring; key_len: csize_t; value: ptr cstring;
                               val_len: ptr csize_t; timestamp: cstring;
-                              timestamp_len: csize_t; value_found: ptr cuchar): cuchar {.importc, cdecl.}
+                              timestamp_len: csize_t; value_found: ptr uint8): uint8 {.importc, cdecl.}
 proc rocksdb_create_iterator*(db: rocksdb_t; options: rocksdb_readoptions_t): rocksdb_iterator_t {.importc, cdecl.}
 proc rocksdb_get_updates_since*(db: rocksdb_t; seq_number: uint64_t;
                                options: rocksdb_wal_readoptions_t;
@@ -373,9 +373,9 @@ proc rocksdb_flush*(db: rocksdb_t; options: rocksdb_flushoptions_t;
 proc rocksdb_flush_cf*(db: rocksdb_t; options: rocksdb_flushoptions_t;
                       column_family: rocksdb_column_family_handle_t;
                       errptr: ptr cstring) {.importc, cdecl.}
-proc rocksdb_flush_wal*(db: rocksdb_t; sync: cuchar; errptr: ptr cstring) {.importc, cdecl.}
+proc rocksdb_flush_wal*(db: rocksdb_t; sync: uint8; errptr: ptr cstring) {.importc, cdecl.}
 proc rocksdb_disable_file_deletions*(db: rocksdb_t; errptr: ptr cstring) {.importc, cdecl.}
-proc rocksdb_enable_file_deletions*(db: rocksdb_t; force: cuchar;
+proc rocksdb_enable_file_deletions*(db: rocksdb_t; force: uint8;
                                    errptr: ptr cstring) {.importc, cdecl.}
 ##  Management operations
 
@@ -386,7 +386,7 @@ proc rocksdb_repair_db*(options: rocksdb_options_t; name: cstring;
 ##  Iterator
 
 proc rocksdb_iter_destroy*(a1: rocksdb_iterator_t) {.importc, cdecl.}
-proc rocksdb_iter_valid*(a1: rocksdb_iterator_t): cuchar {.importc, cdecl.}
+proc rocksdb_iter_valid*(a1: rocksdb_iterator_t): uint8 {.importc, cdecl.}
 proc rocksdb_iter_seek_to_first*(a1: rocksdb_iterator_t) {.importc, cdecl.}
 proc rocksdb_iter_seek_to_last*(a1: rocksdb_iterator_t) {.importc, cdecl.}
 proc rocksdb_iter_seek*(a1: rocksdb_iterator_t; k: cstring; klen: csize_t) {.importc, cdecl.}
@@ -397,7 +397,7 @@ proc rocksdb_iter_key*(a1: rocksdb_iterator_t; klen: ptr csize_t): cstring {.imp
 proc rocksdb_iter_value*(a1: rocksdb_iterator_t; vlen: ptr csize_t): cstring {.importc, cdecl.}
 proc rocksdb_iter_get_error*(a1: rocksdb_iterator_t; errptr: ptr cstring) {.importc, cdecl.}
 proc rocksdb_wal_iter_next*(iter: rocksdb_wal_iterator_t) {.importc, cdecl.}
-proc rocksdb_wal_iter_valid*(a1: rocksdb_wal_iterator_t): cuchar {.importc, cdecl.}
+proc rocksdb_wal_iter_valid*(a1: rocksdb_wal_iterator_t): uint8 {.importc, cdecl.}
 proc rocksdb_wal_iter_status*(iter: rocksdb_wal_iterator_t; errptr: ptr cstring) {.importc, cdecl.}
 proc rocksdb_wal_iter_get_batch*(iter: rocksdb_wal_iterator_t; seq: ptr uint64_t): rocksdb_writebatch_t {.importc, cdecl.}
 proc rocksdb_get_latest_sequence_number*(db: rocksdb_t): uint64_t {.importc, cdecl.}
@@ -482,7 +482,7 @@ proc rocksdb_writebatch_pop_save_point*(a1: rocksdb_writebatch_t;
                                        errptr: ptr cstring) {.importc, cdecl.}
 ##  Write batch with index
 
-proc rocksdb_writebatch_wi_create*(reserved_bytes: csize_t; overwrite_keys: cuchar): rocksdb_writebatch_wi_t {.importc, cdecl.}
+proc rocksdb_writebatch_wi_create*(reserved_bytes: csize_t; overwrite_keys: uint8): rocksdb_writebatch_wi_t {.importc, cdecl.}
 proc rocksdb_writebatch_wi_create_from*(rep: cstring; size: csize_t): rocksdb_writebatch_wi_t {.importc, cdecl.}
 proc rocksdb_writebatch_wi_destroy*(a1: rocksdb_writebatch_wi_t) {.importc, cdecl.}
 proc rocksdb_writebatch_wi_clear*(a1: rocksdb_writebatch_wi_t) {.importc, cdecl.}
@@ -605,14 +605,14 @@ proc rocksdb_block_based_options_set_index_block_restart_interval*(
 proc rocksdb_block_based_options_set_metadata_block_size*(
     options: rocksdb_block_based_table_options_t; metadata_block_size: uint64_t) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_partition_filters*(
-    options: rocksdb_block_based_table_options_t; partition_filters: cuchar) {.importc, cdecl.}
+    options: rocksdb_block_based_table_options_t; partition_filters: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_use_delta_encoding*(
-    options: rocksdb_block_based_table_options_t; use_delta_encoding: cuchar) {.importc, cdecl.}
+    options: rocksdb_block_based_table_options_t; use_delta_encoding: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_filter_policy*(
     options: rocksdb_block_based_table_options_t;
     filter_policy: rocksdb_filterpolicy_t) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_no_block_cache*(
-    options: rocksdb_block_based_table_options_t; no_block_cache: cuchar) {.importc, cdecl.}
+    options: rocksdb_block_based_table_options_t; no_block_cache: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_block_cache*(
     options: rocksdb_block_based_table_options_t;
     block_cache: rocksdb_cache_t) {.importc, cdecl.}
@@ -620,7 +620,7 @@ proc rocksdb_block_based_options_set_block_cache_compressed*(
     options: rocksdb_block_based_table_options_t;
     block_cache_compressed: rocksdb_cache_t) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_whole_key_filtering*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_format_version*(
     a1: rocksdb_block_based_table_options_t; a2: cint) {.importc, cdecl.}
 const
@@ -643,15 +643,15 @@ proc rocksdb_block_based_options_set_data_block_index_type*(
 proc rocksdb_block_based_options_set_data_block_hash_ratio*(
     options: rocksdb_block_based_table_options_t; v: cdouble) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_hash_index_allow_collision*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_cache_index_and_filter_blocks*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_cache_index_and_filter_blocks_with_high_priority*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_pin_l0_filter_and_index_blocks_in_cache*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_block_based_options_set_pin_top_level_index_and_filter*(
-    a1: rocksdb_block_based_table_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_block_based_table_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_block_based_table_factory*(opt: rocksdb_options_t;
     table_options: rocksdb_block_based_table_options_t) {.importc, cdecl.}
 ##  Cuckoo table options
@@ -665,9 +665,9 @@ proc rocksdb_cuckoo_options_set_max_search_depth*(
 proc rocksdb_cuckoo_options_set_cuckoo_block_size*(
     options: rocksdb_cuckoo_table_options_t; v: uint32_t) {.importc, cdecl.}
 proc rocksdb_cuckoo_options_set_identity_as_first_hash*(
-    options: rocksdb_cuckoo_table_options_t; v: cuchar) {.importc, cdecl.}
+    options: rocksdb_cuckoo_table_options_t; v: uint8) {.importc, cdecl.}
 proc rocksdb_cuckoo_options_set_use_module_hash*(
-    options: rocksdb_cuckoo_table_options_t; v: cuchar) {.importc, cdecl.}
+    options: rocksdb_cuckoo_table_options_t; v: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_cuckoo_table_factory*(opt: rocksdb_options_t;
     table_options: rocksdb_cuckoo_table_options_t) {.importc, cdecl.}
 ##  Options
@@ -689,8 +689,8 @@ proc rocksdb_options_optimize_level_style_compaction*(opt: rocksdb_options_t;
     memtable_memory_budget: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_optimize_universal_style_compaction*(
     opt: rocksdb_options_t; memtable_memory_budget: uint64_t) {.importc, cdecl.}
-proc rocksdb_options_set_allow_ingest_behind*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_allow_ingest_behind*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_allow_ingest_behind*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_allow_ingest_behind*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_compaction_filter*(a1: rocksdb_options_t;
     a2: rocksdb_compactionfilter_t) {.importc, cdecl.}
 proc rocksdb_options_set_compaction_filter_factory*(a1: rocksdb_options_t;
@@ -705,16 +705,16 @@ proc rocksdb_options_set_merge_operator*(a1: rocksdb_options_t;
 proc rocksdb_options_set_uint64add_merge_operator*(a1: rocksdb_options_t) {.importc, cdecl.}
 proc rocksdb_options_set_compression_per_level*(opt: rocksdb_options_t;
     level_values: ptr cint; num_levels: csize_t) {.importc, cdecl.}
-proc rocksdb_options_set_create_if_missing*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_create_if_missing*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_create_if_missing*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_create_if_missing*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_create_missing_column_families*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_create_missing_column_families*(
-    a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_error_if_exists*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_error_if_exists*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_paranoid_checks*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_paranoid_checks*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_error_if_exists*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_error_if_exists*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_paranoid_checks*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_paranoid_checks*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_db_paths*(a1: rocksdb_options_t;
                                   path_values: ptr rocksdb_dbpath_t;
                                   num_paths: csize_t) {.importc, cdecl.}
@@ -750,11 +750,11 @@ proc rocksdb_options_set_compression_options_max_dict_buffer_bytes*(
 proc rocksdb_options_get_compression_options_max_dict_buffer_bytes*(
     opt: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_bottommost_compression_options*(
-    a1: rocksdb_options_t; a2: cint; a3: cint; a4: cint; a5: cint; a6: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: cint; a3: cint; a4: cint; a5: cint; a6: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_bottommost_compression_options_zstd_max_train_bytes*(
-    a1: rocksdb_options_t; a2: cint; a3: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: cint; a3: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_bottommost_compression_options_max_dict_buffer_bytes*(
-    a1: rocksdb_options_t; a2: uint64_t; a3: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint64_t; a3: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_prefix_extractor*(a1: rocksdb_options_t;
     a2: rocksdb_slicetransform_t) {.importc, cdecl.}
 proc rocksdb_options_set_num_levels*(a1: rocksdb_options_t; a2: cint) {.importc, cdecl.}
@@ -782,9 +782,9 @@ proc rocksdb_options_set_max_bytes_for_level_base*(a1: rocksdb_options_t;
     a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_max_bytes_for_level_base*(a1: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_level_compaction_dynamic_level_bytes*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_level_compaction_dynamic_level_bytes*(
-    a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_max_bytes_for_level_multiplier*(
     a1: rocksdb_options_t; a2: cdouble) {.importc, cdecl.}
 proc rocksdb_options_get_max_bytes_for_level_multiplier*(
@@ -793,16 +793,16 @@ proc rocksdb_options_set_max_bytes_for_level_multiplier_additional*(
     a1: rocksdb_options_t; level_values: ptr cint; num_levels: csize_t) {.importc, cdecl.}
 proc rocksdb_options_enable_statistics*(a1: rocksdb_options_t) {.importc, cdecl.}
 proc rocksdb_options_set_skip_stats_update_on_db_open*(
-    opt: rocksdb_options_t; val: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_skip_stats_update_on_db_open*(opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+    opt: rocksdb_options_t; val: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_skip_stats_update_on_db_open*(opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open*(
-    opt: rocksdb_options_t; val: cuchar) {.importc, cdecl.}
+    opt: rocksdb_options_t; val: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open*(
-    opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+    opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 ##  Blob Options Settings
 
-proc rocksdb_options_set_enable_blob_files*(opt: rocksdb_options_t; val: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_enable_blob_files*(opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_enable_blob_files*(opt: rocksdb_options_t; val: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_enable_blob_files*(opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_min_blob_size*(opt: rocksdb_options_t; val: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_min_blob_size*(opt: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_blob_file_size*(opt: rocksdb_options_t; val: uint64_t) {.importc, cdecl.}
@@ -810,8 +810,8 @@ proc rocksdb_options_get_blob_file_size*(opt: rocksdb_options_t): uint64_t {.imp
 proc rocksdb_options_set_blob_compression_type*(opt: rocksdb_options_t;
     val: cint) {.importc, cdecl.}
 proc rocksdb_options_get_blob_compression_type*(opt: rocksdb_options_t): cint {.importc, cdecl.}
-proc rocksdb_options_set_enable_blob_gc*(opt: rocksdb_options_t; val: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_enable_blob_gc*(opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_enable_blob_gc*(opt: rocksdb_options_t; val: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_enable_blob_gc*(opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_blob_gc_age_cutoff*(opt: rocksdb_options_t;
     val: cdouble) {.importc, cdecl.}
 proc rocksdb_options_get_blob_gc_age_cutoff*(opt: rocksdb_options_t): cdouble {.importc, cdecl.}
@@ -837,10 +837,10 @@ proc rocksdb_options_set_max_write_buffer_size_to_maintain*(
 proc rocksdb_options_get_max_write_buffer_size_to_maintain*(
     a1: rocksdb_options_t): int64_t {.importc, cdecl.}
 proc rocksdb_options_set_enable_pipelined_write*(a1: rocksdb_options_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_enable_pipelined_write*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_unordered_write*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_unordered_write*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_enable_pipelined_write*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_unordered_write*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_unordered_write*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_max_subcompactions*(a1: rocksdb_options_t; a2: uint32_t) {.importc, cdecl.}
 proc rocksdb_options_get_max_subcompactions*(a1: rocksdb_options_t): uint32_t {.importc, cdecl.}
 proc rocksdb_options_set_max_background_jobs*(a1: rocksdb_options_t; a2: cint) {.importc, cdecl.}
@@ -901,36 +901,36 @@ proc rocksdb_options_set_manifest_preallocation_size*(a1: rocksdb_options_t;
     a2: csize_t) {.importc, cdecl.}
 proc rocksdb_options_get_manifest_preallocation_size*(a1: rocksdb_options_t): csize_t {.importc, cdecl.}
 proc rocksdb_options_set_purge_redundant_kvs_while_flush*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_set_allow_mmap_reads*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_allow_mmap_reads*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_allow_mmap_writes*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_allow_mmap_writes*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_use_direct_reads*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_use_direct_reads*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_set_allow_mmap_reads*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_allow_mmap_reads*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_allow_mmap_writes*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_allow_mmap_writes*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_use_direct_reads*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_use_direct_reads*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_use_direct_io_for_flush_and_compaction*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_use_direct_io_for_flush_and_compaction*(
-    a1: rocksdb_options_t): cuchar {.importc, cdecl.}
-proc rocksdb_options_set_is_fd_close_on_exec*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_is_fd_close_on_exec*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t): uint8 {.importc, cdecl.}
+proc rocksdb_options_set_is_fd_close_on_exec*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_is_fd_close_on_exec*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_skip_log_error_on_recovery*(a1: rocksdb_options_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_skip_log_error_on_recovery*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_skip_log_error_on_recovery*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_stats_dump_period_sec*(a1: rocksdb_options_t; a2: cuint) {.importc, cdecl.}
 proc rocksdb_options_get_stats_dump_period_sec*(a1: rocksdb_options_t): cuint {.importc, cdecl.}
 proc rocksdb_options_set_stats_persist_period_sec*(a1: rocksdb_options_t;
     a2: cuint) {.importc, cdecl.}
 proc rocksdb_options_get_stats_persist_period_sec*(a1: rocksdb_options_t): cuint {.importc, cdecl.}
 proc rocksdb_options_set_advise_random_on_open*(a1: rocksdb_options_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_advise_random_on_open*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_advise_random_on_open*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_access_hint_on_compaction_start*(
     a1: rocksdb_options_t; a2: cint) {.importc, cdecl.}
 proc rocksdb_options_get_access_hint_on_compaction_start*(
     a1: rocksdb_options_t): cint {.importc, cdecl.}
-proc rocksdb_options_set_use_adaptive_mutex*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_use_adaptive_mutex*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_use_adaptive_mutex*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_use_adaptive_mutex*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_bytes_per_sync*(a1: rocksdb_options_t; a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_bytes_per_sync*(a1: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_wal_bytes_per_sync*(a1: rocksdb_options_t; a2: uint64_t) {.importc, cdecl.}
@@ -939,23 +939,23 @@ proc rocksdb_options_set_writable_file_max_buffer_size*(
     a1: rocksdb_options_t; a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_writable_file_max_buffer_size*(a1: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_allow_concurrent_memtable_write*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_allow_concurrent_memtable_write*(
-    a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_enable_write_thread_adaptive_yield*(
-    a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_get_enable_write_thread_adaptive_yield*(
-    a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_max_sequential_skip_in_iterations*(
     a1: rocksdb_options_t; a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_max_sequential_skip_in_iterations*(
     a1: rocksdb_options_t): uint64_t {.importc, cdecl.}
 proc rocksdb_options_set_disable_auto_compactions*(a1: rocksdb_options_t;
     a2: cint) {.importc, cdecl.}
-proc rocksdb_options_get_disable_auto_compactions*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_get_disable_auto_compactions*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_optimize_filters_for_hits*(a1: rocksdb_options_t;
     a2: cint) {.importc, cdecl.}
-proc rocksdb_options_get_optimize_filters_for_hits*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_get_optimize_filters_for_hits*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_delete_obsolete_files_period_micros*(
     a1: rocksdb_options_t; a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_options_get_delete_obsolete_files_period_micros*(
@@ -985,13 +985,13 @@ proc rocksdb_options_get_max_successive_merges*(a1: rocksdb_options_t): csize_t 
 proc rocksdb_options_set_bloom_locality*(a1: rocksdb_options_t; a2: uint32_t) {.importc, cdecl.}
 proc rocksdb_options_get_bloom_locality*(a1: rocksdb_options_t): uint32_t {.importc, cdecl.}
 proc rocksdb_options_set_inplace_update_support*(a1: rocksdb_options_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_inplace_update_support*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_inplace_update_support*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_inplace_update_num_locks*(a1: rocksdb_options_t;
     a2: csize_t) {.importc, cdecl.}
 proc rocksdb_options_get_inplace_update_num_locks*(a1: rocksdb_options_t): csize_t {.importc, cdecl.}
 proc rocksdb_options_set_report_bg_io_stats*(a1: rocksdb_options_t; a2: cint) {.importc, cdecl.}
-proc rocksdb_options_get_report_bg_io_stats*(a1: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_get_report_bg_io_stats*(a1: rocksdb_options_t): uint8 {.importc, cdecl.}
 const
   rocksdb_tolerate_corrupted_tail_records_recovery* = 0
   rocksdb_absolute_consistency_recovery* = 1
@@ -1027,14 +1027,14 @@ proc rocksdb_options_set_fifo_compaction_options*(opt: rocksdb_options_t;
     fifo: rocksdb_fifo_compaction_options_t) {.importc, cdecl.}
 proc rocksdb_options_set_ratelimiter*(opt: rocksdb_options_t;
                                      limiter: rocksdb_ratelimiter_t) {.importc, cdecl.}
-proc rocksdb_options_set_atomic_flush*(opt: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_atomic_flush*(opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_atomic_flush*(opt: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_atomic_flush*(opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 proc rocksdb_options_set_row_cache*(opt: rocksdb_options_t;
                                    cache: rocksdb_cache_t) {.importc, cdecl.}
 proc rocksdb_options_add_compact_on_deletion_collector_factory*(
     a1: rocksdb_options_t; window_size: csize_t; num_dels_trigger: csize_t) {.importc, cdecl.}
-proc rocksdb_options_set_manual_wal_flush*(opt: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_options_get_manual_wal_flush*(opt: rocksdb_options_t): cuchar {.importc, cdecl.}
+proc rocksdb_options_set_manual_wal_flush*(opt: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_options_get_manual_wal_flush*(opt: rocksdb_options_t): uint8 {.importc, cdecl.}
 ##  RateLimiter
 
 proc rocksdb_ratelimiter_create*(rate_bytes_per_sec: int64_t;
@@ -1125,7 +1125,7 @@ proc rocksdb_set_perf_level*(a1: cint) {.importc, cdecl.}
 proc rocksdb_perfcontext_create*(): rocksdb_perfcontext_t {.importc, cdecl.}
 proc rocksdb_perfcontext_reset*(context: rocksdb_perfcontext_t) {.importc, cdecl.}
 proc rocksdb_perfcontext_report*(context: rocksdb_perfcontext_t;
-                                exclude_zero_counters: cuchar): cstring {.importc, cdecl.}
+                                exclude_zero_counters: uint8): cstring {.importc, cdecl.}
 proc rocksdb_perfcontext_metric*(context: rocksdb_perfcontext_t; metric: cint): uint64_t {.importc, cdecl.}
 proc rocksdb_perfcontext_destroy*(context: rocksdb_perfcontext_t) {.importc, cdecl.}
 ##  Compaction Filter
@@ -1134,17 +1134,17 @@ proc rocksdb_compactionfilter_create*(state: pointer;
                                      destructor: proc (a1: pointer); filter: proc (
     a1: pointer; level: cint; key: cstring; key_length: csize_t;
     existing_value: cstring; value_length: csize_t; new_value: ptr cstring;
-    new_value_length: ptr csize_t; value_changed: ptr cuchar): cuchar;
+    new_value_length: ptr csize_t; value_changed: ptr uint8): uint8;
                                      name: proc (a1: pointer): cstring): rocksdb_compactionfilter_t {.importc, cdecl.}
 proc rocksdb_compactionfilter_set_ignore_snapshots*(
-    a1: rocksdb_compactionfilter_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_compactionfilter_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_compactionfilter_destroy*(a1: rocksdb_compactionfilter_t) {.importc, cdecl.}
 ##  Compaction Filter Context
 
 proc rocksdb_compactionfiltercontext_is_full_compaction*(
-    context: rocksdb_compactionfiltercontext_t): cuchar {.importc, cdecl.}
+    context: rocksdb_compactionfiltercontext_t): uint8 {.importc, cdecl.}
 proc rocksdb_compactionfiltercontext_is_manual_compaction*(
-    context: rocksdb_compactionfiltercontext_t): cuchar {.importc, cdecl.}
+    context: rocksdb_compactionfiltercontext_t): uint8 {.importc, cdecl.}
 ##  Compaction Filter Factory
 
 proc rocksdb_compactionfilterfactory_create*(state: pointer;
@@ -1165,7 +1165,7 @@ proc rocksdb_filterpolicy_create*(state: pointer; destructor: proc (a1: pointer)
     create_filter: proc (a1: pointer; key_array: ptr cstring;
                        key_length_array: ptr csize_t; num_keys: cint;
                        filter_length: ptr csize_t): cstring; key_may_match: proc (
-    a1: pointer; key: cstring; length: csize_t; filter: cstring; filter_length: csize_t): cuchar;
+    a1: pointer; key: cstring; length: csize_t; filter: cstring; filter_length: csize_t): uint8;
     delete_filter: proc (a1: pointer; filter: cstring; filter_length: csize_t);
                                  name: proc (a1: pointer): cstring): rocksdb_filterpolicy_t {.importc, cdecl.}
 proc rocksdb_filterpolicy_destroy*(a1: rocksdb_filterpolicy_t) {.importc, cdecl.}
@@ -1181,11 +1181,11 @@ proc rocksdb_mergeoperator_create*(state: pointer; destructor: proc (a1: pointer
                     existing_value: cstring; existing_value_length: csize_t;
                     operands_list: ptr cstring;
                     operands_list_length: ptr csize_t; num_operands: cint;
-                    success: ptr cuchar; new_value_length: ptr csize_t): cstring;
+                    success: ptr uint8; new_value_length: ptr csize_t): cstring;
     partial_merge: proc (a1: pointer; key: cstring; key_length: csize_t;
                        operands_list: ptr cstring;
                        operands_list_length: ptr csize_t; num_operands: cint;
-                       success: ptr cuchar; new_value_length: ptr csize_t): cstring;
+                       success: ptr uint8; new_value_length: ptr csize_t): cstring;
     delete_value: proc (a1: pointer; value: cstring; value_length: csize_t);
                                   name: proc (a1: pointer): cstring): rocksdb_mergeoperator_t {.importc, cdecl.}
 proc rocksdb_mergeoperator_destroy*(a1: rocksdb_mergeoperator_t) {.importc, cdecl.}
@@ -1194,10 +1194,10 @@ proc rocksdb_mergeoperator_destroy*(a1: rocksdb_mergeoperator_t) {.importc, cdec
 proc rocksdb_readoptions_create*(): rocksdb_readoptions_t {.importc, cdecl.}
 proc rocksdb_readoptions_destroy*(a1: rocksdb_readoptions_t) {.importc, cdecl.}
 proc rocksdb_readoptions_set_verify_checksums*(a1: rocksdb_readoptions_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_verify_checksums*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
-proc rocksdb_readoptions_set_fill_cache*(a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_fill_cache*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_verify_checksums*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
+proc rocksdb_readoptions_set_fill_cache*(a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_fill_cache*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_readoptions_set_snapshot*(a1: rocksdb_readoptions_t;
                                       a2: rocksdb_snapshot_t) {.importc, cdecl.}
 proc rocksdb_readoptions_set_iterate_upper_bound*(a1: rocksdb_readoptions_t;
@@ -1206,34 +1206,34 @@ proc rocksdb_readoptions_set_iterate_lower_bound*(a1: rocksdb_readoptions_t;
     key: cstring; keylen: csize_t) {.importc, cdecl.}
 proc rocksdb_readoptions_set_read_tier*(a1: rocksdb_readoptions_t; a2: cint) {.importc, cdecl.}
 proc rocksdb_readoptions_get_read_tier*(a1: rocksdb_readoptions_t): cint {.importc, cdecl.}
-proc rocksdb_readoptions_set_tailing*(a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_tailing*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+proc rocksdb_readoptions_set_tailing*(a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_tailing*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 ##  The functionality that this option controlled has been removed.
 
-proc rocksdb_readoptions_set_managed*(a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
+proc rocksdb_readoptions_set_managed*(a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_readoptions_set_readahead_size*(a1: rocksdb_readoptions_t;
     a2: csize_t) {.importc, cdecl.}
 proc rocksdb_readoptions_get_readahead_size*(a1: rocksdb_readoptions_t): csize_t {.importc, cdecl.}
 proc rocksdb_readoptions_set_prefix_same_as_start*(a1: rocksdb_readoptions_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_prefix_same_as_start*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
-proc rocksdb_readoptions_set_pin_data*(a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_pin_data*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_prefix_same_as_start*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
+proc rocksdb_readoptions_set_pin_data*(a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_pin_data*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_readoptions_set_total_order_seek*(a1: rocksdb_readoptions_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_readoptions_get_total_order_seek*(a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_readoptions_get_total_order_seek*(a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_readoptions_set_max_skippable_internal_keys*(
     a1: rocksdb_readoptions_t; a2: uint64_t) {.importc, cdecl.}
 proc rocksdb_readoptions_get_max_skippable_internal_keys*(
     a1: rocksdb_readoptions_t): uint64_t {.importc, cdecl.}
 proc rocksdb_readoptions_set_background_purge_on_iterator_cleanup*(
-    a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_readoptions_get_background_purge_on_iterator_cleanup*(
-    a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_readoptions_set_ignore_range_deletions*(
-    a1: rocksdb_readoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_readoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_readoptions_get_ignore_range_deletions*(
-    a1: rocksdb_readoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_readoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_readoptions_set_deadline*(a1: rocksdb_readoptions_t;
                                       microseconds: uint64_t) {.importc, cdecl.}
 proc rocksdb_readoptions_get_deadline*(a1: rocksdb_readoptions_t): uint64_t {.importc, cdecl.}
@@ -1244,39 +1244,39 @@ proc rocksdb_readoptions_get_io_timeout*(a1: rocksdb_readoptions_t): uint64_t {.
 
 proc rocksdb_writeoptions_create*(): rocksdb_writeoptions_t {.importc, cdecl.}
 proc rocksdb_writeoptions_destroy*(a1: rocksdb_writeoptions_t) {.importc, cdecl.}
-proc rocksdb_writeoptions_set_sync*(a1: rocksdb_writeoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_writeoptions_get_sync*(a1: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
+proc rocksdb_writeoptions_set_sync*(a1: rocksdb_writeoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_writeoptions_get_sync*(a1: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_writeoptions_disable_WAL*(opt: rocksdb_writeoptions_t;
                                       disable: cint) {.importc, cdecl.}
-proc rocksdb_writeoptions_get_disable_WAL*(opt: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
+proc rocksdb_writeoptions_get_disable_WAL*(opt: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_writeoptions_set_ignore_missing_column_families*(
-    a1: rocksdb_writeoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_writeoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_writeoptions_get_ignore_missing_column_families*(
-    a1: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_writeoptions_set_no_slowdown*(a1: rocksdb_writeoptions_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_writeoptions_get_no_slowdown*(a1: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
-proc rocksdb_writeoptions_set_low_pri*(a1: rocksdb_writeoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_writeoptions_get_low_pri*(a1: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_writeoptions_get_no_slowdown*(a1: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
+proc rocksdb_writeoptions_set_low_pri*(a1: rocksdb_writeoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_writeoptions_get_low_pri*(a1: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_writeoptions_set_memtable_insert_hint_per_batch*(
-    a1: rocksdb_writeoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_writeoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_writeoptions_get_memtable_insert_hint_per_batch*(
-    a1: rocksdb_writeoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_writeoptions_t): uint8 {.importc, cdecl.}
 ##  Compact range options
 
 proc rocksdb_compactoptions_create*(): rocksdb_compactoptions_t {.importc, cdecl.}
 proc rocksdb_compactoptions_destroy*(a1: rocksdb_compactoptions_t) {.importc, cdecl.}
 proc rocksdb_compactoptions_set_exclusive_manual_compaction*(
-    a1: rocksdb_compactoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_compactoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_compactoptions_get_exclusive_manual_compaction*(
-    a1: rocksdb_compactoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_compactoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_compactoptions_set_bottommost_level_compaction*(
-    a1: rocksdb_compactoptions_t; a2: cuchar) {.importc, cdecl.}
+    a1: rocksdb_compactoptions_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_compactoptions_get_bottommost_level_compaction*(
-    a1: rocksdb_compactoptions_t): cuchar {.importc, cdecl.}
+    a1: rocksdb_compactoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_compactoptions_set_change_level*(a1: rocksdb_compactoptions_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_compactoptions_get_change_level*(a1: rocksdb_compactoptions_t): cuchar {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_compactoptions_get_change_level*(a1: rocksdb_compactoptions_t): uint8 {.importc, cdecl.}
 proc rocksdb_compactoptions_set_target_level*(a1: rocksdb_compactoptions_t;
     a2: cint) {.importc, cdecl.}
 proc rocksdb_compactoptions_get_target_level*(a1: rocksdb_compactoptions_t): cint {.importc, cdecl.}
@@ -1284,8 +1284,8 @@ proc rocksdb_compactoptions_get_target_level*(a1: rocksdb_compactoptions_t): cin
 
 proc rocksdb_flushoptions_create*(): rocksdb_flushoptions_t {.importc, cdecl.}
 proc rocksdb_flushoptions_destroy*(a1: rocksdb_flushoptions_t) {.importc, cdecl.}
-proc rocksdb_flushoptions_set_wait*(a1: rocksdb_flushoptions_t; a2: cuchar) {.importc, cdecl.}
-proc rocksdb_flushoptions_get_wait*(a1: rocksdb_flushoptions_t): cuchar {.importc, cdecl.}
+proc rocksdb_flushoptions_set_wait*(a1: rocksdb_flushoptions_t; a2: uint8) {.importc, cdecl.}
+proc rocksdb_flushoptions_get_wait*(a1: rocksdb_flushoptions_t): uint8 {.importc, cdecl.}
 ##  Memory allocator
 
 proc rocksdb_jemalloc_nodump_allocator_create*(errptr: ptr cstring): rocksdb_memory_allocator_t {.importc, cdecl.}
@@ -1362,15 +1362,15 @@ proc rocksdb_sstfilewriter_file_size*(writer: rocksdb_sstfilewriter_t;
 proc rocksdb_sstfilewriter_destroy*(writer: rocksdb_sstfilewriter_t) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_create*(): rocksdb_ingestexternalfileoptions_t {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_set_move_files*(
-    opt: rocksdb_ingestexternalfileoptions_t; move_files: cuchar) {.importc, cdecl.}
+    opt: rocksdb_ingestexternalfileoptions_t; move_files: uint8) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_set_snapshot_consistency*(
-    opt: rocksdb_ingestexternalfileoptions_t; snapshot_consistency: cuchar) {.importc, cdecl.}
+    opt: rocksdb_ingestexternalfileoptions_t; snapshot_consistency: uint8) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_set_allow_global_seqno*(
-    opt: rocksdb_ingestexternalfileoptions_t; allow_global_seqno: cuchar) {.importc, cdecl.}
+    opt: rocksdb_ingestexternalfileoptions_t; allow_global_seqno: uint8) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_set_allow_blocking_flush*(
-    opt: rocksdb_ingestexternalfileoptions_t; allow_blocking_flush: cuchar) {.importc, cdecl.}
+    opt: rocksdb_ingestexternalfileoptions_t; allow_blocking_flush: uint8) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_set_ingest_behind*(
-    opt: rocksdb_ingestexternalfileoptions_t; ingest_behind: cuchar) {.importc, cdecl.}
+    opt: rocksdb_ingestexternalfileoptions_t; ingest_behind: uint8) {.importc, cdecl.}
 proc rocksdb_ingestexternalfileoptions_destroy*(
     opt: rocksdb_ingestexternalfileoptions_t) {.importc, cdecl.}
 proc rocksdb_ingest_external_file*(db: rocksdb_t; file_list: ptr cstring;
@@ -1385,8 +1385,8 @@ proc rocksdb_try_catch_up_with_primary*(db: rocksdb_t; errptr: ptr cstring) {.im
 
 proc rocksdb_slicetransform_create*(state: pointer; destructor: proc (a1: pointer);
     transform: proc (a1: pointer; key: cstring; length: csize_t; dst_length: ptr csize_t): cstring;
-    in_domain: proc (a1: pointer; key: cstring; length: csize_t): cuchar; in_range: proc (
-    a1: pointer; key: cstring; length: csize_t): cuchar;
+    in_domain: proc (a1: pointer; key: cstring; length: csize_t): uint8; in_range: proc (
+    a1: pointer; key: cstring; length: csize_t): uint8;
                                    name: proc (a1: pointer): cstring): rocksdb_slicetransform_t {.importc, cdecl.}
 proc rocksdb_slicetransform_create_fixed_prefix*(a1: csize_t): rocksdb_slicetransform_t {.importc, cdecl.}
 proc rocksdb_slicetransform_create_noop*(): rocksdb_slicetransform_t {.importc, cdecl.}
@@ -1501,12 +1501,12 @@ proc rocksdb_transaction_get_cf*(txn: rocksdb_transaction_t;
 proc rocksdb_transaction_get_for_update*(txn: rocksdb_transaction_t;
                                         options: rocksdb_readoptions_t;
                                         key: cstring; klen: csize_t;
-                                        vlen: ptr csize_t; exclusive: cuchar;
+                                        vlen: ptr csize_t; exclusive: uint8;
                                         errptr: ptr cstring): cstring {.importc, cdecl.}
 proc rocksdb_transaction_get_for_update_cf*(txn: rocksdb_transaction_t;
     options: rocksdb_readoptions_t;
     column_family: rocksdb_column_family_handle_t; key: cstring; klen: csize_t;
-    vlen: ptr csize_t; exclusive: cuchar; errptr: ptr cstring): cstring {.importc, cdecl.}
+    vlen: ptr csize_t; exclusive: uint8; errptr: ptr cstring): cstring {.importc, cdecl.}
 proc rocksdb_transactiondb_get*(txn_db: rocksdb_transactiondb_t;
                                options: rocksdb_readoptions_t; key: cstring;
                                klen: csize_t; vlen: ptr csize_t; errptr: ptr cstring): cstring {.importc, cdecl.}
@@ -1612,9 +1612,9 @@ proc rocksdb_transactiondb_options_set_default_lock_timeout*(
 proc rocksdb_transaction_options_create*(): rocksdb_transaction_options_t
 proc rocksdb_transaction_options_destroy*(opt: rocksdb_transaction_options_t) {.importc, cdecl.}
 proc rocksdb_transaction_options_set_set_snapshot*(
-    opt: rocksdb_transaction_options_t; v: cuchar) {.importc, cdecl.}
+    opt: rocksdb_transaction_options_t; v: uint8) {.importc, cdecl.}
 proc rocksdb_transaction_options_set_deadlock_detect*(
-    opt: rocksdb_transaction_options_t; v: cuchar) {.importc, cdecl.}
+    opt: rocksdb_transaction_options_t; v: uint8) {.importc, cdecl.}
 proc rocksdb_transaction_options_set_lock_timeout*(
     opt: rocksdb_transaction_options_t; lock_timeout: int64_t) {.importc, cdecl.}
 proc rocksdb_transaction_options_set_expiration*(
@@ -1627,7 +1627,7 @@ proc rocksdb_optimistictransaction_options_create*(): rocksdb_optimistictransact
 proc rocksdb_optimistictransaction_options_destroy*(
     opt: rocksdb_optimistictransaction_options_t) {.importc, cdecl.}
 proc rocksdb_optimistictransaction_options_set_set_snapshot*(
-    opt: rocksdb_optimistictransaction_options_t; v: cuchar) {.importc, cdecl.}
+    opt: rocksdb_optimistictransaction_options_t; v: uint8) {.importc, cdecl.}
 proc rocksdb_optimistictransactiondb_property_value*(
     db: rocksdb_optimistictransactiondb_t; propname: cstring): cstring {.importc, cdecl.}
 proc rocksdb_optimistictransactiondb_property_int*(
@@ -1661,10 +1661,10 @@ proc rocksdb_approximate_memory_usage_get_mem_table_readers_total*(
     memory_usage: rocksdb_memory_usage_t): uint64_t {.importc, cdecl.}
 proc rocksdb_approximate_memory_usage_get_cache_total*(
     memory_usage: rocksdb_memory_usage_t): uint64_t {.importc, cdecl.}
-proc rocksdb_options_set_dump_malloc_stats*(a1: rocksdb_options_t; a2: cuchar) {.importc, cdecl.}
+proc rocksdb_options_set_dump_malloc_stats*(a1: rocksdb_options_t; a2: uint8) {.importc, cdecl.}
 proc rocksdb_options_set_memtable_whole_key_filtering*(a1: rocksdb_options_t;
-    a2: cuchar) {.importc, cdecl.}
-proc rocksdb_cancel_all_background_work*(db: rocksdb_t; wait: cuchar) {.importc, cdecl.}
+    a2: uint8) {.importc, cdecl.}
+proc rocksdb_cancel_all_background_work*(db: rocksdb_t; wait: uint8) {.importc, cdecl.}
 
 
 import os

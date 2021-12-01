@@ -14,8 +14,8 @@ import
 ##
 
 type
-  secp256k1_ecdh_hash_function* = proc (output: ptr cuchar; x32: ptr cuchar;
-                                     y32: ptr cuchar; data: pointer): cint {.cdecl.}
+  secp256k1_ecdh_hash_function* = proc (output: ptr uint8; x32: ptr uint8;
+                                     y32: ptr uint8; data: pointer): cint {.cdecl.}
 
 ## * An implementation of SHA256 hash function that applies to compressed public key.
 ##  Populates the output parameter with 32 bytes.
@@ -41,6 +41,6 @@ var secp256k1_ecdh_hash_function_default* {.importc.}: secp256k1_ecdh_hash_funct
 ##            data:       arbitrary data pointer that is passed through to hashfp
 ##
 
-proc secp256k1_ecdh*(ctx: ptr secp256k1_context; output: ptr cuchar;
-                    pubkey: ptr secp256k1_pubkey; seckey: ptr cuchar;
+proc secp256k1_ecdh*(ctx: ptr secp256k1_context; output: ptr uint8;
+                    pubkey: ptr secp256k1_pubkey; seckey: ptr uint8;
                     hashfp: secp256k1_ecdh_hash_function; data: pointer): cint {.importc.}
