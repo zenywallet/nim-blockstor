@@ -1324,12 +1324,7 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*(noBlocking: bool = true): var Thread[WrapperThreadArg] {.discardable.} =
-  if noBlocking:
-    createThread(mainThread, threadWrapper, (main, ThreadArg(type: ThreadArgType.Void)))
-    result = mainThread
-  else:
-    threadWrapper((main, ThreadArg(type: ThreadArgType.Void)))
+proc start*() = threadWrapper((main, ThreadArg(type: ThreadArgType.Void)))
 
 proc stop*() {.inline.} =
   if not abortFlag:
@@ -1342,6 +1337,4 @@ when isMainModule:
     quitServer()
 
   setUlimit(ULIMIT_SIZE)
-  var thread: Thread[WrapperThreadArg]
-  thread = start()
-  joinThread(thread)
+  start()

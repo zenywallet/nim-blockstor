@@ -718,7 +718,7 @@ when MONITOR_CONSOLE:
 
 proc startServer() {.thread.} =
   try:
-    server.start(false)
+    server.start()
   except:
     let e = getCurrentException()
     echo e.name, ": ", e.msg
