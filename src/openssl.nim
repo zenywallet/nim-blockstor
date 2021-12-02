@@ -93,7 +93,7 @@ when USE_LIBRESSL:
   template SSL_CTX_set_options*(ctx, op: untyped): untyped =
     SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, (op), nil)
 else:
-  proc SSL_CTX_set_options*(ctx: SSL_CTX, op: culong): culong {.importc, discardable.}
+  proc SSL_CTX_set_options*(ctx: SSL_CTX, op: clong): clong {.importc, discardable.}
 
 proc SSL_set_fd*(s: SSL, fd: cint): cint {.importc.}
 proc SSL_free*(ssl: SSL) {.importc.}
@@ -108,13 +108,13 @@ proc SSL_write*(ssl: SSL, buf: cstring, num: int): cint {.importc.}
 proc SSL_write_ex*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 proc SSL_write_early_data*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 
-proc SSL_ctrl*(ssl: SSL, cmd: cint, larg: culong, parg: pointer) {.importc.}
-proc SSL_CTX_ctrl*(ctx: SSL_CTX, cmd: cint, larg: culong, parg: pointer) {.importc.}
+proc SSL_ctrl*(ssl: SSL, cmd: cint, larg: clong, parg: pointer) {.importc.}
+proc SSL_CTX_ctrl*(ctx: SSL_CTX, cmd: cint, larg: clong, parg: pointer) {.importc.}
 
-proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: culong) {.inline.} =
+proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: clong) {.inline.} =
   SSL_CTX_ctrl(ctx, SSL_CTRL_MODE, mode, nil)
 
-proc SSL_set_mode*(ssl: SSL, mode: culong) {.inline.} =
+proc SSL_set_mode*(ssl: SSL, mode: clong) {.inline.} =
   SSL_ctrl(ssl, SSL_CTRL_MODE, mode, nil)
 
 proc SSL_get_error*(s: SSL, ret_code: cint): cint {.importc.}
@@ -143,7 +143,7 @@ when isMainModule:
   var ssl = SSL_new(ctx)
   echo repr ssl
   echo SSL_CTX_set_options(ctx, (SSL_OP_NO_SSLv2 or SSL_OP_NO_SSLv3 or
-                          SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).culong)
+                      SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).clong)
   echo SSL_get_version(ssl)
   for i in 0..9:
     echo OpenSSL_version(i)
