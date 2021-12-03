@@ -108,13 +108,13 @@ proc SSL_write*(ssl: SSL, buf: cstring, num: int): cint {.importc.}
 proc SSL_write_ex*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 proc SSL_write_early_data*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 
-proc SSL_ctrl*(ssl: SSL, cmd: cint, larg: clong, parg: pointer) {.importc.}
-proc SSL_CTX_ctrl*(ctx: SSL_CTX, cmd: cint, larg: clong, parg: pointer) {.importc.}
+proc SSL_ctrl*(ssl: SSL, cmd: cint, larg: clong, parg: pointer): clong {.importc, discardable.}
+proc SSL_CTX_ctrl*(ctx: SSL_CTX, cmd: cint, larg: clong, parg: pointer): clong {.importc, discardable.}
 
-proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: clong) {.inline.} =
+proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: clong): clong {.inline, discardable.} =
   SSL_CTX_ctrl(ctx, SSL_CTRL_MODE, mode, nil)
 
-proc SSL_set_mode*(ssl: SSL, mode: clong) {.inline.} =
+proc SSL_set_mode*(ssl: SSL, mode: clong): clong {.inline, discardable.} =
   SSL_ctrl(ssl, SSL_CTRL_MODE, mode, nil)
 
 proc SSL_get_error*(s: SSL, ret_code: cint): cint {.importc.}
