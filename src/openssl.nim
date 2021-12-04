@@ -88,13 +88,6 @@ proc SSL_CTX_use_PrivateKey_file*(ctx: SSL_CTX, file: cstring, fileType: cint): 
 proc SSL_CTX_use_certificate_file*(ctx: SSL_CTX, file: cstring, fileType: cint): cint {.importc.}
 proc SSL_CTX_use_certificate_chain_file*(ctx: SSL_CTX, file: cstring): cint {.importc.}
 
-when USE_LIBRESSL:
-  const SSL_CTRL_OPTIONS* = 32
-  template SSL_CTX_set_options*(ctx, op: untyped): untyped =
-    SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, (op), nil)
-else:
-  proc SSL_CTX_set_options*(ctx: SSL_CTX, op: clong): clong {.importc, discardable.}
-
 proc SSL_set_fd*(s: SSL, fd: cint): cint {.importc.}
 proc SSL_free*(ssl: SSL) {.importc.}
 proc SSL_accept*(ssl: SSL): cint {.importc.}
@@ -110,6 +103,13 @@ proc SSL_write_early_data*(s: SSL, buf: pointer, num: csize_t, written: csize_t)
 
 proc SSL_ctrl*(ssl: SSL, cmd: cint, larg: clong, parg: pointer): clong {.importc, discardable.}
 proc SSL_CTX_ctrl*(ctx: SSL_CTX, cmd: cint, larg: clong, parg: pointer): clong {.importc, discardable.}
+
+when USE_LIBRESSL:
+  const SSL_CTRL_OPTIONS* = 32
+  template SSL_CTX_set_options*(ctx, op: untyped): untyped =
+    SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, (op), nil)
+else:
+  proc SSL_CTX_set_options*(ctx: SSL_CTX, op: clong): clong {.importc, discardable.}
 
 proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: clong): clong {.inline, discardable.} =
   SSL_CTX_ctrl(ctx, SSL_CTRL_MODE, mode, nil)
