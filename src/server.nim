@@ -148,6 +148,7 @@ type
 
   ServerError* = object of CatchableError
   ServerNeedRestartError* = object of CatchableError
+  ServerSslCertError* = object of CatchableError
 
 template debug(x: varargs[string, `$`]) =
   when DEBUG_LOG:
@@ -1067,20 +1068,73 @@ when ENABLE_SSL:
 
     proc checkSslFileHash() {.inline.} = setSslFileHash()
 
-  proc newSslCtx(): SSL_CTX =
-    var ctx = SSL_CTX_new(TLS_server_method())
-    var retCert = SSL_CTX_use_certificate_file(ctx, CERT_FILE, SSL_FILETYPE_PEM)
+  proc selfSignedCertificate(ctx: SSL_CTX) =
+    var x509: X509 = X509_new()
+    var pkey: EVP_PKEY = EVP_PKEY_new()
+    var rsa: RSA = RSA_new()
+    var exp: BIGNUM = BN_new()
+    var big: BIGNUM = BN_new()
+    var serial: ASN1_INTEGER = ASN1_INTEGER_new()
+
+    defer:
+      ASN1_INTEGER_free(serial)
+      BN_free(big)
+      BN_free(exp)
+      if rsa.isNil: RSA_free(rsa)
+      EVP_PKEY_free(pkey)
+      X509_free(x509)
+
+    template checkErr(err: cint) {.dirty.} =
+      if err == 0:
+        raise newException(ServerSslCertError, "self certificate check error")
+
+    checkErr BN_set_word(exp, RSA_F4)
+    checkErr RSA_generate_key_ex(rsa, 2048, exp, nil)
+    checkErr BN_pseudo_rand(big, 64, 0, 0)
+    BN_to_ASN1_INTEGER(big, serial)
+    checkErr X509_set_serialNumber(x509, serial)
+    checkErr EVP_PKEY_assign_RSA(pkey, rsa)
+    rsa = nil
+    checkErr X509_set_version(x509, 2)
+    X509_gmtime_adj(X509_get_notBefore(x509), -60 * 60)
+    X509_gmtime_adj(X509_get_notAfter(x509), 60 * 60 * 24 * 365 * 10)
+    checkErr X509_set_pubkey(x509, pkey)
+    var name: X509_NAME = X509_get_subject_name(x509)
+    checkErr X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, "JP", -1, -1, 0)
+    checkErr X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, "Blockstor Self-Signed Certificate", -1, -1, 0)
+    checkErr X509_set_issuer_name(x509, name)
+    checkErr X509_sign(x509, pkey, EVP_sha1())
+
+    var retCert = SSL_CTX_use_certificate(ctx, x509)
     if retCert != 1:
-      error "error: certificate file"
-      abort()
-    var retPriv = SSL_CTX_use_PrivateKey_file(ctx, PRIVKEY_FILE, SSL_FILETYPE_PEM)
+      error "error: self certificate"
+      raise newException(ServerSslCertError, "self certificate")
+    var retPriv = SSL_CTX_use_PrivateKey(ctx, pkey)
     if retPriv != 1:
-      error "error: private key file"
-      abort()
-    var retChain = SSL_CTX_use_certificate_chain_file(ctx, CHAIN_FILE)
-    if retChain != 1:
-      error "error: chain file"
-      abort()
+      error "error: self private key"
+      raise newException(ServerSslCertError, "self private key")
+
+  proc newSslCtx(selfSignedCertFallback: bool = false): SSL_CTX =
+    var ctx = SSL_CTX_new(TLS_server_method())
+    try:
+      var retCert = SSL_CTX_use_certificate_file(ctx, CERT_FILE, SSL_FILETYPE_PEM)
+      if retCert != 1:
+        error "error: certificate file"
+        raise newException(ServerSslCertError, "certificate file")
+      var retPriv = SSL_CTX_use_PrivateKey_file(ctx, PRIVKEY_FILE, SSL_FILETYPE_PEM)
+      if retPriv != 1:
+        error "error: private key file"
+        raise newException(ServerSslCertError, "private key file")
+      var retChain = SSL_CTX_use_certificate_chain_file(ctx, CHAIN_FILE)
+      if retChain != 1:
+        error "error: chain file"
+        raise newException(ServerSslCertError, "chain file")
+    except:
+      if not selfSignedCertFallback:
+        ctx.SSL_CTX_free()
+        raise
+      ctx.selfSignedCertificate()
+
     SSL_CTX_set_options(ctx, (SSL_OP_NO_SSLv2 or SSL_OP_NO_SSLv3 or
                           SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).clong)
     SSL_CTX_set_mode(ctx, (SSL_MODE_ENABLE_PARTIAL_WRITE or SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER).clong)
@@ -1094,7 +1148,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
   when ENABLE_SSL:
     when SSL_AUTO_RELOAD:
       initSslFileHash()
-    var ctx = newSslCtx()
+    var ctx = newSslCtx(true)
   var reqStats = newCheckReqs(REQ_LIMIT_HTTPS_ACCEPT_PERIOD)
 
   while active:
@@ -1125,7 +1179,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
           oldCtx.SSL_CTX_free()
           debug "SSL ctx updated"
 
-      var ssl = SSL_new(ctx);
+      var ssl = SSL_new(ctx)
       if SSL_set_fd(ssl, clientFd.cint) != 1:
         error "error: SSL_set_fd"
         SSL_free(ssl)
