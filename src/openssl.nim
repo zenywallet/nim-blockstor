@@ -133,6 +133,121 @@ proc OpenSSL_add_all_algorithms*(): cint {.inline, discardable.} = OPENSSL_add_a
 proc ERR_get_error*(): culong {.importc.}
 
 
+# self-signed certificate
+# include/openssl/type.h
+type
+  EVP_PKEY* = ptr object
+  ASN1_INTEGER* = ptr object
+  BIGNUM* = ptr object
+  BN_GENCB* = ptr object
+  X509* = ptr object
+  X509_NAME* = ptr object
+  X509_CRL* = ptr object
+  ASN1_TIME* = ptr object
+  EVP_MD* = ptr object
+
+# include/openssl/ssl.h
+proc SSL_CTX_use_PrivateKey*(ctx: SSL_CTX, pkey: EVP_PKEY): cint {.importc.}
+proc SSL_CTX_use_certificate*(ctx: SSL_CTX, x: X509): cint {.importc.}
+
+# include/openssl/rsa.h
+type
+  RSA* = ptr object
+
+const RSA_F4* = 0x10001.culong
+
+proc RSA_new*(): RSA {.importc.}
+proc RSA_free*(rsa: RSA) {.importc.}
+proc RSA_generate_key_ex*(rsa: RSA, bits: cint, e: BIGNUM, cb: BN_GENCB): cint {.importc.}
+proc RSA_generate_multi_prime_key*(rsa: RSA, bits: cint, primes: cint, e: BIGNUM, cb: BN_GENCB): cint {.importc.}
+
+# include/openssl/evp.h
+const EVP_PKEY_RSA* = 6.cint
+
+proc EVP_PKEY_new*(): EVP_PKEY {.importc.}
+proc EVP_PKEY_free*(key: EVP_PKEY) {.importc.}
+proc EVP_PKEY_assign*(pkey: EVP_PKEY, keytype: cint, key: RSA): cint {.importc.}
+proc EVP_PKEY_assign_RSA*(pkey: EVP_PKEY, key: RSA): cint {.inline.} = EVP_PKEY_assign(pkey, EVP_PKEY_RSA, key)
+proc EVP_PKEY_set1_RSA*(pkey: EVP_PKEY, key: RSA): cint {.importc.}
+proc EVP_sha1*(): EVP_MD {.importc.}
+
+# include/openssl/asn1.h
+const MBSTRING_FLAG* = 0x1000.cint
+const MBSTRING_UTF8* = MBSTRING_FLAG
+const MBSTRING_ASC* = MBSTRING_FLAG or 1.cint
+const MBSTRING_BMP* = MBSTRING_FLAG or 2.cint
+const MBSTRING_UNIV* = MBSTRING_FLAG or 4.cint
+
+proc ASN1_INTEGER_new*(): ASN1_INTEGER {.importc.}
+proc ASN1_INTEGER_free*(a: ASN1_INTEGER) {.importc.}
+
+proc ASN1_INTEGER_set_int64*(a: ASN1_INTEGER, r: int64): cint {.importc.}
+proc ASN1_INTEGER_set_uint64*(a: ASN1_INTEGER, r: uint64): cint {.importc.}
+proc ASN1_INTEGER_set*(a: ASN1_INTEGER, v: clong): cint {.importc.}
+
+proc ASN1_INTEGER_get_int64*(pr: var int64, a: ASN1_INTEGER): cint {.importc.}
+proc ASN1_INTEGER_get_uint64*(pr: var uint64, a: ASN1_INTEGER): cint {.importc.}
+proc ASN1_INTEGER_get*(a: ASN1_INTEGER): clong {.importc.}
+proc BN_to_ASN1_INTEGER*(bn: BIGNUM, ai: ASN1_INTEGER): ASN1_INTEGER {.importc, discardable.}
+proc ASN1_INTEGER_to_BN*(ai: ASN1_INTEGER, bn: BIGNUM): BIGNUM {.importc, discardable.}
+
+# include/openssl/bn.h
+type
+  BN_ULONG* = uint64
+
+proc BN_new*(): BIGNUM {.importc.}
+proc BN_secure_new*(): BIGNUM {.importc.}
+proc BN_clear*(a: BIGNUM) {.importc.}
+proc BN_free*(a: BIGNUM) {.importc.}
+proc BN_clear_free*(a: BIGNUM) {.importc.}
+
+proc BN_zero*(a: BIGNUM) {.importc.}
+proc BN_one*(a: BIGNUM): cint {.importc.}
+proc BN_value_one*(): BIGNUM {.importc.}
+proc BN_set_word*(a: BIGNUM, w: BN_ULONG): cint {.importc.}
+proc BN_get_word*(a: BIGNUM): BN_ULONG {.importc.}
+
+proc BN_rand*(rnd: BIGNUM, bits: cint, top: cint, bottom: cint): cint {.importc.}
+proc BN_priv_rand*(rnd: BIGNUM, bits: cint, top: cint, bottom: cint): cint {.importc.}
+proc BN_pseudo_rand*(rnd: BIGNUM, bits: cint, top: cint, bottom: cint): cint {.importc.}
+proc BN_rand_range*(rnd: BIGNUM, range: BIGNUM): cint {.importc.}
+proc BN_priv_rand_range*(rnd: BIGNUM, range: BIGNUM): cint {.importc.}
+proc BN_pseudo_rand_range*(rnd: BIGNUM, range: BIGNUM): cint {.importc.}
+
+# include/openssl/x509.h
+type
+  X509_REQ* = ptr object
+
+proc X509_new*(): X509 {.importc.}
+proc X509_free*(a: X509) {.importc.}
+proc X509_get_subject_name*(x: X509): X509_NAME {.importc.}
+proc X509_set_subject_name*(x: X509, name: X509_NAME): cint {.importc.}
+proc X509_get_issuer_name*(x: X509): X509_NAME {.importc.}
+proc X509_set_issuer_name*(x: X509, name: X509_NAME): cint {.importc.}
+proc X509_REQ_get_subject_name*(x: X509_REQ): X509_NAME {.importc.}
+proc X509_REQ_set_subject_name*(x: X509_REQ, name: X509_NAME): cint {.importc.}
+proc X509_CRL_get_issuer*(x: X509_CRL): X509_NAME {.importc.}
+proc X509_CRL_set_issuer_name*(x: X509_CRL, name: X509_NAME): cint {.importc.}
+
+proc X509_get_serialNumber*(x: X509): ASN1_INTEGER {.importc.}
+proc X509_get0_serialNumber*(x: X509): ASN1_INTEGER {.importc.}
+proc X509_set_serialNumber*(x: X509, serial: ASN1_INTEGER): cint {.importc.}
+
+proc X509_get_version*(x: X509): clong {.importc.}
+proc X509_set_version*(x: X509, version: clong): cint {.importc.}
+
+proc X509_gmtime_adj*(s: ASN1_TIME, adj: clong): ASN1_TIME {.importc, discardable.}
+proc X509_get_notBefore*(x: X509): ASN1_TIME {.importc: "X509_getm_notBefore".}
+proc X509_get_notAfter*(x: X509): ASN1_TIME {.importc: "X509_getm_notAfter".}
+
+proc X509_set_pubkey*(x: X509, pkey: EVP_PKEY): cint {.importc.}
+
+proc X509_NAME_add_entry_by_txt*(name: X509_NAME , field: cstring, stype: cint,
+                               bytes: cstring, len: cint, loc: cint,
+                               set: cint): cint {.importc.}
+proc X509_sign*(x: X509, pkey: EVP_PKEY, md: EVP_MD): cint {.importc.}
+
+
 when isMainModule:
   echo SSL_load_error_strings()
   echo SSL_library_init()
