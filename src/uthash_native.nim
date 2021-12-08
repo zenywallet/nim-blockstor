@@ -12,6 +12,27 @@ const uthasSrcPath = currentSourcePath().parentDir() / "../deps/uthash/src"
 #undef uthash_fatal
 #define uthash_fatal(msg) fatal_native(msg)
 
+#undef HASH_ADD_TO_BKT
+#define HASH_ADD_TO_BKT(head,hh,addhh,oomed)                                     \
+do {                                                                             \
+  UT_hash_bucket *_ha_head = &(head);                                            \
+  _ha_head->count++;                                                             \
+  (addhh)->hh_next = _ha_head->hh_head;                                          \
+  (addhh)->hh_prev = NULL;                                                       \
+  if (_ha_head->hh_head != NULL) {                                               \
+    _ha_head->hh_head->hh_prev = (addhh);                                        \
+  }                                                                              \
+  _ha_head->hh_head = (addhh);                                                   \
+  if ((addhh)->tbl->num_items * 2U >= (addhh)->tbl->num_buckets) {               \
+    HASH_EXPAND_BUCKETS(addhh,(addhh)->tbl, oomed);                              \
+    IF_HASH_NONFATAL_OOM(                                                        \
+      if (oomed) {                                                               \
+        HASH_DEL_IN_BKT(head,addhh);                                             \
+      }                                                                          \
+    )                                                                            \
+  }                                                                              \
+} while (0)
+
 typedef struct KVDataObj {
   int size;
   char data[];
