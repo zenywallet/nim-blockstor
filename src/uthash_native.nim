@@ -12,6 +12,9 @@ const uthasSrcPath = currentSourcePath().parentDir() / "../deps/uthash/src"
 #undef uthash_fatal
 #define uthash_fatal(msg) fatal_native(msg)
 
+#undef HASH_INITIAL_NUM_BUCKETS
+#define HASH_INITIAL_NUM_BUCKETS 65536U
+
 #undef HASH_ADD_TO_BKT
 #define HASH_ADD_TO_BKT(head,hh,addhh,oomed)                                     \
 do {                                                                             \
