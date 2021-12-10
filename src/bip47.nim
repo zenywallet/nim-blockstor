@@ -75,7 +75,7 @@ when isMainModule:
     echo "S", i, ": ", s
 
   echo  "###The first 10 addresses used by Alice for sending to Bob are:"
-  var bitcoin = new Network
+  var bitcoin: Network
   bitcoin.pubKeyPrefix = 0'u8
   bitcoin.scriptPrefix = 5'u8
   bitcoin.wif = 128'u8
