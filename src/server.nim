@@ -34,12 +34,10 @@ when ENABLE_SSL:
   import openssl
   import nimcrypto
 
-
 when (compiles do: include config):
   include config
 else:
   include config_default
-
 
 type
   ClientBase* = ref object of RootObj
