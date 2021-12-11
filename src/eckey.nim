@@ -23,7 +23,7 @@ converter toPublicKeyObj*(o: secp256k1_pubkey): PublicKeyObj {.inline.} =
 converter toSecp256k1Pubkey*(o: PublicKeyObj): secp256k1_pubkey {.inline.} =
   cast[ptr secp256k1_pubkey](unsafeAddr (cast[ptr seq[byte]](unsafeAddr o))[0])[]
 
-var secp256k1_ctx* {.threadvar.}: ptr secp256k1_context
+var secp256k1_ctx*: ptr secp256k1_context
 
 proc init*() {.inline.} =
   secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY or SECP256K1_CONTEXT_SIGN)
