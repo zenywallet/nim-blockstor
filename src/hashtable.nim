@@ -106,6 +106,33 @@ template loadHashTableModules*() {.dirty.} =
           if hash == startHash:
             raise newException(HashTableError, "hashtable data full")
 
+  proc upsert*[Key, Val](hashTable: var HashTable[Key, Val], key: Key, val: Val,
+                        cb: proc(hashData: HashTableData[Key, Val], val: Val)) =
+    var hash = (key.toUint64 mod hashTable.dataLen.uint64).int
+    let startHash = hash
+    while true:
+      let used = hashTable.getBitmap(hash)
+      let hashData = addr hashTable.table[hash]
+      if used == 0:
+        hashTable.setBitmap(hash)
+        hashData.set(key, val)
+        inc(hashTable.dataCount)
+      else:
+        when not DISABLE_HASHTABLEDATA_DELETE and declared(empty):
+          if hashData.empty:
+            hashData.set(key, val)
+            inc(hashTable.dataCount)
+            break
+        if hashData.key == key:
+          cb(hashData, val)
+          break
+        else:
+          inc(hash)
+          if hash >= hashTable.dataLen:
+            hash = 0
+          if hash == startHash:
+            raise newException(HashTableError, "hashtable data full")
+
   proc get*[Key, Val](hashTable: var HashTable[Key, Val], key: Key): HashTableData[Key, Val] =
     var hash = (key.toUint64 mod hashTable.dataLen.uint64).int
     let startHash = hash
