@@ -320,10 +320,13 @@ proc update*(reset: bool) =
     var rpcCmds: RpcCommands
     for tx in mResult:
       let txid = tx.getStr
-      txids.add(txid)
-      rpcCmds.add(getRawTransaction.setParams(txid))
-      if txids.len >= MAX_TXS_GET_ONCE:
-        break
+      if not txsTable.hasKey(txid):
+        txids.add(txid)
+        rpcCmds.add(getRawTransaction.setParams(txid))
+        if txids.len >= MAX_TXS_GET_ONCE:
+          break
+    if txids.len == 0: return
+
     var rpcResults = rpcCmds.send()
     if txids.len != rpcResults.len:
       raise newException(MempoolError, "rpc failed")
@@ -333,11 +336,11 @@ proc update*(reset: bool) =
       if rpcResult.kind != JString:
         info "INFO: mempool[", poolId, "] getRawTransaction null txid=", txid, " ", rpcResult
         continue
-      if not txsTable.hasKey(txid):
-        let tx = rpcResult.getStr.Hex.toBytes.toTx
-        txsTable[txid] = tx
-        txNews.add((txid.Hex.toHash, tx))
-        debug "mempool[", poolId, "] txid=", txid
+      let tx = rpcResult.getStr.Hex.toBytes.toTx
+      txsTable[txid] = tx
+      txNews.add((txid.Hex.toHash, tx))
+      debug "mempool[", poolId, "] txid=", txid
+    if txNews.len == 0: return
 
     var txsAddrSendTable = initTable[seq[byte], TableRef[seq[byte], uint64]]()
     var txsAddrRecvTable = initTable[seq[byte], TableRef[seq[byte], uint64]]()
