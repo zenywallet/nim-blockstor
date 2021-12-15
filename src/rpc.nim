@@ -110,7 +110,7 @@ proc setRpcConfig*(rpcConfig: RpcConfig) =
 proc writeCallback(buffer: cstring, size: int, nitems: int, outstream: pointer): int =
   var outbuf = cast[ref string](outstream)
   outbuf[] &= buffer
-  result = size * nitems;
+  result = size * nitems
 
 const ADD_POST_HEADER = false
 when ADD_POST_HEADER:
@@ -123,7 +123,7 @@ proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: s
   discard curl.easy_setopt(OPT_URL, rpcConfig.rpcUrl)
   discard curl.easy_setopt(OPT_POST, 1)
   discard curl.easy_setopt(OPT_USERPWD, rpcConfig.rpcUserPass)
-  discard curl.easy_setopt(OPT_POSTFIELDS, postData);
+  discard curl.easy_setopt(OPT_POSTFIELDS, postData)
   discard curl.easy_setopt(OPT_WRITEDATA, outbuf)
   discard curl.easy_setopt(OPT_WRITEFUNCTION, writeCallback)
   when ADD_POST_HEADER:
