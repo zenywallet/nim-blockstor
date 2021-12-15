@@ -36,19 +36,20 @@ proc countup(val: var array[16, byte]) =
       break
 
 proc create*(): ptr DeoxyEncrypt {.exportc: "deoxy_create".} =
-  result = cast[ptr DeoxyEncrypt](allocShared0(sizeof(DeoxyEncrypt)))
   when USE_LZ4:
+    let p = cast[ptr UncheckedArray[byte]](allocShared0(sizeof(DeoxyEncrypt) + DICT_SIZE * 2))
+    result = cast[ptr DeoxyEncrypt](p)
     result.streamComp = LZ4_createStream()
     if result.streamComp.isnil:
       raise newException(DeoxyError, "create stream failed")
-    result.encDict = cast[ptr UncheckedArray[byte]](allocShared0(DICT_SIZE))
-    result.decDict = cast[ptr UncheckedArray[byte]](allocShared0(DICT_SIZE))
+    result.encDict = cast[ptr UncheckedArray[byte]](addr p[sizeof(DeoxyEncrypt)])
+    result.decDict = cast[ptr UncheckedArray[byte]](addr p[sizeof(DeoxyEncrypt) + DICT_SIZE])
+  else:
+    result = cast[ptr DeoxyEncrypt](allocShared0(sizeof(DeoxyEncrypt)))
 
 proc free*(p: pointer) {.exportc: "deoxy_free".} =
   when USE_LZ4:
     let deoxyEncrypt = cast[ptr DeoxyEncrypt](p)
-    deallocShared(deoxyEncrypt.decDict)
-    deallocShared(deoxyEncrypt.encDict)
     discard deoxyEncrypt.streamComp.LZ4_freeStream()
   deallocShared(p)
 
