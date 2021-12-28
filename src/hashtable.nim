@@ -75,6 +75,17 @@ template loadHashTableModules*() {.dirty.} =
     for i in u8start..<hashTable.bitmapSize:
       result = result + countSetBits(hashTable.bitmap[i])
 
+  proc countData(hashTable: var HashTable): int =
+    for hash in 0..<hashTable.dataLen:
+      let used = hashTable.getBitmap(hash)
+      if used != 0:
+        let hashData = addr hashTable.table[hash]
+        when not DISABLE_HASHTABLEDATA_DELETE and declared(empty):
+          if not hashData.empty:
+            inc(result)
+        else:
+          inc(result)
+
   proc set*(pair: HashTableData, key: HashTableData.Key, val: HashTableData.Val) {.inline.} = pair.key = key; pair.val = val
   proc set*(pair: HashTableData, src: HashTableData) {.inline.} = pair[] = src[]
   proc setKey*(pair: HashTableData, key: HashTableData.Key) {.inline.} = pair.key = key
