@@ -66,6 +66,17 @@ template loadHashTableModules*() {.dirty.} =
     let bitOffset = pos.uint8 and 0x7'u8
     result = hashTable.bitmap[bitPos].testBit(bitOffset).uint8
 
+  iterator getBitmap(hashTable: var HashTable, pos: int = 0): uint8 =
+    var curPos = pos
+    let startPos = curPos div 8
+    var bitOffset = curPos.uint8 and 0x7'u8
+    for i in startPos..<hashTable.bitmapSize:
+      let hb = hashTable.bitmap[i]
+      for j in bitOffset..<8:
+        if curPos < hashTable.dataLen:
+          yield hb.testBit(j).uint8
+          inc(curPos)
+
   proc countBitmap*(hashTable: var HashTable): int =
     let uint64len = hashTable.bitmapSize div 8
     let u8start = hashTable.bitmapSize - (hashTable.bitmapSize.uint8 and 0x7'u8).int
