@@ -28,6 +28,7 @@ const REQ_LIMIT_HTTPS_ACCEPT_PERIOD = 60
 const REQ_LIMIT_HTTPS_ACCEPT_MAX = 120
 const REQ_LIMIT_HTTP_ACCEPT_PERIOD = 60
 const REQ_LIMIT_HTTP_ACCEPT_MAX = 120
+const ENABLE_TCP_NODELAY = true
 
 const ENABLE_SSL = defined(ENABLE_SSL)
 when ENABLE_SSL:
@@ -1153,6 +1154,8 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
     var clientSock = accept(serverSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
+    when ENABLE_TCP_NODELAY:
+      clientSock.setSockOptInt(Protocol.IPPROTO_TCP.int, TCP_NODELAY, 1)
     var clientFd = clientSock.int
     var ip = sockAddress.sin_addr.s_addr
     var address = inet_ntoa(sockAddress.sin_addr)
