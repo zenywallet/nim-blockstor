@@ -40,22 +40,6 @@ template loadHashTableModules*() {.dirty.} =
     when not declared(empty) or not declared(setEmpty):
       {.hint: "to disable hashtable data deletion, define DISABLE_HASHTABLEDATA_DELETE".}
 
-  proc newHashTable*[Key, Val](dataLen: int): var HashTable[Key, Val] =
-    var hashTable = cast[ptr HashTable[Key, Val]](allocShared0(sizeof(HashTable[Key, Val])))
-    hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
-    hashTable.dataLen = dataLen
-    hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
-    hashTable.tableSize = hashTable.dataSize * dataLen
-    hashTable.tableBufSize = hashTable.bitmapSize + hashTable.tableSize
-    hashTable.tableBuf = cast[ptr UncheckedArray[byte]](allocShared0(hashTable.tableBufSize))
-    hashTable.bitmap = hashTable.tableBuf
-    hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
-    result = hashTable[]
-
-  proc delete*(hashTable: var HashTable) =
-    hashTable.tableBuf.deallocShared()
-    hashTable.addr.deallocShared()
-
   proc setBitmap*(hashTable: var HashTable, pos: int) =
     let bitPos = pos div 8
     let bitOffset = pos.uint8 and 0x7'u8
@@ -96,6 +80,22 @@ template loadHashTableModules*() {.dirty.} =
             inc(result)
         else:
           inc(result)
+
+  proc newHashTable*[Key, Val](dataLen: int): var HashTable[Key, Val] =
+    var hashTable = cast[ptr HashTable[Key, Val]](allocShared0(sizeof(HashTable[Key, Val])))
+    hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
+    hashTable.dataLen = dataLen
+    hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
+    hashTable.tableSize = hashTable.dataSize * dataLen
+    hashTable.tableBufSize = hashTable.bitmapSize + hashTable.tableSize
+    hashTable.tableBuf = cast[ptr UncheckedArray[byte]](allocShared0(hashTable.tableBufSize))
+    hashTable.bitmap = hashTable.tableBuf
+    hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
+    result = hashTable[]
+
+  proc delete*(hashTable: var HashTable) =
+    hashTable.tableBuf.deallocShared()
+    hashTable.addr.deallocShared()
 
   proc set*(pair: HashTableData, key: HashTableData.Key, val: HashTableData.Val) {.inline.} = pair.key = key; pair.val = val
   proc set*(pair: HashTableData, src: HashTableData) {.inline.} = pair[] = src[]
