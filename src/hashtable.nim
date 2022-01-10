@@ -1,5 +1,8 @@
 # Copyright (c) 2021 zenywallet
 
+import std/memfiles
+import posix
+
 type
   HashTableDataObj*[Key, Val] {.packed.} = object
     key*: Key
@@ -7,7 +10,7 @@ type
 
   HashTableData*[Key, Val] = ptr HashTableDataObj[Key, Val]
 
-  HashTable*[Key, Val] = object
+  HashTableBase*[Key, Val] = object of RootObj
     bitmap*: ptr UncheckedArray[byte]
     bitmapSize*: int
 
@@ -21,12 +24,20 @@ type
     dataLen*: int
     dataCount*: int
 
-  HashTableError* = object of CatchableError
+  HashTableMem*[Key, Val] = object of HashTableBase[Key, Val]
 
+  HashTableMmap*[Key, Val] = object of HashTableBase[Key, Val]
+    mmap*: MemFile
+
+  HashTable*[Key, Val] = HashTableMem[Key, Val] | HashTableMmap[Key, Val]
+
+  HashTableError* = object of CatchableError
 
 template loadHashTableModules*() {.dirty.} =
   when not declared(bitops):
     import std/bitops
+  when not declared(memfiles):
+    import std/memfiles
 
   when not declared(DISABLE_HASHTABLEDATA_DELETE):
     const DISABLE_HASHTABLEDATA_DELETE = defined(DISABLE_HASHTABLEDATA_DELETE)
@@ -81,8 +92,8 @@ template loadHashTableModules*() {.dirty.} =
         else:
           inc(result)
 
-  proc newHashTable*[Key, Val](dataLen: int): var HashTable[Key, Val] =
-    var hashTable = cast[ptr HashTable[Key, Val]](allocShared0(sizeof(HashTable[Key, Val])))
+  proc newHashTable*[Key, Val](dataLen: int): var HashTableMem[Key, Val] =
+    var hashTable = cast[ptr HashTableMem[Key, Val]](allocShared0(sizeof(HashTableMem[Key, Val])))
     hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
     hashTable.dataLen = dataLen
     hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
@@ -93,8 +104,41 @@ template loadHashTableModules*() {.dirty.} =
     hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
     result = hashTable[]
 
+  proc openHashTable*[Key, Val](dataLen: int, mmapFile: string = ""): var HashTableMmap[Key, Val] =
+    var hashTable = cast[ptr HashTableMmap[Key, Val]](allocShared0(sizeof(HashTableMmap[Key, Val])))
+    hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
+    hashTable.dataLen = dataLen
+    hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
+    hashTable.tableSize = hashTable.dataSize * dataLen
+    hashTable.tableBufSize = hashTable.bitmapSize + hashTable.tableSize
+    try:
+      hashTable.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = -1)
+      hashTable.tableBuf = cast[ptr UncheckedArray[byte]](hashTable.mmap.mem)
+      hashTable.bitmap = hashTable.tableBuf
+      hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
+      hashTable.dataCount = hashTable[].countData()
+    except:
+      hashTable.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = hashTable.tableBufSize)
+      hashTable.tableBuf = cast[ptr UncheckedArray[byte]](hashTable.mmap.mem)
+      hashTable.bitmap = hashTable.tableBuf
+      hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
+    result = hashTable[]
+
+  proc close*(hashTable: var HashTableMmap) =
+    hashTable.mmap.close()
+    hashTable.addr.deallocShared()
+
+  proc flush*(hashTable: var HashTable) =
+    when HashTable is HashTableMmap:
+      hashTable.mmap.flush()
+    else:
+      discard
+
   proc delete*(hashTable: var HashTable) =
-    hashTable.tableBuf.deallocShared()
+    when HashTable is HashTableMem:
+      hashTable.tableBuf.deallocShared()
+    elif HashTable is HashTableMmap:
+      hashTable.mmap.close()
     hashTable.addr.deallocShared()
 
   proc clear*(hashTable: var HashTable) =
@@ -190,7 +234,7 @@ template loadHashTableModules*() {.dirty.} =
   else:
     template del*(hashTable: var HashTable, key: HashTable.Key) = discard
 
-  proc copy*(srcHashTable: var HashTable, dstHashTable: var HashTable) =
+  template copyBody() {.dirty.} =
     if srcHashTable.dataCount > dstHashTable.dataLen:
       raise newException(HashTableError, "dst is small src=" & $srcHashTable.dataCount & " dst=" & $dstHashTable.dataLen)
 
@@ -203,6 +247,9 @@ template loadHashTableModules*() {.dirty.} =
             dstHashTable.set(hashData.key, hashData.val)
         else:
           dstHashTable.set(hashData.key, hashData.val)
+
+  proc copy*(srcHashTable: var HashTable, dstHashTable: var HashTableMem) = copyBody()
+  proc copy*(srcHashTable: var HashTable, dstHashTable: var HashTableMmap) = copyBody()
 
 
 when isMainModule:
