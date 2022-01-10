@@ -97,6 +97,9 @@ template loadHashTableModules*() {.dirty.} =
     hashTable.tableBuf.deallocShared()
     hashTable.addr.deallocShared()
 
+  proc clear*(hashTable: var HashTable) =
+    zeroMem(hashTable.tableBuf, hashTable.tableBufSize)
+
   proc set*(pair: HashTableData, key: HashTableData.Key, val: HashTableData.Val) {.inline.} = pair.key = key; pair.val = val
   proc set*(pair: HashTableData, src: HashTableData) {.inline.} = pair[] = src[]
   proc setKey*(pair: HashTableData, key: HashTableData.Key) {.inline.} = pair.key = key
