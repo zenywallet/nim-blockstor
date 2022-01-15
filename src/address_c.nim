@@ -24,9 +24,14 @@ proc get_address_from_hex*(networkId: int, hash160_hex: cstring, addressType: ui
 
 proc check_address*(address: cstring): bool {.exportc.} = checkAddress($address)
 
+proc get_hash160_hex*(networkId: int, address: cstring): cstring {.exportc.} =
+  var hash160 = getHash160(networks[networkId], $address)
+  result = hash160.toBytes.toHex.cstring
+
 #[
 void address_init();
 char* get_address(int nid, char* hash160, int size, uint8_t address_type);
 char* get_address_from_hex(int nid, char* hash160_hex, uint8_t address_type);
 bool* check_address(char* address);
+char* get_hash160_hex(int nid, char* address);
 ]#
