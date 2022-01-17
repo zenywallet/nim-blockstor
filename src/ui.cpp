@@ -165,6 +165,7 @@ extern "C" {
     char* get_address(int nid, char* hash160, int size, uint8_t address_type);
     char* get_address_from_hex(int nid, char* hash160_hex, uint8_t address_type);
     bool* check_address(char* address);
+    char* get_hash160_hex(int nid, char* address);
 
     char *call_totp(char* key, uint64_t sec, int digit, int timestep, int algo);
 }
@@ -901,10 +902,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
             ImGui::PushFont(monoFont);
             if (ImGui::InputText(("Address  ##ia" + wid_s).c_str(), address_str, IM_ARRAYSIZE(address_str))) {
                 address = std::string(address_str);
-                address_hex = base58_dec_to_hex(address_str);
+                address_hex = get_hash160_hex(network_idx, address_str);
                 param["address"] = address;
                 param["address_hex"] = address_hex;
-                if (check_address((char*)address.c_str())) {
+                if (address_hex.length() > 0) {
                     valid = true;
                 } else {
                     valid = false;
@@ -1217,10 +1218,9 @@ static void ShowAddressWindow(bool* p_open, int wid)
             param["prev_address"] = address;
             param["prev_nid"] = network_idx;
 
-            std::string hash160str = address_hex.substr(2, 40);
-            addr1 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2PKH);
-            addr3 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2SH_P2WPKH);
-            addr4 = get_address_from_hex(network_idx, (char*)hash160str.c_str(), P2WPKH);
+            addr1 = get_address_from_hex(network_idx, (char*)address_hex.c_str(), P2PKH);
+            addr3 = get_address_from_hex(network_idx, (char*)address_hex.c_str(), P2SH_P2WPKH);
+            addr4 = get_address_from_hex(network_idx, (char*)address_hex.c_str(), P2WPKH);
             param["addr1"] = addr1;
             param["addr3"] = addr3;
             param["addr4"] = addr4;
