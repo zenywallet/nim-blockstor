@@ -830,7 +830,6 @@ static void ShowAddressWindow(bool* p_open, int wid)
     std::string address = param["address"].get<std::string>();
     std::string address_hex = param["address_hex"].get<std::string>();
     bool valid = param["valid"].get<bool>();
-    int prefix = param["prefix"].get<int>();
     int network_idx = param["nid"].get<int>();
     std::string nid_s = std::to_string(network_idx);
     std::string addr1 = param["addr1"].get<std::string>();
@@ -947,38 +946,6 @@ static void ShowAddressWindow(bool* p_open, int wid)
                 ImGui::Text("status:");
                 ImGui::Text("amount:");
                 ImGui::Text("utxo count:");
-            }
-
-            if (ImGui::TreeNode(("Address detail##da" + wid_s).c_str())) {
-                ImGui::Text("hex:"); ImGui::SameLine();
-                ImGui::PushFont(monoFont);
-                ImGui::Text(address_hex.c_str());
-                ImGui::PopFont();
-                if (address_hex.length() > 0) {
-                    ImGui::Text("size (bytes):"); ImGui::SameLine();
-                    ImGui::PushFont(monoFont);
-                    ImGui::Text(std::to_string(address_hex.length() / 2).c_str());
-                    ImGui::PopFont();
-                }
-                if (valid) {
-                    ImGui::Text("prefix:"); ImGui::SameLine();
-                    ImGui::PushFont(monoFont);
-                    ImGui::Text(("0x" + address_hex.substr(0, 2) + " (" + std::to_string(prefix) + ")").c_str());
-                    ImGui::PopFont();
-                    ImGui::Text("hash160:"); ImGui::SameLine();
-                    ImGui::PushFont(monoFont);
-                    ImGui::Text(address_hex.substr(2, 40).c_str());
-                    ImGui::PopFont();
-                    ImGui::Text("checksum:"); ImGui::SameLine();
-                    ImGui::PushFont(monoFont);
-                    ImGui::Text(address_hex.substr(42, 8).c_str());
-                    ImGui::PopFont();
-                } else {
-                    ImGui::Text("prefix:");
-                    ImGui::Text("hash160:");
-                    ImGui::Text("checksum:");
-                }
-                ImGui::TreePop();
             }
 
             if (ImGui::TreeNode(("Related addresses##ra" + wid_s).c_str())) {
@@ -1200,7 +1167,6 @@ static void ShowAddressWindow(bool* p_open, int wid)
             param["prev_address"] = "";
         }
         if (valid) {
-            prefix = charVal(address_hex[0]) * 16 + charVal(address_hex[1]);
             if (addrInfos.find(nid_s) == addrInfos.end()) {
                 addrInfos[nid_s] = R"({})"_json;
             }
@@ -1225,14 +1191,10 @@ static void ShowAddressWindow(bool* p_open, int wid)
             param["addr3"] = addr3;
             param["addr4"] = addr4;
         } else {
-            if (prefix != -1) {
-                prefix = -1;
-                param["addr1"] = "";
-                param["addr3"] = "";
-                param["addr4"] = "";
-            }
+            param["addr1"] = "";
+            param["addr3"] = "";
+            param["addr4"] = "";
         }
-        param["prefix"] = prefix;
     }
 
     while (!addrInfos["pending"].empty()) {
@@ -2045,7 +2007,7 @@ static void main_loop(void *arg)
             }
             int wid = winAddress["wid"].get<int>() + 1;
             winAddress["wid"] = wid;
-            winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "prefix": -1, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
+            winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
         }
         if (ImGui::Button("Transaction")) {
             if (winTx["wid"].empty()) {
