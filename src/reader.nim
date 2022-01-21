@@ -3,7 +3,7 @@
 import bytes
 
 type
-  Reader* = ref object
+  SeqReader* = ref object
     data*: seq[byte]
     pos*: int
     size*: int
@@ -13,15 +13,17 @@ type
     pos*: int
     size*: int
 
+  Reader* = SeqReader | PtrReader
+
   ReaderError* = object of CatchableError
 
 
-proc newReader*(data: seq[byte]): Reader =
-  Reader(data: data, pos: 0, size: data.len.int)
+proc newReader*(data: seq[byte]): SeqReader =
+  SeqReader(data: data, pos: 0, size: data.len.int)
 
-proc newReader*[T](data: T): Reader =
+proc newReader*[T](data: T): SeqReader =
   let data = cast[seq[byte]](data)
-  Reader(data: data, pos: 0, size: data.len.int)
+  SeqReader(data: data, pos: 0, size: data.len.int)
 
 proc getUint64*(r: Reader): uint64 =
   if r.size < r.pos + 8:
@@ -100,74 +102,8 @@ proc len*(r: Reader): int = r.size
 proc newReader*(data: ptr UncheckedArray[byte], size: int): PtrReader =
   PtrReader(data: data, pos: 0, size: size)
 
-proc getUint64*(r: PtrReader): uint64 =
-  if r.size < r.pos + 8:
-    raise newException(ReaderError, "uint64: out of range")
-  result = r.data[r.pos].toUint64
-  inc(r.pos, 8)
-
-proc getUint32*(r: PtrReader): uint32 =
-  if r.size < r.pos + 4:
-    raise newException(ReaderError, "uint32: out of range")
-  result = r.data[r.pos].toUint32
-  inc(r.pos, 4)
-
-proc getUint16*(r: PtrReader): uint16 =
-  if r.size < r.pos + 2:
-    raise newException(ReaderError, "uint16: out of range")
-  result = r.data[r.pos].toUint16
-  inc(r.pos, 2)
-
-proc getUint8*(r: PtrReader): uint8 =
-  if r.size < r.pos + 1:
-    raise newException(ReaderError, "uint8: out of range")
-  result = r.data[r.pos].toUint8
-  inc(r.pos)
-
-template getInt64*(r: PtrReader): int64 = cast[int64](getUint64(r))
-
-template getInt32*(r: PtrReader): int32 = cast[int32](getUint32(r))
-
-template getInt16*(r: PtrReader): int16 = cast[int16](getUint16(r))
-
-template getInt8*(r: PtrReader): int8 = cast[int8](getUint8(r))
-
-proc skip*(r: PtrReader, skipByte: int) =
-  if r.size < r.pos + skipByte:
-    raise newException(ReaderError, "skip: out of range")
-  inc(r.pos, skipByte)
-
-proc getVarInt*(r: PtrReader): int =
-  var u8 = r.getUint8
-  if u8 < 0xfd:
-    result = u8.int
-  elif u8 == 0xfd:
-    result = r.getUint16.int
-  elif u8 == 0xfe:
-    var u32 = r.getUint32
-    when uint32.high.uint64 > int.high.uint64:
-      if u32.uint64 > int.high.uint64:
-        raise newException(ReaderError, "varint: out of range")
-    result = u32.int
-  elif u8 == 0xff:
-    var u64 = r.getUint64
-    if u64 > int.high.uint64:
-      raise newException(ReaderError, "varint: out of range")
-    result = u64.int
-
 proc getBytes*(r: PtrReader, size: int): seq[byte] =
   if r.size < r.pos + size:
     raise newException(ReaderError, "bytes: out of range")
   result = cast[ptr UncheckedArray[byte]](addr r.data[r.pos]).toBytes(size)
   inc(r.pos, size)
-
-proc getVarStr*(r: PtrReader): string =
-  var len = r.getVarInt
-  var data = r.getBytes(len)
-  result = data.toString
-
-proc readable*(r: PtrReader): bool = r.size > r.pos
-
-proc left*(r: PtrReader): int = r.size - r.pos
-
-proc len*(r: PtrReader): int = r.size
