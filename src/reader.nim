@@ -25,6 +25,9 @@ proc newReader*[T](data: T): SeqReader =
   let data = cast[seq[byte]](data)
   SeqReader(data: data, pos: 0, size: data.len.int)
 
+proc newReader*(data: ptr UncheckedArray[byte], size: int): PtrReader =
+  PtrReader(data: data, pos: 0, size: size)
+
 proc getUint64*(r: Reader): uint64 =
   if r.size < r.pos + 8:
     raise newException(ReaderError, "uint64: out of range")
@@ -86,6 +89,12 @@ proc getBytes*(r: Reader, size: int): seq[byte] =
   result = r.data[r.pos..<r.pos+size]
   inc(r.pos, size)
 
+proc getBytes*(r: PtrReader, size: int): seq[byte] =
+  if r.size < r.pos + size:
+    raise newException(ReaderError, "bytes: out of range")
+  result = cast[ptr UncheckedArray[byte]](addr r.data[r.pos]).toBytes(size)
+  inc(r.pos, size)
+
 proc getVarStr*(r: Reader): string =
   var len = r.getVarInt
   var data = r.getBytes(len)
@@ -96,14 +105,3 @@ proc readable*(r: Reader): bool = r.size > r.pos
 proc left*(r: Reader): int = r.size - r.pos
 
 proc len*(r: Reader): int = r.size
-
-
-
-proc newReader*(data: ptr UncheckedArray[byte], size: int): PtrReader =
-  PtrReader(data: data, pos: 0, size: size)
-
-proc getBytes*(r: PtrReader, size: int): seq[byte] =
-  if r.size < r.pos + size:
-    raise newException(ReaderError, "bytes: out of range")
-  result = cast[ptr UncheckedArray[byte]](addr r.data[r.pos]).toBytes(size)
-  inc(r.pos, size)
