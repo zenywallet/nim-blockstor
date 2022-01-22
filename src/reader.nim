@@ -83,7 +83,7 @@ proc getVarInt*(r: Reader): int =
       raise newException(ReaderError, "varint: out of range")
     result = u64.int
 
-proc getBytes*(r: Reader, size: int): seq[byte] =
+proc getBytes*(r: SeqReader, size: int): seq[byte] =
   if r.size < r.pos + size:
     raise newException(ReaderError, "bytes: out of range")
   result = r.data[r.pos..<r.pos+size]
