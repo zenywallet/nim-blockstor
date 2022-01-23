@@ -59,7 +59,7 @@ proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
 
 const USE_SEQOFCAP_FOR_TX = true
 
-proc toTx*(reader: Reader | PtrReader): Tx =
+proc toTx*(reader: Reader): Tx =
   let tx = new Tx
   tx.ver = reader.getInt32
   var insLen = reader.getVarInt

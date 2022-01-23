@@ -55,7 +55,7 @@ proc `$`*(o: BlockHash | MerkleHash): string = $toReverse(cast[seq[byte]](o))
 
 proc `$`*(o: BlockHashObj | MerkleHashObj): string = $toReverse(o.toBytes)
 
-proc toBlock*(reader: Reader | PtrReader): Block =
+proc toBlock*(reader: Reader): Block =
   var b = new Block
   b.header = new BlockHeader
   b.header.ver = reader.getInt32
