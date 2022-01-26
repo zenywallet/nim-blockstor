@@ -5,6 +5,7 @@
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <SDL.h>
 #include <SDL_opengles2.h>
 #include <nlohmann/json.hpp>
@@ -70,6 +71,8 @@ bool CheckSettingsDirty(ImGuiIO& io)
     return dirtySettingsFlag;
 }
 
+static void main_loop(void *arg);
+
 extern "C" bool streamActive;
 
 extern "C" void uiError(const char* msg);
@@ -128,6 +131,14 @@ extern "C" void streamRecv(char* data, int size) {
         blkInfos["pending"].push_back(j);
     } else if(j["type"] == "height") {
         heightInfos["pending"].push_back(j["data"]);
+    }
+
+    EmscriptenVisibilityChangeEvent vce;
+    EMSCRIPTEN_RESULT ret = emscripten_get_visibility_status(&vce);
+    if (ret == EMSCRIPTEN_RESULT_SUCCESS) {
+        if (vce.hidden) {
+            main_loop(nullptr);
+        }
     }
 }
 
@@ -1875,6 +1886,11 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
+    static bool main_called = false;
+    if (main_called) {
+        return;
+    }
+    main_called = true;
     ImGuiIO& io = ImGui::GetIO();
 
     static bool show_demo_window = false;
@@ -2246,6 +2262,7 @@ static void main_loop(void *arg)
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     SDL_GL_SwapWindow(g_Window);
+    main_called = false;
 }
 
 static const char* GetClipboardTextFn_Impl(void* user_data)
