@@ -5,7 +5,6 @@
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
 #include <emscripten.h>
-#include <emscripten/html5.h>
 #include <SDL.h>
 #include <SDL_opengles2.h>
 #include <nlohmann/json.hpp>
@@ -133,12 +132,8 @@ extern "C" void streamRecv(char* data, int size) {
         heightInfos["pending"].push_back(j["data"]);
     }
 
-    EmscriptenVisibilityChangeEvent vce;
-    EMSCRIPTEN_RESULT ret = emscripten_get_visibility_status(&vce);
-    if (ret == EMSCRIPTEN_RESULT_SUCCESS) {
-        if (vce.hidden) {
-            main_loop(nullptr);
-        }
+    if (EM_ASM_INT(return document.hidden)) {
+        main_loop(nullptr);
     }
 }
 
