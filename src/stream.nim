@@ -113,16 +113,13 @@ proc freeVal[T](val: T) =
 loadUthashModules()
 
 # streamId - client
-var clientTableObj: KVHandle[ptr Client] = nil
-var clientTable: ptr KVHandle[ptr Client] = addr clientTableObj
+var clientTable: KVHandle[ptr Client]
 
 # tags - streamId
-var streamTableObj: KVHandle[StreamId] = nil
-var streamTable: ptr KVHandle[StreamId] = addr streamTableObj
+var streamTable: KVHandle[StreamId]
 
 # streamId - tags
-var tagTableObj: KVHandle[StreamIdToTag] = nil
-var tagTable: ptr KVHandle[StreamIdToTag] = addr tagTableObj
+var tagTable: KVHandle[StreamIdToTag]
 
 var tableLock: RWLock
 
