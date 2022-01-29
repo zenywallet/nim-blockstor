@@ -55,7 +55,31 @@ proc toBytes*(datas: seq[Witness]): seq[byte] =
 
 proc `$`*(data: Flags): string = $cast[uint8](data)
 
-proc `$`*(data: Witness | Sig): string = $cast[seq[byte]](data)
+proc `$`*(data: Sig): string =
+  var sigBytes = cast[seq[byte]](data)
+  try:
+    var reader = newReader(sigBytes)
+    var sigLen = reader.getVarInt
+    var sig = reader.getBytes(sigLen - 1)
+    var sigHashType = reader.getUint8()
+    var pubLen = reader.getVarInt
+    var pub = reader.getBytes(pubLen)
+    result.add("(sigHash: " & $sig)
+    if (sigHashType and SIGHASH_ALL.uint8) > 0:
+      result.add(", sigHashType: SIGHASH_ALL")
+    elif (sigHashType and SIGHASH_NONE.uint8) > 0:
+      result.add(", sigHashType: SIGHASH_NONE")
+    elif (sigHashType and SIGHASH_SINGLE.uint8) > 0:
+      result.add(", sigHashType: SIGHASH_SINGLE")
+    else:
+      result.add(", sigHashType: Unknown")
+    if (sigHashType and SIGHASH_ANYONECANPAY.uint8) > 0:
+      result.add(" | SIGHASH_ANYONECANPAY")
+    result.add(", pub: " & $pub & ")")
+  except:
+    result = $sigBytes
+
+proc `$`*(data: Witness): string = $cast[seq[byte]](data)
 
 const USE_SEQOFCAP_FOR_TX = true
 
