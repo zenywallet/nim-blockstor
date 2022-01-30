@@ -18,48 +18,48 @@ export uthash
 # unconfs - address_hash, address_type = val_out, val_in
 
 type
-  HashArray* = array[32, byte]
-  Hash160Array* = array[20, byte]
+  HashObj* = array[32, byte]
+  Hash160Obj* = array[20, byte]
 
   MempoolAddrSpentObj* = object
-    # address_hash*: Hash160Array - key
+    # address_hash*: Hash160Obj - key
     address_type*: AddressType
-    txid*: HashArray
+    txid*: HashObj
     n*: uint32
     value*: uint64
-    txid_out*: HashArray
+    txid_out*: HashObj
 
   MempoolAddrTxoutObj* = object
-    # address_hash*: Hash160Array - key
+    # address_hash*: Hash160Obj - key
     address_type*: AddressType
-    txid*: HashArray
+    txid*: HashObj
     n*: uint32
     value*: uint64
 
   MempoolTxAddrObj* = object
-    # txid*: HashArray - key
-    address_hash*: Hash160Array
+    # txid*: HashObj - key
+    address_hash*: Hash160Obj
     address_type*: AddressType
     trans*: uint8
     value*: uint64
 
   MempoolTxTxoutObj* = object
-    # txid: HashArray - key
+    # txid: HashObj - key
     n*: uint32
     value*: uint64
-    address_hash*: Hash160Array
+    address_hash*: Hash160Obj
     address_type*: AddressType
 
   MempoolTxSpentObj* = object
-    # txid_out: HashArray - key
-    txid*: HashArray
+    # txid_out: HashObj - key
+    txid*: HashObj
     n*: uint32
     value*: uint64
-    address_hash*: Hash160Array
+    address_hash*: Hash160Obj
     address_type*: AddressType
 
   MempoolUnconfObj* = object
-    # address_hash*: Hash160Array - key
+    # address_hash*: Hash160Obj - key
     # address_type*: AddressType - key
     value_out*: uint64
     value_in*: uint64
@@ -97,13 +97,13 @@ proc newMempoolAddrSpent(address_type: AddressType, txid: Hash, n: uint32,
   let txidSeq = cast[seq[byte]](txid)
   if txidSeq.len != 32:
     raise newException(MempoolError, "invalid txid")
-  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashArray))
+  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashObj))
   p.n = n
   p.value = value
   let txidOutSeq = cast[seq[byte]](txid_out)
   if txidOutSeq.len != 32:
     raise newException(MempoolError, "invalid txid_out")
-  copyMem(addr p.txid_out, unsafeAddr txidOutSeq[0], sizeof(HashArray))
+  copyMem(addr p.txid_out, unsafeAddr txidOutSeq[0], sizeof(HashObj))
   result = p
 
 proc newMempoolAddrTxout(address_type: AddressType, txid: Hash, n: uint32,
@@ -113,7 +113,7 @@ proc newMempoolAddrTxout(address_type: AddressType, txid: Hash, n: uint32,
   let txidSeq = cast[seq[byte]](txid)
   if txidSeq.len != 32:
     raise newException(MempoolError, "invalid txid")
-  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashArray))
+  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashObj))
   p.n = n
   p.value = value
   result = p
@@ -124,7 +124,7 @@ proc newMempoolTxAddr(address_hash: Hash160, address_type: AddressType,
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
     raise newException(MempoolError, "invalid address_hash txaddr")
-  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
+  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Obj))
   p.address_type = address_type
   p.trans = trans
   p.value = value
@@ -138,7 +138,7 @@ proc newMempoolTxTxout(n: uint32, value: uint64, address_hash: Hash160,
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
     raise newException(MempoolError, "invalid address_hash txtxout")
-  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
+  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Obj))
   p.address_type = address_type
   result = p
 
@@ -148,13 +148,13 @@ proc newMempoolTxSpent(txid: Hash, n: uint32, value: uint64, address_hash: Hash1
   let txidSeq = cast[seq[byte]](txid)
   if txidSeq.len != 32:
     raise newException(MempoolError, "invalid txid")
-  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashArray))
+  copyMem(addr p.txid, unsafeAddr txidSeq[0], sizeof(HashObj))
   p.n = n
   p.value = value
   let ahash = cast[seq[byte]](address_hash)
   if ahash.len != 20:
     raise newException(MempoolError, "invalid address_hash txspent")
-  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Array))
+  copyMem(addr p.address_hash, unsafeAddr ahash[0], sizeof(Hash160Obj))
   p.address_type = address_type
   result = p
 
@@ -175,7 +175,7 @@ proc freeVal[T](val: T) =
   else:
     discard
 
-proc `$`*(data: HashArray | Hash160Array): string =
+proc `$`*(data: HashObj | Hash160Obj): string =
   var b = data.toSeq
   algorithm.reverse(b)
   bytes.toHex(b)
@@ -493,7 +493,7 @@ proc `%`*(obj: MempoolAddrSpentObj | MempoolAddrTxoutObj |
       if j.kind != JNull:
         result[key] = %val
 
-proc `%`*(o: HashArray): JsonNode = newJString($o)
+proc `%`*(o: HashObj): JsonNode = newJString($o)
 
 proc unconfs*(poolId: int): JsonNode =
   let kvAddrSpents = kvs[poolId].kvAddrSpents
