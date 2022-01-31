@@ -16,7 +16,7 @@ type
   KeyType = openarray[byte]
   ValueType = openarray[byte]
 
-  RocksDbErr* = object of Exception
+  RocksDbErr* = object of CatchableError
 
   ResultKeyValue* = object
     key*: seq[byte]
