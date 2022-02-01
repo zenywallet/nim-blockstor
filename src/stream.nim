@@ -125,16 +125,13 @@ var tableLock: RWLock
 
 
 # msgId - streamId
-var msgRevTableObj: KVHandle[StreamId] = nil
-var msgRevTable: ptr KVHandle[StreamId] = addr msgRevTableObj
+var msgRevTable: KVHandle[StreamId]
 
 # streamId - pair(key: msgId, val: streamId)
-var msgTableObj: KVHandle[KVPair[StreamId]] = nil
-var msgTable: ptr KVHandle[KVPair[StreamId]] = addr msgTableObj
+var msgTable: KVHandle[KVPair[StreamId]]
 
 # msgId - message
-var msgDataTableObj: KVHandle[MsgData] = nil
-var msgDataTable: ptr KVHandle[MsgData] = addr msgDataTableObj
+var msgDataTable: KVHandle[MsgData]
 
 var msgTableLock: RWLock
 
