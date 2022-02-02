@@ -112,29 +112,15 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-# streamId - client
-var clientTable: KVHandle[ptr Client]
-
-# tags - streamId
-var streamTable: KVHandle[StreamId]
-
-# streamId - tags
-var tagTable: KVHandle[StreamIdToTag]
-
+var clientTable: KVHandle[ptr Client] # streamId - client
+var streamTable: KVHandle[StreamId] # tags - streamId
+var tagTable: KVHandle[StreamIdToTag] # streamId - tags
 var tableLock: RWLock
 
-
-# msgId - streamId
-var msgRevTable: KVHandle[StreamId]
-
-# streamId - pair(key: msgId, val: streamId)
-var msgTable: KVHandle[KVPair[StreamId]]
-
-# msgId - message
-var msgDataTable: KVHandle[MsgData]
-
+var msgRevTable: KVHandle[StreamId] # msgId - streamId
+var msgTable: KVHandle[KVPair[StreamId]] # streamId - pair(key: msgId, val: streamId)
+var msgDataTable: KVHandle[MsgData] # msgId - message
 var msgTableLock: RWLock
-
 
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes
