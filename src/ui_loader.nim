@@ -129,7 +129,7 @@ deoxyMod = JsObject{
   canvas: (proc(): JsObject =
     var canvas = document.getElementById("canvas")
     canvas.addEventListener("webglcontextlost", proc(e: JsObject) =
-      document.getElementById("overlap").innerText = "Please reload the page."
+      document.getElementById("overlap").innerText = "Please reload the page.".cstring
       e.preventDefault(),
       false)
     return canvas
