@@ -71,6 +71,12 @@ type
 
   MsgId = uint64
 
+  MiningScriptObj* = object
+    size: cint
+    data: UncheckedArray[byte]
+
+  MiningScript* = ptr MiningScriptObj
+
   ParseCmdSwitch {.pure.} = enum
     None
     On
@@ -109,6 +115,8 @@ proc freeVal[T](val: T) =
     val.deallocShared()
   elif T is MsgData:
     val.deallocShared()
+  elif T is MiningScript:
+    val.deallocShared()
 
 loadUthashModules()
 
@@ -121,6 +129,9 @@ var msgRevTable: KVHandle[StreamId] # msgId - streamId
 var msgTable: KVHandle[KVPair[StreamId]] # streamId - pair(key: msgId, val: streamId)
 var msgDataTable: KVHandle[MsgData] # msgId - message
 var msgTableLock: RWLock
+
+var miningAddrTable: KVHandle[MiningScript]
+var miningAddrTableLock: RWLock
 
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes
@@ -169,6 +180,22 @@ proc delMsg*(streamId: StreamId, msgId: MsgId) =
       msgRevTable.del(pair)
     )
 
+proc setMiningScript(streamId: StreamId, nid: int, script: seq[byte]) =
+  let p = cast[MiningScript](allocShared0(sizeof(MiningScriptObj) + script.len))
+  p.size = script.len.cint
+  copyMem(addr p.data, unsafeAddr script[0], script.len)
+  withWriteLock miningAddrTableLock:
+    miningAddrTable[(streamId, nid.uint16).toBytes] = p
+
+proc getMiningScript(streamId: StreamId, nid: int): seq[byte] =
+  withReadLock miningAddrTableLock:
+    let miningAddr = miningAddrTable[(streamId, nid.uint16).toBytes]
+    if not miningAddr.isNil:
+      result = (addr miningAddr.data).toBytes(miningAddr.size.int)
+
+proc delMiningScript*(streamId: StreamId, nid: int) =
+  withWriteLock miningAddrTableLock:
+    miningAddrTable.del((streamId, nid.uint16).toBytes)
 
 var decBuf {.threadvar.}: ptr UncheckedArray[byte]
 var decBufSize {.threadvar.}: int
@@ -309,6 +336,8 @@ proc freeExClient*(pClient: ptr Client) =
           streamTable.del(x.pair)
           result = true
           )
+      for nid in streamDbInsts.low..streamDbInsts.high:
+        sobj.streamId.delMiningScript(nid)
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     pClient.pStream = nil
@@ -535,6 +564,7 @@ proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
 proc initStream*() =
   rwlockInit(tableLock)
   rwlockInit(msgTableLock)
+  rwlockInit(miningAddrTableLock)
   curStreamId = 1
   streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
   streamWorkerChannel[].open()
@@ -584,6 +614,9 @@ proc freeStream*() =
     msgTable.clear()
   rwlockDestroy(msgTableLock)
 
+  withWriteLock miningAddrTableLock:
+    miningAddrTable.clear()
+  rwlockDestroy(miningAddrTableLock)
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
@@ -905,13 +938,16 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let nid = reqData["nid"].getInt
       if nid > streamDbInsts.high or nid < streamDbInsts.low:
         raise newException(StreamError, "invalid nid")
+      let sobj = cast[ptr StreamObj](client.pStream)
+      let streamId = sobj.streamId
       if cmdSwitch == ParseCmdSwitch.On:
-        let sobj = cast[ptr StreamObj](client.pStream)
-        let streamId = sobj.streamId
+        let astr = reqData["addr"].getStr
+        streamId.setMiningScript(nid, networks[nid].getScript(astr))
         client.setTag(("mining", nid.uint16).toBytes)
         miningTemplateChannel[].send((streamId, nid, newJNull(), MsgDataType.Mining))
       elif cmdSwitch == ParseCmdSwitch.Off:
         client.delTag(("mining", nid.uint16).toBytes)
+        streamId.delMiningScript(nid)
 
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
