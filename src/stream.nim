@@ -183,12 +183,15 @@ var curStreamId: int
 var streamWorkerThread: Thread[WrapperStreamThreadArg]
 var invokeWorkerThread: Thread[WrapperStreamThreadArg]
 var miningWorkerThread: Thread[WrapperStreamThreadArg]
+var miningTemplateWorkerThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
 type
   StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
   RpcWorkerChannelParam = tuple[streamId: StreamId, data: JsonNode, msgType: MsgDataType]
+  MiningTemplateChannelParam = tuple[streamId: StreamId, nodeId: int, data: JsonNode, msgType: MsgDataType]
 var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
 var rpcWorkerChannels: array[RPC_NODE_COUNT, ptr Channel[RpcWorkerChannelParam]]
+var miningTemplateChannel: ptr Channel[MiningTemplateChannelParam]
 var streamActive* = false
 var curMsgId: int
 
@@ -468,30 +471,7 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
 
         elif channelData.msgType == MsgDataType.BlockTmpl:
           var retTmpl = getBlockTemplate.send(blockTemplateParam)
-          blockTmpl = retTmpl["result"]
-          prevHash = blockTmpl["previousblockhash"].getStr.Hex.toBlockHash
-          var transactions = blockTmpl["transactions"]
-          txCount = transactions.len.uint32
-          var curTime, prevCurTime: uint32
-          curTime = blockTmpl["curtime"].getInt.uint32
-          if txCount != prevTxCount or prevHash != prevPrevHash:
-            prevTxCount = txCount
-            prevPrevHash = prevHash
-            retJson["type"] = newJString("mining")
-            retJson["data"]["res"] = blockTmpl
-            streamSend(("mining", arg.nodeId.uint16).toBytes, retJson)
-          else:
-            if curTime != prevCurTime:
-              prevCurTime = curTime
-              retJson["type"] = newJString("mining")
-              retJson["data"]["res"] = %*{"curtime": curTime}
-              streamSend(("mining", arg.nodeId.uint16).toBytes, retJson)
-
-        elif channelData.msgType == MsgDataType.Mining:
-          if not blockTmpl.isNil:
-            retJson["type"] = newJString("mining")
-            retJson["data"]["res"] = blockTmpl
-            streamSend(channelData.streamId, retJson)
+          miningTemplateChannel[].send((0'u64, arg.nodeId, retTmpl["result"], MsgDataType.BlockTmpl))
 
       except:
         let e = getCurrentException()
@@ -505,6 +485,43 @@ proc miningWorker(arg: StreamThreadArg) {.thread.} =
         if streamTable.itemExists(("mining", i.uint16).toBytes):
           rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.BlockTmpl))
       sleep(3000)
+
+proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
+  var prevTxCount: array[RPC_NODE_COUNT, uint32]
+  var prevPrevHash: array[RPC_NODE_COUNT, BlockHash]
+  var prevCurTime: array[RPC_NODE_COUNT, uint32]
+  var curMiningTmpl: array[RPC_NODE_COUNT, JsonNode]
+
+  while true:
+    var channelData = miningTemplateChannel[].recv()
+    if not streamActive:
+      break
+
+    if channelData.msgType == MsgDataType.BlockTmpl:
+      let nodeId = channelData.nodeId
+      let blockTmpl = channelData.data
+      let prevHash = blockTmpl["previousblockhash"].getStr.Hex.toBlockHash
+      let transactions = blockTmpl["transactions"]
+      let txCount = transactions.len.uint32
+
+      if txCount != prevTxCount[nodeId] or prevHash != prevPrevHash[nodeId]:
+        prevTxCount[nodeId] = txCount
+        prevPrevHash[nodeId] = prevHash
+        var retJson = %*{"type": "", "data": {"err": 0, "res": {}, "nid": nodeId}}
+        retJson["type"] = newJString("mining")
+        retJson["data"]["res"] = blockTmpl
+        curMiningTmpl[nodeId] = retJson
+        streamSend(("mining", nodeId.uint16).toBytes, curMiningTmpl[nodeId])
+      else:
+        let curTime = blockTmpl["curtime"].getInt.uint32
+        if curTime != prevCurTime[nodeId]:
+          prevCurTime[nodeId] = curTime
+          curMiningTmpl[nodeId]["data"]["res"]["curtime"] = newJInt(curTime.int)
+    elif channelData.msgType == MsgDataType.Mining:
+      let streamId = channelData.streamId
+      let nodeId = channelData.nodeId
+      if not curMiningTmpl[nodeId].isNil:
+        streamId.streamSend(curMiningTmpl[nodeId])
 
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
   echo wrapperArg
@@ -526,6 +543,8 @@ proc initStream*() =
     rpcWorkerChannels[i][].open()
   streamActive = true
   curMsgId = 1
+  miningTemplateChannel = cast[ptr Channel[MiningTemplateChannelParam]](allocShared0(sizeof(Channel[MiningTemplateChannelParam])))
+  miningTemplateChannel[].open()
   createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
   createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
 
@@ -535,6 +554,7 @@ proc initStream*() =
       createThread(rpcWorkerThreads[threadId], streamThreadWrapper,
                   (rpcWorker, StreamThreadArg(type: StreamThreadArgType.NodeId, threadId: threadId, nodeId: i)))
       inc(threadId)
+  createThread(miningTemplateWorkerThread, streamThreadWrapper, (miningTemplateWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
   createThread(miningWorkerThread, streamThreadWrapper, (miningWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
 
 proc freeStream*() =
@@ -543,7 +563,10 @@ proc freeStream*() =
     for j in 0..<RPC_WORKER_NUM:
       rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.Direct))
   streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
-  joinThreads(miningWorkerThread, invokeWorkerThread, streamWorkerThread)
+  miningTemplateChannel[].send((0'u64, 0, newJNull(), MsgDataType.Direct))
+  joinThreads(miningWorkerThread, miningTemplateWorkerThread, invokeWorkerThread, streamWorkerThread)
+  miningTemplateChannel[].close()
+  miningTemplateChannel.deallocShared()
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i][].close()
     rpcWorkerChannels[i].deallocShared()
@@ -560,6 +583,7 @@ proc freeStream*() =
     msgRevTable.clear()
     msgTable.clear()
   rwlockDestroy(msgTableLock)
+
 
 proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
@@ -884,12 +908,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       if cmdSwitch == ParseCmdSwitch.On:
         let sobj = cast[ptr StreamObj](client.pStream)
         let streamId = sobj.streamId
-        if streamTable.itemExists(("mining", nid.uint16).toBytes):
-          client.setTag(("mining", nid.uint16).toBytes)
-          rpcWorkerChannels[nid][].send((streamId, json, MsgDataType.Mining))
-        else:
-          client.setTag(("mining", nid.uint16).toBytes)
-          rpcWorkerChannels[nid][].send((0'u64, newJNull(), MsgDataType.BlockTmpl))
+        client.setTag(("mining", nid.uint16).toBytes)
+        miningTemplateChannel[].send((streamId, nid, newJNull(), MsgDataType.Mining))
       elif cmdSwitch == ParseCmdSwitch.Off:
         client.delTag(("mining", nid.uint16).toBytes)
 
