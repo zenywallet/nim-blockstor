@@ -519,7 +519,13 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
   var prevTxCount: array[RPC_NODE_COUNT, uint32]
   var prevPrevHash: array[RPC_NODE_COUNT, BlockHash]
   var prevCurTime: array[RPC_NODE_COUNT, uint32]
-  var curMiningTmpl: array[RPC_NODE_COUNT, JsonNode]
+  var curTime: array[RPC_NODE_COUNT, uint32]
+  var curTarget: array[RPC_NODE_COUNT, string]
+  var curCoinBaseValue: array[RPC_NODE_COUNT, uint64]
+  var curHeader: array[RPC_NODE_COUNT, BlockHeader]
+  var curTx: array[RPC_NODE_COUNT, Tx]
+  var curTxids: array[RPC_NODE_COUNT, seq[seq[byte]]]
+  var pendingStream: seq[tuple[streamId: StreamId, nodeId: int]]
 
   while true:
     var channelData = miningTemplateChannel[].recv()
@@ -532,25 +538,71 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
       let prevHash = blockTmpl["previousblockhash"].getStr.Hex.toBlockHash
       let transactions = blockTmpl["transactions"]
       let txCount = transactions.len.uint32
+      curTime[nodeId] = blockTmpl["curtime"].getInt.uint32
 
       if txCount != prevTxCount[nodeId] or prevHash != prevPrevHash[nodeId]:
         prevTxCount[nodeId] = txCount
         prevPrevHash[nodeId] = prevHash
-        var retJson = %*{"type": "", "data": {"err": 0, "res": {}, "nid": nodeId}}
-        retJson["type"] = newJString("mining")
-        retJson["data"]["res"] = blockTmpl
-        curMiningTmpl[nodeId] = retJson
-        streamSend(("mining", nodeId.uint16).toBytes, curMiningTmpl[nodeId])
+
+        curTarget[nodeId] = blockTmpl["target"].getStr
+        let height = blockTmpl["height"].getInt.uint32
+        curCoinBaseValue[nodeId] = blockTmpl["coinbasevalue"].getBiggestInt.uint64
+        let sig = concat(@[byte 3'u8], height.toBytes[0..2])
+
+        var header = new BlockHeader
+        header.ver = blockTmpl["version"].getInt.int32
+        header.prev = prevHash
+        # header.merkle TBD
+        header.time = curTime[nodeId]
+        header.bits = blockTmpl["bits"].getStr.Hex.toBytes.toReverse.toUint32
+        header.nonce = 0'u32
+        curHeader[nodeId] = header
+
+        var tx = new Tx
+        tx.ver = 1'i32
+        tx.flags = Flags(0'u8)
+        tx.ins = @[TxIn (tx: Hash(pad(32)), n: 0xffffffff'u32, sig: Sig(sig), sequence: 0xffffffff'u32)]
+        # tx.outs TBD
+        tx.locktime = 0
+        curTx[nodeId] = tx
+
+        curTxids[nodeId] = @[]
+        curTxids[nodeId].add(@[])
+        for t in transactions:
+          curTxids[nodeId].add(t["txid"].getStr.Hex.toHash.toBytes)
+
+        for s in streamTable.items(("mining", nodeId.uint16).toBytes):
+          var client = clientTable[s.val.toBytes]
+          if not client.isNil:
+            var sobj = cast[ptr StreamObj](client.pStream)
+
+            let script = sobj.streamId.getMiningScript(nodeId).Script
+            curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
+            curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
+            curHeader[nodeId].merkle = merkle(curTxids[nodeId])
+            let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
+                            "target": curTarget[nodeId], "nid": nodeId}}
+            sobj.streamId.streamSend(retJson)
       else:
-        let curTime = blockTmpl["curtime"].getInt.uint32
-        if curTime != prevCurTime[nodeId]:
-          prevCurTime[nodeId] = curTime
-          curMiningTmpl[nodeId]["data"]["res"]["curtime"] = newJInt(curTime.int)
+        if curTime[nodeId] != prevCurTime[nodeId]:
+          prevCurTime[nodeId] = curTime[nodeId]
+          curHeader[nodeId].time = curTime[nodeId]
+          for s in pendingStream.deduplicate():
+            let nodeId = s.nodeId
+            let streamId = s.streamId
+            let script = streamId.getMiningScript(nodeId).Script
+            curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
+            curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
+            curHeader[nodeId].merkle = merkle(curTxids[nodeId])
+            let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
+                            "target": curTarget[nodeId], "nid": nodeId}}
+            streamId.streamSend(retJson)
+          pendingStream = @[]
+
     elif channelData.msgType == MsgDataType.Mining:
       let streamId = channelData.streamId
       let nodeId = channelData.nodeId
-      if not curMiningTmpl[nodeId].isNil:
-        streamId.streamSend(curMiningTmpl[nodeId])
+      pendingStream.add((streamId, nodeId))
 
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
   echo wrapperArg
