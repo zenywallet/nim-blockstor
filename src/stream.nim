@@ -526,6 +526,9 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
   var curTx: array[RPC_NODE_COUNT, Tx]
   var curTxids: array[RPC_NODE_COUNT, seq[seq[byte]]]
   var pendingStream: seq[tuple[streamId: StreamId, nodeId: int]]
+  var streamBlockHeaders: seq[Table[seq[byte], BlockHeader]]
+  for i in 0..<RPC_NODE_COUNT:
+    streamBlockHeaders.add(initTable[seq[byte], BlockHeader]())
 
   while true:
     var channelData = miningTemplateChannel[].recv()
@@ -571,6 +574,7 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
         for t in transactions:
           curTxids[nodeId].add(t["txid"].getStr.Hex.toHash.toBytes)
 
+        streamBlockHeaders[nodeId].clear()
         for s in streamTable.items(("mining", nodeId.uint16).toBytes):
           var client = clientTable[s.val.toBytes]
           if not client.isNil:
@@ -580,6 +584,11 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
             curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
             curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
             curHeader[nodeId].merkle = merkle(curTxids[nodeId])
+
+            var headerTmp = new BlockHeader
+            headerTmp[] = curHeader[nodeId][]
+            streamBlockHeaders[nodeId][sobj.streamId.toBytes] = headerTmp
+
             let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
                             "target": curTarget[nodeId], "nid": nodeId}}
             sobj.streamId.streamSend(retJson)
@@ -594,6 +603,11 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
             curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
             curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
             curHeader[nodeId].merkle = merkle(curTxids[nodeId])
+
+            var headerTmp = new BlockHeader
+            headerTmp[] = curHeader[nodeId][]
+            streamBlockHeaders[nodeId][streamId.toBytes] = headerTmp
+
             let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
                             "target": curTarget[nodeId], "nid": nodeId}}
             streamId.streamSend(retJson)
