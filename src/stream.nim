@@ -543,6 +543,20 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
       let txCount = transactions.len.uint32
       curTime[nodeId] = blockTmpl["curtime"].getInt.uint32
 
+      template sendMiningData() {.dirty.} =
+        let script = streamId.getMiningScript(nodeId).Script
+        curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
+        curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
+        curHeader[nodeId].merkle = merkle(curTxids[nodeId])
+
+        var headerTmp = new BlockHeader
+        headerTmp[] = curHeader[nodeId][]
+        streamBlockHeaders[nodeId][streamId.toBytes] = headerTmp
+
+        let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
+                        "target": curTarget[nodeId], "nid": nodeId}}
+        streamId.streamSend(retJson)
+
       if txCount != prevTxCount[nodeId] or prevHash != prevPrevHash[nodeId]:
         prevTxCount[nodeId] = txCount
         prevPrevHash[nodeId] = prevHash
@@ -579,18 +593,7 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
           var client = clientTable[s.val.toBytes]
           if not client.isNil:
             let streamId = cast[ptr StreamObj](client.pStream).streamId
-            let script = streamId.getMiningScript(nodeId).Script
-            curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
-            curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
-            curHeader[nodeId].merkle = merkle(curTxids[nodeId])
-
-            var headerTmp = new BlockHeader
-            headerTmp[] = curHeader[nodeId][]
-            streamBlockHeaders[nodeId][streamId.toBytes] = headerTmp
-
-            let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
-                            "target": curTarget[nodeId], "nid": nodeId}}
-            streamId.streamSend(retJson)
+            sendMiningData()
       else:
         if curTime[nodeId] != prevCurTime[nodeId]:
           prevCurTime[nodeId] = curTime[nodeId]
@@ -598,18 +601,7 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
           for s in pendingStream.deduplicate():
             let nodeId = s.nodeId
             let streamId = s.streamId
-            let script = streamId.getMiningScript(nodeId).Script
-            curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
-            curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
-            curHeader[nodeId].merkle = merkle(curTxids[nodeId])
-
-            var headerTmp = new BlockHeader
-            headerTmp[] = curHeader[nodeId][]
-            streamBlockHeaders[nodeId][streamId.toBytes] = headerTmp
-
-            let retJson = %*{"type": "mining", "data": {"header": curHeader[nodeId].toBytes.toHex,
-                            "target": curTarget[nodeId], "nid": nodeId}}
-            streamId.streamSend(retJson)
+            sendMiningData()
           pendingStream = @[]
 
     elif channelData.msgType == MsgDataType.Mining:
