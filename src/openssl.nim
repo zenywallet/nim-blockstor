@@ -2,7 +2,7 @@
 
 import os
 
-const USE_LIBRESSL = false
+const USE_LIBRESSL = defined(USE_LIBRESSL)
 
 when USE_LIBRESSL:
   const libresslPath = currentSourcePath.parentDir() / "../deps/libressl"
