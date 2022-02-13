@@ -24,7 +24,7 @@ proc purgeReqs*(cr: CheckReqs, sec: float = -1): float {.discardable.} =
   if pos > 0:
     for i in 0..<pos:
       cr.table.inc(cr.reqs[i].target, -1)
-    cr.reqs.delete(0, pos - 1)
+    cr.reqs.delete(0..pos - 1)
   result = time
 
 proc checkReq*(cr: CheckReqs, target: uint32, sec: float = -1): int =
