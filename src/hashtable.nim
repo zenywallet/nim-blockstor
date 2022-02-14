@@ -1,7 +1,6 @@
 # Copyright (c) 2021 zenywallet
 
 import std/memfiles
-import posix
 
 type
   HashTableDataObj*[Key, Val] {.packed.} = object
