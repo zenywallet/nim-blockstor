@@ -105,3 +105,8 @@ task uidebug, "Build ui for debug":
   exec "rm src/ui_externs.js"
   exec "rm src/ui_loader.js"
   exec "rm -rf preload_tmp"
+
+task webminer, "Build web miner":
+  exec "nim js -d:release -o:src/web_miner_loader.js src/web_miner_loader.nim"
+  exec "nim c -d:release -d:emscripten -o:public/miner.js --gc:orc src/web_miner.nim"
+  exec "rm src/web_miner_loader.js"
