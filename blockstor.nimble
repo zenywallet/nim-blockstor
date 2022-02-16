@@ -108,5 +108,17 @@ task uidebug, "Build ui for debug":
 
 task webminer, "Build web miner":
   exec "nim js -d:release -o:src/web_miner_loader.js src/web_miner_loader.nim"
-  exec "nim c -d:release -d:emscripten -o:public/miner.js --gc:orc src/web_miner.nim"
+  exec "nim js -d:release -d:nodejs -o:src/web_miner_externs.js src/web_miner_externs.nim"
+  exec "nim c -d:release -d:emscripten -o:public/miner.js_tmp --gc:orc src/web_miner.nim"
+  exec """
+if [ -x "$(command -v google-closure-compiler)" ]; then
+  closure_compiler="google-closure-compiler"
+else
+  closure_compiler="java -jar $(ls closure-compiler-*.jar | sort -r | head -n1)"
+fi
+echo "use $closure_compiler"
+$closure_compiler --compilation_level ADVANCED --jscomp_off=checkVars --jscomp_off=checkTypes --jscomp_off=uselessCode --js_output_file=public/miner.js --externs src/web_miner_externs.js public/miner.js_tmp 2>&1 | cut -c 1-240
+"""
+  exec "rm public/miner.js_tmp"
+  exec "rm src/web_miner_externs.js"
   exec "rm src/web_miner_loader.js"
