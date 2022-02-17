@@ -43,6 +43,8 @@ json txInfos;
 json heightInfos;
 json winTotp;
 json winQrreader;
+json winMining;
+json miningInfos;
 
 bool dirtySettingsFlag = false;
 float dirtySettingsTimer = 0.0f;
@@ -130,6 +132,8 @@ extern "C" void streamRecv(char* data, int size) {
         blkInfos["pending"].push_back(j);
     } else if(j["type"] == "height") {
         heightInfos["pending"].push_back(j["data"]);
+    } else if(j["type"] == "mining") {
+        miningInfos["pending"].push_back(j["data"]);
     }
 
     if (EM_ASM_INT(return document.hidden)) {
@@ -1878,6 +1882,89 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
     ImGui::End();
 }
 
+static void ShowMiningWindow(bool* p_open)
+{
+    static bool mining_start = false;
+    static int mining_nid = -1;
+
+    json& param = winMining;
+    std::string address = param["address"].get<std::string>();
+    std::string address_hex = param["address_hex"].get<std::string>();
+    bool valid = param["valid"].get<bool>();
+    int network_idx = param["nid"].get<int>();
+
+    ImGui::SetNextWindowSize(ImVec2(700, 220), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Mining", p_open)) {
+        ImGui::PushItemWidth(300);
+        const char* combo_value = NetworkIds[network_idx];
+        if (ImGui::BeginCombo("Network##m", combo_value, comb_flags)) {
+            for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
+                const bool is_selected = (network_idx == n);
+                if (ImGui::Selectable(NetworkIds[n], is_selected)) {
+                    network_idx = n;
+                    param["nid"] = network_idx;
+                    MarkSettingsDirty();
+                }
+                if (is_selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopItemWidth();
+
+        char address_str[257];
+        copyString(address, address_str, sizeof(address_str));
+        ImGui::PushItemWidth(466.0f);
+        ImGui::PushFont(monoFont);
+        if (ImGui::InputText("Address##m", address_str, IM_ARRAYSIZE(address_str))) {
+            address = std::string(address_str);
+            address_hex = get_hash160_hex(network_idx, address_str);
+            param["address"] = address;
+            param["address_hex"] = address_hex;
+            if (address_hex.length() > 0) {
+                valid = true;
+            } else {
+                valid = false;
+            }
+            param["valid"] = valid;
+            MarkSettingsDirty();
+        }
+        ImGui::PopFont();
+        ImGui::PopItemWidth();
+
+        if (ImGui::Button("Start")) {
+            if (valid) {
+                if (mining_start) {
+                    std::string mining_nid_s = std::to_string(mining_nid);
+                    std::string s = "{\"cmd\":\"mining-off\",\"data\":{\"nid\":" + mining_nid_s + "}}";
+                    streamSend(s.c_str(), s.length());
+                } else {
+                    mining_start = true;
+                }
+                mining_nid = network_idx;
+                std::string network_idx_s = std::to_string(network_idx);
+                std::string s = "{\"cmd\":\"mining-on\",\"data\":{\"nid\":" + network_idx_s + ",\"addr\":\"" + address + "\"}}";
+                streamSend(s.c_str(), s.length());
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Stop")) {
+            if (mining_start) {
+                mining_start = false;
+                std::string mining_nid_s = std::to_string(mining_nid);
+                std::string s = "{\"cmd\":\"mining-off\",\"data\":{\"nid\":" + mining_nid_s + "}}";
+                streamSend(s.c_str(), s.length());
+            }
+        }
+    }
+    while (!miningInfos["pending"].empty()) {
+        auto miningData = miningInfos["pending"].at(0);
+        miningInfos["pending"].erase(0);
+    }
+    ImGui::End();
+}
+
 static void main_loop(void *arg)
 {
     IM_UNUSED(arg);
@@ -1896,6 +1983,7 @@ static void main_loop(void *arg)
     static bool show_same_transaction_window = false;
     static bool show_totp_window = false;
     static bool show_qrreader_window = false;
+    static bool show_mining_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     SDL_Event event;
@@ -1913,6 +2001,7 @@ static void main_loop(void *arg)
         winBlock = db_get_json("winBlock");
         winTotp = db_get_json("winTotp");
         winQrreader = db_get_json("winQrreader");
+        winMining = db_get_json("winMining");
         std::string settings = db_get_string("settings");
         ImGui::LoadIniSettingsFromMemory(settings.c_str(), settings.length());
         if (winTools.find("nora_chk") != winTools.end()) {
@@ -1932,6 +2021,11 @@ static void main_loop(void *arg)
         }
         if (winQrreader.find("qrreader_chk") != winQrreader.end()) {
             show_qrreader_window = winQrreader["qrreader_chk"].get<bool>();
+        }
+        if (winMining.find("mining_chk") != winMining.end()) {
+            show_mining_window = winMining["mining_chk"].get<bool>();
+        } else {
+
         }
         if (winAddress.find("samewin") != winAddress.end()) {
             show_same_address_window = winAddress["samewin"].get<bool>();
@@ -1960,6 +2054,7 @@ static void main_loop(void *arg)
         db_set("winBlock", winBlock.dump().c_str());
         db_set("winTotp", winTotp.dump().c_str());
         db_set("winQrreader", winQrreader.dump().c_str());
+        db_set("winMining", winMining.dump().c_str());
         size_t out_size;
         const char* s = ImGui::SaveIniSettingsToMemory(&out_size);
         std::string settings(s, out_size);
@@ -2046,6 +2141,13 @@ static void main_loop(void *arg)
             int wid = winBip44["wid"].get<int>() + 1;
             winBip44["wid"] = wid;
             winBip44["windows"][std::to_string(wid)] = R"({"nid": 0, "testnet": false, "prev_testnet": false, "seed": "", "prev_seed": "", "xprv": "", "xpub": "", "animate": false, "progress": 0, "b44p": 44, "b44c": 123, "b44a": 0, "bip44update": false, "bip44_0": [], "bip44_1": [], "bip44xprv": "", "bip44xpub": "", "bip44_idx0": 0, "bip44_idx1": 0, "seedbit": 1, "seedvalid": false, "seederr": false})"_json;
+        }
+        if (ImGui::Checkbox("Mining", &show_mining_window)) {
+            if (winMining.empty()) {
+                winMining = R"({"nid": 0, "address": "", "address_hex": "", "valid": false, "mining_chk": false})"_json;
+            }
+            winMining["mining_chk"] = show_mining_window;
+            MarkSettingsDirty();
         }
         if (ImGui::Checkbox("TOTP", &show_totp_window)) {
             winTotp["totp_chk"] = show_totp_window;
@@ -2155,6 +2257,11 @@ static void main_loop(void *arg)
         }
         winTools["nora_chk"] = show_nora_servers_window;
         ImGui::End();
+    }
+
+    if(show_mining_window) {
+        ShowMiningWindow(&show_mining_window);
+        winMining["mining_chk"] = show_mining_window;
     }
 
     if(show_totp_window) {
