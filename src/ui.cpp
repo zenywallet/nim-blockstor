@@ -1896,8 +1896,8 @@ static void ShowMiningWindow(bool* p_open)
     ImGui::SetNextWindowSize(ImVec2(700, 220), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Mining", p_open)) {
         ImGuiComboFlags comb_flags = 0;
-        ImGui::PushItemWidth(300);
         const char* combo_value = NetworkIds[network_idx];
+        ImGui::PushItemWidth(300);
         if (ImGui::BeginCombo("Network##m", combo_value, comb_flags)) {
             for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                 const bool is_selected = (network_idx == n);
