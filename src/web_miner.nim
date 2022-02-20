@@ -15,7 +15,7 @@ type
   MinerData = object
     header: BlockHeaderObj
     target: array[32, byte]
-    blockId: uint32
+    nid: int
 
   MinerParam = object
     data: ptr MinerData
@@ -41,7 +41,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
         break
     if find:
       var header = addr data[].header
-      var blockId = data[].blockId
+      var nid = data[].nid
       {.emit: """
         EM_ASM({
           try {
@@ -50,7 +50,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
           } catch(e) {
             console.error('except:', e);
           }
-        }, `header`, `blockId`); // blockId converted to int32
+        }, `header`, `nid`);
       """.}
 
     inc(cast[var uint32](addr data[].header.nonce))
@@ -60,7 +60,7 @@ proc init*() {.exportc.} =
   minerDatas = cast[ptr UncheckedArray[MinerData]](allocShared0(sizeof(MinerData) * 2))
   minerDataShift = 0
 
-proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: uint32) {.exportc: "set_miner_data".} =
+proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: int) {.exportc: "set_miner_data".} =
   var shift = minerDataShift
   if shift == 0:
     minerDataShift = 1
@@ -68,7 +68,7 @@ proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: uint32) {.expor
     minerDataShift = 0
   minerDatas[][shift] = minerData[]
   minerDatas[][shift].header.nonce = nonce
-  minerDatas[][shift].blockId = nid
+  minerDatas[][shift].nid = nid
   minerParam.data = addr minerDatas[][shift]
 
 proc start*() {.exportc.} =
