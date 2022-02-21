@@ -91,41 +91,36 @@ template loadHashTableModules*() {.dirty.} =
         else:
           inc(result)
 
-  proc newHashTable*[Key, Val](dataLen: int): var HashTableMem[Key, Val] =
-    var hashTable = cast[ptr HashTableMem[Key, Val]](allocShared0(sizeof(HashTableMem[Key, Val])))
-    hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
-    hashTable.dataLen = dataLen
-    hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
-    hashTable.tableSize = hashTable.dataSize * dataLen
-    hashTable.tableBufSize = hashTable.bitmapSize + hashTable.tableSize
-    hashTable.tableBuf = cast[ptr UncheckedArray[byte]](allocShared0(hashTable.tableBufSize))
-    hashTable.bitmap = hashTable.tableBuf
-    hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
-    result = hashTable[]
+  proc newHashTable*[Key, Val](dataLen: int): HashTableMem[Key, Val] =
+    result.dataSize = sizeof(HashTableDataObj[Key, Val])
+    result.dataLen = dataLen
+    result.bitmapSize = (result.dataLen + 7) div 8
+    result.tableSize = result.dataSize * dataLen
+    result.tableBufSize = result.bitmapSize + result.tableSize
+    result.tableBuf = cast[ptr UncheckedArray[byte]](allocShared0(result.tableBufSize))
+    result.bitmap = result.tableBuf
+    result.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr result.tableBuf[result.bitmapSize])
 
-  proc openHashTable*[Key, Val](dataLen: int, mmapFile: string = ""): var HashTableMmap[Key, Val] =
-    var hashTable = cast[ptr HashTableMmap[Key, Val]](allocShared0(sizeof(HashTableMmap[Key, Val])))
-    hashTable.dataSize = sizeof(HashTableDataObj[Key, Val])
-    hashTable.dataLen = dataLen
-    hashTable.bitmapSize = (hashTable.dataLen + 7) div 8
-    hashTable.tableSize = hashTable.dataSize * dataLen
-    hashTable.tableBufSize = hashTable.bitmapSize + hashTable.tableSize
+  proc openHashTable*[Key, Val](dataLen: int, mmapFile: string = ""): HashTableMmap[Key, Val] =
+    result.dataSize = sizeof(HashTableDataObj[Key, Val])
+    result.dataLen = dataLen
+    result.bitmapSize = (result.dataLen + 7) div 8
+    result.tableSize = result.dataSize * dataLen
+    result.tableBufSize = result.bitmapSize + result.tableSize
     try:
-      hashTable.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = -1)
-      hashTable.tableBuf = cast[ptr UncheckedArray[byte]](hashTable.mmap.mem)
-      hashTable.bitmap = hashTable.tableBuf
-      hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
-      hashTable.dataCount = hashTable[].countData()
+      result.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = -1)
+      result.tableBuf = cast[ptr UncheckedArray[byte]](result.mmap.mem)
+      result.bitmap = result.tableBuf
+      result.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr result.tableBuf[result.bitmapSize])
+      result.dataCount = result.countData()
     except:
-      hashTable.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = hashTable.tableBufSize)
-      hashTable.tableBuf = cast[ptr UncheckedArray[byte]](hashTable.mmap.mem)
-      hashTable.bitmap = hashTable.tableBuf
-      hashTable.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr hashTable.tableBuf[hashTable.bitmapSize])
-    result = hashTable[]
+      result.mmap = memfiles.open(mmapFile, mode = fmReadWrite, newFileSize = result.tableBufSize)
+      result.tableBuf = cast[ptr UncheckedArray[byte]](result.mmap.mem)
+      result.bitmap = result.tableBuf
+      result.table = cast[ptr UncheckedArray[HashTableDataObj[Key, Val]]](addr result.tableBuf[result.bitmapSize])
 
   proc close*(hashTable: var HashTableMmap) =
     hashTable.mmap.close()
-    hashTable.addr.deallocShared()
 
   proc flush*(hashTable: var HashTable) =
     when HashTable is HashTableMmap:
@@ -138,7 +133,6 @@ template loadHashTableModules*() {.dirty.} =
       hashTable.tableBuf.deallocShared()
     elif HashTable is HashTableMmap:
       hashTable.mmap.close()
-    hashTable.addr.deallocShared()
 
   proc clear*(hashTable: var HashTable) =
     zeroMem(hashTable.tableBuf, hashTable.tableBufSize)
