@@ -55,6 +55,20 @@ proc `$`*(o: BlockHash | MerkleHash): string = $toReverse(cast[seq[byte]](o))
 
 proc `$`*(o: BlockHashObj | MerkleHashObj): string = $toReverse(o.toBytes)
 
+proc toHeader*(reader: Reader): BlockHeader =
+  var header = new BlockHeader
+  header.ver = reader.getInt32
+  header.prev = BlockHash(reader.getBytes(32))
+  header.merkle = MerkleHash(reader.getBytes(32))
+  header.time = reader.getUint32
+  header.bits = reader.getUint32
+  header.nonce = reader.getUint32
+  result = header
+
+proc toHeader*(data: seq[byte]): BlockHeader {.inline.} =
+  var reader = newReader(data)
+  reader.toHeader()
+
 proc toBlock*(reader: Reader): Block =
   var b = new Block
   b.header = new BlockHeader
