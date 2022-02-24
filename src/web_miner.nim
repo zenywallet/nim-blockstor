@@ -1,6 +1,6 @@
 # Copyright (c) 2021 zenywallet
 
-import blocks
+import blocks, bytes
 import yespower
 import os
 
@@ -12,14 +12,18 @@ const srcPath = currentSourcePath().parentDir()
 """.}
 
 type
+  TargetObj* = array[32, byte]
+
   MinerData = object
     header: BlockHeaderObj
-    target: array[32, byte]
+    target: TargetObj
     nid: int
 
   MinerParam = object
     data: ptr MinerData
     abort: bool
+
+proc `$`*(o: TargetObj): string = $toReverse(o.toBytes)
 
 proc emscripten_sleep(ms: uint) {.importc.}
 
