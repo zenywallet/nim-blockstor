@@ -4,6 +4,7 @@ import os, strutils
 
 const uiFile = currentSourcePath().parentDir() / "../public/ui.js"
 const uiFileTmp = currentSourcePath().parentDir() / "../public/ui.js_tmp"
+const removePathStr = currentSourcePath().parentDir() / "../public/"
 
 var patchString = "if(!(eventTypeId == 2 && ((e.key == 'v' && (e.ctrlKey || e.metaKey)) || " &
                   "e.key == 'F5' || e.key == 'F11' || e.key == 'F12' || e.key == 'Escape'))) "
@@ -21,7 +22,9 @@ proc patch(file: string) =
   if pos < 0:
     echo "patch failed"
     return
-  writeFile(file, s[0..<pos] & patchString & s[pos..^1])
+  s = s[0..<pos] & patchString & s[pos..^1]
+  s = s.replace(removePathStr)
+  writeFile(file, s)
 
 
 if fileExists(uiFileTmp):
