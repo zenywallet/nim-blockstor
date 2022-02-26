@@ -44,13 +44,12 @@ proc miner(param: ptr MinerParam) {.thread.} =
       elif yhash[j] < data[].target[j]:
         break
     if find:
-      var header = addr data[].header
+      var header = ($data[].header.toBytes).cstring
       var nid = data[].nid
       {.emit: """
         EM_ASM({
           try {
-            var headerStr = Array.prototype.map.call(new Uint8Array(Module.HEAPU8.buffer, $0, 80), function(x) {return ('00' + x.toString(16)).slice(-2)}).join('');
-            postMessage({cmd: "find", data: {header: headerStr, nid: $1}});
+            postMessage({cmd: "find", data: {header: UTF8ToString($0), nid: $1}});
           } catch(e) {
             console.error('except:', e);
           }
