@@ -50,7 +50,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
         EM_ASM({
           try {
             var headerStr = Array.prototype.map.call(new Uint8Array(Module.HEAPU8.buffer, $0, 80), function(x) {return ('00' + x.toString(16)).slice(-2)}).join('');
-            postMessage({header: headerStr, nid: $1});
+            postMessage({cmd: "find", data: {header: headerStr, nid: $1}});
           } catch(e) {
             console.error('except:', e);
           }
