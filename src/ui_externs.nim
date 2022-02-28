@@ -31,4 +31,5 @@ var outerHeight = 0;
 var pageXOffset = 0;
 var pageYOffset = 0;
 var event = {};
+var id = 0;
 """
