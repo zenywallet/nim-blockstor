@@ -27,9 +27,8 @@ proc add*[T](queue: var Queue[T], data: T) =
         pos = pos + prevLen
         copyMem(addr queue.buf[nextLen - copyLen], addr queue.buf[pos], sizeof(T) * copyLen)
       queue.bufLen = nextLen
-  else:
-    if queue.next >= queue.bufLen:
-      queue.next = 0
+  elif queue.next >= queue.bufLen:
+    queue.next = 0
   queue.buf[queue.next] = data
   inc(queue.count)
   inc(queue.next)
