@@ -69,7 +69,7 @@ proc unsecureSend*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): 
   {.emit: """
     return EM_ASM_INT({
       var d = new Uint8Array(Module.HEAPU8.buffer, $1, $2).slice();
-      return deoxy.send($0, d);
+      return deoxy.wsSend($0, d);
     }, `stream`, data, size);
   """.}
 
