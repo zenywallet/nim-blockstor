@@ -66,6 +66,7 @@ deoxyMod = JsObject{
     deoxy.onOpen = Module.cwrap("onOpen", jsNull, [NumberStr])
     deoxy.onClose = Module.cwrap("onClose", jsNull, [NumberStr])
     deoxy.onMessage = Module.cwrap("onMessage", jsNull, [NumberStr, NumberStr, NumberStr])
+    deoxy.send = Module.cwrap("send", NumberStr, [NumberStr, NumberStr, NumberStr])
     deoxy.streams = deoxy.streams or JsObject{}
 
     proc Module_call(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
@@ -78,6 +79,14 @@ deoxyMod = JsObject{
         ws.send(data)
         return true
       return false
+
+    deoxy.cmdSend = proc(stream: Stream, data: JsObject): bool =
+      var d = strToUint8Array(JSON.stringify(data).to(cstring))
+      var size = d.length.to(cint)
+      var p = Module_malloc(size)
+      Module.HEAPU8.set(d, p)
+      result = deoxy.send(stream, p, size).to(bool)
+      Module_free(p)
 
     deoxy.close = proc(stream: Stream) =
       var ws = deoxy.streams[stream]
