@@ -61,6 +61,8 @@ type
     Rawtx
     BlockTmpl
     Mining
+    MiningFind
+    SendMiningBlock
 
   MsgDataObj* = object
     msgType: MsgDataType
@@ -502,6 +504,13 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
           var retTmpl = getBlockTemplate.send(blockTemplateParam)
           miningTemplateChannel[].send((0'u64, arg.nodeId, retTmpl["result"], MsgDataType.BlockTmpl))
 
+        elif channelData.msgType == MsgDataType.SendMiningBlock:
+          var data = json["data"]
+          var retSubmitBlock = submitBlock.send(data.getStr)
+          retJson["type"] = newJString("find")
+          retJson["data"]["res"] = retSubmitBlock
+          streamSend(channelData.streamId, retJson, MsgDataType.SendMiningBlock)
+
       except:
         let e = getCurrentException()
         echo "rpcWorker ", e.name, ": ", e.msg
@@ -525,6 +534,7 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
   var curHeader: array[RPC_NODE_COUNT, BlockHeader]
   var curTx: array[RPC_NODE_COUNT, Tx]
   var curTxids: array[RPC_NODE_COUNT, seq[seq[byte]]]
+  var curTxdatas: array[RPC_NODE_COUNT, seq[seq[byte]]]
   var pendingStream: seq[tuple[streamId: StreamId, nodeId: int]]
   var streamBlockHeaders: seq[Table[seq[byte], BlockHeader]]
   for i in 0..<RPC_NODE_COUNT:
@@ -585,8 +595,10 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
 
         curTxids[nodeId] = @[]
         curTxids[nodeId].add(@[])
+        curTxdatas[nodeId] = @[]
         for t in transactions:
           curTxids[nodeId].add(t["txid"].getStr.Hex.toHash.toBytes)
+          curTxdatas[nodeId].add(t["data"].getStr.Hex.toBytes)
 
         streamBlockHeaders[nodeId].clear()
         for s in streamTable.items(("mining", nodeId.uint16).toBytes):
@@ -608,6 +620,24 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
       let streamId = channelData.streamId
       let nodeId = channelData.nodeId
       pendingStream.add((streamId, nodeId))
+
+    elif channelData.msgType == MsgDataType.MiningFind:
+      let streamId = channelData.streamId
+      let nodeId = channelData.nodeId
+      let headerStr = channelData.data["header"].getStr
+
+      let script = streamId.getMiningScript(nodeId).Script
+      curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
+
+      var blk = new Block
+      blk.header = headerStr.Hex.toBytes.toHeader
+      blk.txs.add(curTx[nodeId])
+      blk.txn = VarInt(1 + curTxdatas[nodeId].len)
+
+      var rawBlockHexStr = $(blk, curTxDatas).toBytes
+      rpcWorkerChannels[nodeId][].send((streamId, %*{"data": rawBlockHexStr}, MsgDataType.SendMiningBlock))
+
+
 
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
   echo wrapperArg
@@ -1005,7 +1035,14 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       elif cmdSwitch == ParseCmdSwitch.Off:
         client.delTag(("mining", nid.uint16).toBytes)
         streamId.delMiningScript(nid)
-
+    elif cmd == "find":
+      let reqData = json["data"]
+      let nid = reqData["nid"].getInt
+      if nid > streamDbInsts.high or nid < streamDbInsts.low:
+        raise newException(StreamError, "invalid nid")
+      let sobj = cast[ptr StreamObj](client.pStream)
+      let streamId = sobj.streamId
+      miningTemplateChannel[].send((streamId, nid, %*{"header": reqData["header"].getStr}, MsgDataType.MiningFind))
 
 proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
                 data: ptr UncheckedArray[byte], size: int): SendResult =
