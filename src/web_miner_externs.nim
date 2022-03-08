@@ -24,6 +24,6 @@ var externs = {
 var MinerData = {
   header: {},
   target: {},
-  blockId: 0
+  nid: 0
 }
 """
