@@ -44,8 +44,8 @@ proc miner(param: ptr MinerParam) {.thread.} =
       elif yhash[j] < data[].target[j]:
         break
     if find:
-      var header = ($data[].header.toBytes).cstring
-      var nid = data[].nid
+      let header = ($data[].header.toBytes).cstring
+      let nid = data[].nid
       {.emit: """
         EM_ASM({
           try {
