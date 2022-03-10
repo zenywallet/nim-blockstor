@@ -76,6 +76,8 @@ static void main_loop(void *arg);
 
 extern "C" bool streamActive;
 
+extern "C" void* stream;
+
 extern "C" void uiError(const char* msg);
 
 extern "C" bool streamSend(const char* data, int size);
@@ -1882,6 +1884,37 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
     ImGui::End();
 }
 
+EM_JS(void, set_mining_data, (const char* data), {
+    var workers = deoxy.miningWorkers;
+    if(workers) {
+        var miningData = JSON.parse(UTF8ToString(data));
+        var nonce = Math.floor(Math.random() * 4294967296);
+        var step = Math.round(4294967296 / workers.length);
+        for(var i = 0; i < workers.length; i++) {
+            var worker = workers[i];
+            miningData.nonce = nonce;
+            worker.postMessage(miningData);
+            nonce += step;
+        }
+    }
+});
+
+EM_JS(void, set_worker, (void* stream), {
+    deoxy.miningWorkers = deoxy.miningWorkers || [];
+    var workers = deoxy.miningWorkers;
+    if(workers.length == 0) {
+        for(var i = 0; i < navigator.hardwareConcurrency; i++) {
+            var worker = new Worker("miner.js");
+            worker.onmessage = function(e) {
+                if(e.data["cmd"] == "find") {
+                    deoxy.cmdSend(stream, e.data);
+                }
+            };
+            workers.push(worker);
+        }
+    }
+});
+
 static void ShowMiningWindow(bool* p_open)
 {
     static bool mining_start = false;
@@ -1944,9 +1977,11 @@ static void ShowMiningWindow(bool* p_open)
                     mining_start = true;
                 }
                 mining_nid = network_idx;
+                set_worker(stream);
                 std::string network_idx_s = std::to_string(network_idx);
                 std::string s = "{\"cmd\":\"mining-on\",\"data\":{\"nid\":" + network_idx_s + ",\"addr\":\"" + address + "\"}}";
                 streamSend(s.c_str(), s.length());
+
             }
         }
         ImGui::SameLine();
@@ -1962,6 +1997,8 @@ static void ShowMiningWindow(bool* p_open)
     while (!miningInfos["pending"].empty()) {
         auto miningData = miningInfos["pending"].at(0);
         miningInfos["pending"].erase(0);
+        std::string data = miningData.dump();
+        set_mining_data(data.c_str());
     }
     ImGui::End();
 }
