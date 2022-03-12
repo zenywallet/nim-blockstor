@@ -78,7 +78,7 @@ Module = JsObject{
   onRuntimeInitialized: proc() =
     const NumberStr = "number".cstring
     miner.init = Module.cwrap("init", jsNull, [].toJs)
-    miner.setMinerData = Module.cwrap("set_miner_data", jsNull, [NumberStr, NumberStr, NumberStr].toJs)
+    miner.setMinerData = Module.cwrap("set_miner_data", jsNull, [NumberStr, NumberStr, NumberStr])
     miner.start = Module.cwrap("start", jsNull, [].toJs)
     miner.stop = Module.cwrap("stop", jsNull, [].toJs)
 
