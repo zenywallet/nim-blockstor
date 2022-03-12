@@ -73,10 +73,9 @@ var onMessage* {.importc: "onmessage", nodecl.}: EventListenerCb
 
 var miner = JsObject{}
 
-var minerMod: JsObject
-minerMod = JsObject{
+var Module {.exportc.}: JsObject
+Module = JsObject{
   onRuntimeInitialized: proc() =
-    var Module = minerMod
     const NumberStr = "number".cstring
     miner.init = Module.cwrap("init", jsNull, [].toJs)
     miner.setMinerData = Module.cwrap("set_miner_data", jsNull, [NumberStr, NumberStr, NumberStr].toJs)
@@ -107,7 +106,3 @@ minerMod = JsObject{
     console.log("status: " & text.to(cstring)),
   monitorRunDependencies: proc(left: JsObject) = discard
 }
-
-asm """
-var Module = `minerMod`;
-"""
