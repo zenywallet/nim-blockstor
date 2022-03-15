@@ -66,6 +66,9 @@ function hex2buf(hexstr) {
 }
 """
 proc hex2buf(str: cstring or JsObject): Uint8ArrayObj {.importc.}
+proc setInterval(cb: proc(), ms: int) {.importc.}
+proc setTimeout(cb: proc(), ms: int) {.importc.}
+proc postMessage(data: JsObject) {.importc.}
 
 type
   EventListenerCb = proc(evt: JsObject)
@@ -79,8 +82,14 @@ Module = JsObject{
     const NumberStr = "number".cstring
     miner.init = Module.cwrap("init", jsNull, [].toJs)
     miner.setMinerData = Module.cwrap("set_miner_data", jsNull, [NumberStr, NumberStr, NumberStr])
+    miner.getMinerCount = Module.cwrap("get_miner_count", NumberStr, [].toJs)
     miner.start = Module.cwrap("start", jsNull, [].toJs)
     miner.stop = Module.cwrap("stop", jsNull, [].toJs)
+
+    proc sendStatus() =
+      var minerCount = miner.getMinerCount()
+      postMessage(JsObject{cmd: "status".cstring, data: minerCount})
+      setTimeout(sendStatus, 5000)
 
     var active = false
     onMessage = proc(evt: JsObject) =
@@ -95,7 +104,8 @@ Module = JsObject{
       Module.free(pdata)
       if not active:
         active = true
-        miner.start(),
+        miner.start()
+        sendStatus(),
   preRun: [].toJs,
   postRun: [].toJs,
   print: proc() =

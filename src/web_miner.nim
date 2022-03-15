@@ -30,6 +30,7 @@ proc emscripten_sleep(ms: uint) {.importc.}
 var minerParam: MinerParam
 var minerDatas: ptr UncheckedArray[MinerData]
 var minerDataShift: int
+var minerCount: int
 
 proc miner(param: ptr MinerParam) {.thread.} =
   var yhash: YespowerHash
@@ -57,6 +58,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
       """.}
 
     inc(cast[var uint32](addr data[].header.nonce))
+    inc(minerCount)
     emscripten_sleep(0)
 
 proc init*() {.exportc.} =
@@ -73,6 +75,10 @@ proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: int) {.exportc:
   minerDatas[][shift].header.nonce = nonce
   minerDatas[][shift].nid = nid
   minerParam.data = addr minerDatas[][shift]
+
+proc getMinerCount(): int {.exportc: "get_miner_count".} =
+  result = minerCount
+  minerCount = 0
 
 proc start*() {.exportc.} =
   minerParam.abort = false
