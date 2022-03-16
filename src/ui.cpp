@@ -1901,17 +1901,44 @@ EM_JS(void, set_mining_data, (const char* data), {
 
 EM_JS(void, set_worker, (void* stream), {
     deoxy.miningWorkers = deoxy.miningWorkers || [];
+    deoxy.miningStatus = deoxy.miningStatus || {};
     var workers = deoxy.miningWorkers;
     if(workers.length == 0) {
         for(var i = 0; i < navigator.hardwareConcurrency; i++) {
             var worker = new Worker("miner.js");
+            workers.push(worker);
+        }
+        var i = 0;
+        for(let worker of workers) {
+            worker.id = i;
+            i++;
             worker.onmessage = function(e) {
                 if(e.data["cmd"] == "find") {
                     deoxy.cmdSend(stream, e.data);
+                } else if(e.data["cmd"] == "status") {
+                    deoxy.miningStatus[worker.id] = e.data["data"];
                 }
             };
-            workers.push(worker);
         }
+    }
+});
+
+EM_JS(int, get_miners_num, (), {
+    if(deoxy.miningWorkers) {
+        return deoxy.miningWorkers.length;
+    }
+    return 0;
+});
+
+EM_JS(int, get_miners_hashrate, (), {
+    if(deoxy.miningStatus) {
+        var count = 0;
+        for(i in deoxy.miningStatus) {
+            count += deoxy.miningStatus[i];
+        }
+        return Math.round(count / 5);
+    } else {
+        return 0;
     }
 });
 
@@ -1993,6 +2020,26 @@ static void ShowMiningWindow(bool* p_open)
                 streamSend(s.c_str(), s.length());
             }
         }
+
+        static float miner_status_delta = 3.0f;
+        static int miners_num = 0;
+        static int miners_hashrate = 0;
+        if (miner_status_delta > 0.0) {
+            ImGuiIO& io = ImGui::GetIO();
+            miner_status_delta -= io.DeltaTime;
+        } else {
+            miners_num = get_miners_num();
+            miners_hashrate = get_miners_hashrate();
+            miner_status_delta = 3.0f;
+        }
+        ImGui::Text("Workers:");
+        ImGui::SameLine();
+        ImGui::Text(std::to_string(miners_num).c_str());
+        ImGui::Text("Hashrate:");
+        ImGui::SameLine();
+        ImGui::Text(std::to_string(miners_hashrate).c_str());
+        ImGui::SameLine();
+        ImGui::Text("H/s");
     }
     while (!miningInfos["pending"].empty()) {
         auto miningData = miningInfos["pending"].at(0);
