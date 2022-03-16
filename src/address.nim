@@ -66,7 +66,7 @@ proc p2sh_p2wpkh_address*(network: Network, hash160: Hash160): string =
 proc p2wpkh_address*(network: Network, hash160: Hash160): string =
   var data = hash160.toBytes
   var output = newString(128)
-  let ret = segwit_addr_encode(output, network.bech32, 0.cint, unsafeAddr data[0], data.len.csize_t)
+  let ret = segwit_addr_encode(output.cstring, network.bech32.cstring, 0.cint, unsafeAddr data[0], data.len.csize_t)
   if ret == 1:
     var pos = 0
     for i, c in output:
