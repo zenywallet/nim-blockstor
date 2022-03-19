@@ -73,7 +73,7 @@ proc unsecureSend*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): 
     }, `stream`, data, size);
   """.}
 
-proc send*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): bool {.discardable.} =
+proc send*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): bool {.discardable, exportc.} =
   var outdata = newSeq[byte](LZ4_COMPRESSBOUND(size))
   var outsize: uint = outdata.len.uint
   var encLen = stream.ctr.enc(data, size.uint, cast[ptr UncheckedArray[byte]](addr outdata[0]), outsize)
