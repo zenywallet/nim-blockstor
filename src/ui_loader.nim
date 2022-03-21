@@ -126,16 +126,11 @@ deoxyMod = JsObject{
       console.error(msg)
 
     deoxy.uiMain = Module.cwrap("uiMain", NumberStr, [].toJs)
-    asm """
-      async function launch() {
-        try {
-          deoxy.uiMain();
-        } catch(e) {
-          console.log(e);
-        }
-      }
-      launch();
-    """,
+    try:
+      deoxy.uiMain()
+    except:
+      let msg = getCurrentExceptionMsg()
+      console.log("except", msg.cstring),
   preRun: [].toJs,
   postRun: [].toJs,
   print: proc() =
