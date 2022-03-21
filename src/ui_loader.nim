@@ -45,6 +45,13 @@ proc newTextEncoder*(): JsObject {.importcpp: "new TextEncoder()".}
 proc newTextDecoder*(): JsObject {.importcpp: "new TextDecoder()".}
 proc newNumber*(val: JsObject): JsObject {.importcpp: "new Number(#)".}
 
+proc strToUint8Array*(str: cstring): Uint8ArrayObj =
+  let textenc = newTextEncoder()
+  result = (textenc.encode(str)).to(Uint8ArrayObj)
+
+proc uint8ArrayToStr*(uint8Array: Uint8ArrayObj): cstring =
+  let textdec = newTextDecoder()
+  result = textdec.decode(uint8Array.toJs).to(cstring)
 
 type
   Stream* = cint
