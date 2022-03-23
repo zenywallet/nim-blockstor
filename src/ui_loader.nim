@@ -65,7 +65,7 @@ when DEOXY_EXPORTS:
 else:
   var deoxy = JsObject{}
 
-var deoxyMod: JsObject
+var deoxyMod {.exportc: "Module"}: JsObject
 deoxyMod = JsObject{
   onRuntimeInitialized: proc() =
     var Module = deoxyMod
@@ -153,7 +153,3 @@ deoxyMod = JsObject{
 
 window.onerror = proc(evt: JsObject) =
   console.error("onerror: " & evt.message.to(cstring))
-
-asm """
-var Module = `deoxyMod`;
-"""
