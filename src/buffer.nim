@@ -66,13 +66,13 @@ proc toBuffer*(x: openArray[byte]): Buffer =
     copyMem(result.data, unsafeAddr x[0], x.len)
     result.len = x.len
 
-converter toBuffer*(x: seq[byte]): Buffer =
+proc toBuffer*(x: seq[byte]): Buffer =
   if x.len > 0:
     result.data = cast[typeof(result.data)](allocShared0(x.len))
     copyMem(result.data, unsafeAddr x[0], x.len)
     result.len = x.len
 
-converter toBytes*(x: Buffer): seq[byte] =
+proc toBytes*(x: Buffer): seq[byte] =
   result = newSeq[byte](x.len)
   for i in 0..<x.len:
     result[i] = x[i]
@@ -94,9 +94,9 @@ proc `$`*(x: Buffer): string = x.toHex
 
 when isMainModule:
   var a, b: Buffer
-  a = @[byte 1]
+  a = @[byte 1].toBuffer
   b = a
-  a = @[byte 1, 2]
+  a = @[byte 1, 2].toBuffer
   echo a
   echo b
 
