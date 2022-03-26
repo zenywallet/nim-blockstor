@@ -77,10 +77,7 @@ proc toBytes*(x: Buffer): seq[byte] =
   for i in 0..<x.len:
     result[i] = x[i]
 
-proc toBytesBE*(x: Buffer): seq[byte] =
-  result = newSeq[byte](x.len)
-  for i in 0..<x.len:
-    result[i] = x[i]
+proc toBytesBE*(x: Buffer): seq[byte] {.inline.} = toBytes(x)
 
 when TOHEX_COMPACT:
   proc toHex*(a: Buffer): string =
