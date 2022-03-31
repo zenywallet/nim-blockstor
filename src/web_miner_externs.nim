@@ -25,5 +25,13 @@ var MinerData = {
   header: {},
   target: {},
   nid: 0
-}
+};
+
+var FindData = {
+  cmd: {},
+  data: {
+    header: {},
+    nid: {}
+  }
+};
 """
