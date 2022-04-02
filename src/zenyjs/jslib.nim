@@ -70,6 +70,10 @@ proc uint8ArrayToStr*(uint8Array: Uint8Array): cstring =
   let textdec = newTextDecoder()
   result = textdec.decode(uint8Array.toJs).to(cstring)
 
+proc uint8ArrayToStr*(uint8Array: JsObject): cstring =
+  let textdec = newTextDecoder()
+  result = textdec.decode(uint8Array).to(cstring)
+
 proc hexToUint8Array*(str: cstring or JsObject): Uint8Array =
   asm """
     if(`str`.length % 2) {
