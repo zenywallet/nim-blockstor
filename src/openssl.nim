@@ -97,7 +97,6 @@ proc SSL_read*(ssl: SSL, buf: pointer, num: cint): cint {.importc.}
 proc SSL_read_ex*(ssl: SSL, buf: pointer, num: csize_t, readbytes: csize_t): cint {.importc.}
 
 proc SSL_write*(ssl: SSL, buf: pointer, num: cint): cint {.importc.}
-proc SSL_write*(ssl: SSL, buf: cstring, num: int): cint {.importc.}
 proc SSL_write_ex*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 proc SSL_write_early_data*(s: SSL, buf: pointer, num: csize_t, written: csize_t): cint {.importc.}
 
