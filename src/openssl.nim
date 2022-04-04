@@ -120,7 +120,7 @@ proc SSL_get_error*(s: SSL, ret_code: cint): cint {.importc.}
 proc SSL_get_version*(s: SSL): cstring {.importc.}
 
 # include/openssl/crypto.h
-proc OpenSSL_version*(t: int): cstring {.importc.}
+proc OpenSSL_version*(t: cint): cstring {.importc.}
 proc OPENSSL_init_crypto*(opts: uint64, settings: OPENSSL_INIT_SETTINGS): cint {.importc.}
 
 # include/openssl/evp.h
@@ -260,4 +260,4 @@ when isMainModule:
                       SSL_OP_NO_TLSv1 or SSL_OP_NO_TLSv1_1 or SSL_OP_NO_TLSv1_2).clong)
   echo SSL_get_version(ssl)
   for i in 0..9:
-    echo OpenSSL_version(i)
+    echo OpenSSL_version(i.cint)
