@@ -1,0 +1,291 @@
+# Copyright (c) 2021 zenywallet
+
+when defined(js):
+  import jsffi
+  import jslib
+
+  type
+    HDNode* = object
+      handle*: JsObject
+
+  var Bip32Mod = JsObject{}
+  var Module: JsObject
+
+  proc init*(module: JsObject) =
+    Module = module
+    Bip32Mod.free = Module.cwrap("bip32_free", jsNull, [NumVar])
+    Bip32Mod.duplicate = Module.cwrap("bip32_duplicate", NumVar, [NumVar])
+    Bip32Mod.master = Module.cwrap("bip32_master", NumVar, [NumVar, NumVar, NumVar])
+    Bip32Mod.xprv = Module.cwrap("bip32_xprv", NumVar, [NumVar])
+    Bip32Mod.xpub = Module.cwrap("bip32_xpub", NumVar, [NumVar])
+    Bip32Mod.node = Module.cwrap("bip32_node", NumVar, [NumVar, NumVar])
+    Bip32Mod.hardened = Module.cwrap("bip32_hardened", NumVar, [NumVar, NumVar])
+    Bip32Mod.derive = Module.cwrap("bip32_derive", NumVar, [NumVar, NumVar])
+    Bip32Mod.address = Module.cwrap("bip32_address", NumVar, [NumVar, NumVar])
+    Bip32Mod.segwitAddress = Module.cwrap("bip32_segwitAddress", NumVar, [NumVar, NumVar])
+
+  proc duplicate(handle: JsObject): JsObject =
+    result = Bip32Mod.duplicate(handle)
+    return result
+
+  proc `=destroy`*(node: var HDNode) =
+    if not node.handle.isUndefined and not node.handle.isNull:
+      Bip32Mod.free(node.handle)
+      node.handle = jsNull
+
+  proc `=copy`*(a: var HDNode; b: HDNode) =
+    `=destroy`(a)
+    if not b.handle.isUndefined and not b.handle.isNull:
+      a.handle = b.handle.duplicate()
+
+  proc `=sink`*(a: var HDNode; b: HDNode) =
+    `=destroy`(a)
+    if not b.handle.isUndefined and not b.handle.isNull:
+      a.handle = b.handle
+
+  proc master*(seed: Uint8Array, testnet: bool = false): HDNode =
+    var pdata = Module.malloc(seed.length.to(int))
+    Module.HEAPU8.set(seed, pdata)
+    result.handle = Bip32Mod.master(pdata, seed.length.to(int), false)
+    Module.free(pdata)
+    return result
+
+  proc xprv*(node: HDNode): cstring =
+    var p = Bip32Mod.xprv(node.handle)
+    var a = newUint8Array(Module.HEAPU8.buffer, p.to(int), 256)
+    var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
+    return s
+
+  proc xpub*(node: HDNode): cstring =
+    var p = Bip32Mod.xpub(node.handle)
+    var a = newUint8Array(Module.HEAPU8.buffer, p.to(int), 256)
+    var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
+    return s
+
+  proc node*(x: cstring, testnet: bool = false): HDNode =
+    var a = strToUint8Array(x)
+    var size = a.length.to(cint)
+    var p = Module.malloc(size)
+    Module.HEAPU8.set(a, p)
+    result.handle = Bip32Mod.node(p, testnet)
+
+  proc hardened*(node: HDNode, index: int): HDNode =
+    result.handle = Bip32Mod.hardened(node.handle, index)
+
+  proc derive*(node: HDNode, index: int): HDNode =
+    result.handle = Bip32Mod.derive(node.handle, index)
+
+  proc address*(node: HDNode, networkId: int = 0): cstring =
+    var p = Bip32Mod.address(node.handle, networkId)
+    var a = newUint8Array(Module.HEAPU8.buffer, p.to(int), 256)
+    var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
+    return s
+
+  proc segwitAddress*(node: HDNode, networkId: int = 0): cstring =
+    var p = Bip32Mod.segwitAddress(node.handle, networkId)
+    var a = newUint8Array(Module.HEAPU8.buffer, p.to(int), 256)
+    var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
+    return s
+
+elif defined(emscripten):
+  import ../bytes
+  import ../base58
+  import nimcrypto
+  import sequtils
+  import ../eckey
+  import ../utils
+  import ../address
+  import ../buffer
+
+  const EXPORTED_FUNCTIONS* = ["_bip32_free", "_bip32_master", "_bip32_xprv", "_bip32_xpub", "_bip32_node",
+                              "_bip32_hardened", "_bip32_derive", "_bip32_address", "_bip32_segwitAddress",
+                              "_bip32_duplicate"]
+
+  const VersionMainnetPublic* = 0x0488B21E'u32
+  const VersionMainnetPrivate* = 0x0488ADE4'u32
+  const VersionTestnetPublic* = 0x043587CF'u32
+  const VersionTestnetPrivate* = 0x04358394'u32
+
+  type
+    ChainCode* = distinct seq[byte]
+
+    HDNodeObj = object
+      depth*: uint8
+      fingerprint*: uint32
+      childNumber*: uint32
+      chainCode*: Buffer
+      privateKey*: Buffer
+      publicKey*: Buffer
+      versionPub: uint32
+      versionPrv: uint32
+      xprv: cstring
+      xpub: cstring
+      address: cstring
+      segwitAddress: cstring
+
+    HDNode* = ptr HDNodeObj
+
+    HdError* = object of CatchableError
+
+  proc toBuffer(publicKey: PublicKey): Buffer = cast[seq[byte]](publicKey).toBuffer
+  proc toBuffer(chainCode: ChainCode): Buffer = cast[seq[byte]](chainCode).toBuffer
+
+  proc free*(node: HDNode) {.exportc: "bip32_$1".} =
+    if not node.segwitAddress.isNil:
+      node.segwitAddress.deallocShared()
+    if not node.address.isNil:
+      node.address.deallocShared()
+    if not node.xpub.isNil:
+      node.xpub.deallocShared()
+    if not node.xprv.isNil:
+      node.xprv.deallocShared()
+    `=destroy`(node.publicKey)
+    `=destroy`(node.privateKey)
+    `=destroy`(node.chainCode)
+    node.deallocShared()
+
+  proc duplicate*(node: HDNode): HDNode {.exportc: "bip32_$1".} =
+    result = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
+    result.depth = node.depth
+    result.fingerprint = node.fingerprint
+    result.childNumber = node.childNumber
+    result.chainCode = node.chainCode
+    result.privateKey = node.privateKey
+    result.publicKey = node.publicKey
+    result.versionPub = node.versionPub
+    result.versionPrv = node.versionPrv
+
+  proc master*(seed: seq[byte], versionPub: uint32, versionPrv: uint32): HDNode =
+    result = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
+    var I = sha512.hmac("Bitcoin seed", seed).data
+    result.depth = 0
+    result.fingerprint = 0
+    result.childNumber = 0
+    result.chainCode = I[32..63].toBuffer
+    result.privateKey = I[0..31].toBuffer
+    result.publicKey = result.privateKey.toBytes.PrivateKey.pub.toBuffer
+    result.versionPub = versionPub
+    result.versionPrv = versionPrv
+
+  proc master*(seed: seq[byte], testnet: bool = false): HDNode =
+    if testnet:
+      result = master(seed, VersionTestnetPublic, VersionTestnetPrivate)
+    else:
+      result = master(seed, VersionMainnetPublic, VersionMainnetPrivate)
+
+  proc master*(seedBuf: ptr UncheckedArray[byte], seedSize: int, testnet: bool = false): HDNode {.exportc: "bip32_$1".} =
+    var seed = seedBuf.toBytes(seedSize)
+    result = master(seed, testnet)
+
+  proc addCheck*(data: seq[byte]): seq[byte] = concat(data, sha256d(data)[0..3])
+
+  proc check(data: seq[byte]): bool =
+    var chk = data[^4..^1]
+    if chk == sha256d(data[0..^5])[0..3]:
+      return true
+    return false
+
+  proc set(p: var cstring, s: string): cstring {.discardable.} =
+    if not p.isNil:
+      p.deallocShared()
+    var len = s.len
+    p = cast[cstring](allocShared0(len + 1))
+    copyMem(p, unsafeAddr s[0], len)
+    result = p
+
+  proc xprv*(node: HDNode): cstring {.exportc: "bip32_$1".} =
+    if node.privateKey.len != 32:
+      raise newException(HdError, "xprv privateKey len=" & $node.privateKey.len)
+    var d = (node.versionPrv, node.depth, node.fingerprint, node.childNumber,
+            node.chainCode, 0x00'u8, node.privateKey.toBytes).toBytesBE.addCheck
+    var s = base58.enc(d)
+    node.xprv.set(s)
+
+  proc xpub*(node: HDNode): cstring {.exportc: "bip32_$1".} =
+    var d = (node.versionPub, node.depth, node.fingerprint, node.childNumber,
+            node.chainCode, node.publicKey).toBytesBE.addCheck
+    var s = base58.enc(d)
+    node.xpub.set(s)
+
+  proc node*(x: cstring, testnet: bool = false): HDNode {.exportc: "bip32_$1".} =
+    var d = base58.dec(toString(cast[ptr UncheckedArray[byte]](x), x.len))
+    if not check(d):
+      raise newException(HdError, "invalid serialization format")
+    var node = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
+    node.depth = d[4]
+    node.fingerprint = d[5].toUint32BE
+    node.childNumber = d[9].toUint32BE
+    node.chainCode = d[13..44].toBuffer
+    var ver = d.toUint32BE
+    if testnet:
+      if ver == VersionTestnetPublic:
+        node.publicKey = d[45..77].toBuffer
+        node.versionPub = VersionTestnetPublic
+      elif ver == VersionTestnetPrivate:
+        node.privateKey = d[46..77].toBuffer
+        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBuffer
+        node.versionPub = VersionTestnetPublic
+        node.versionPrv = VersionTestnetPrivate
+      else:
+        raise newException(HdError, "unknown version " & $ver.toBytesBE)
+    else:
+      if ver == VersionMainnetPublic:
+        node.publicKey = d[45..77].toBuffer
+        node.versionPub = VersionMainnetPublic
+      elif ver == VersionMainnetPrivate:
+        node.privateKey = d[46..77].toBuffer
+        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBuffer
+        node.versionPub = VersionMainnetPublic
+        node.versionPrv = VersionMainnetPrivate
+      else:
+        raise newException(HdError, "unknown version " & $ver.toBytesBE)
+    result = node
+
+  proc hardened*(node: HDNode, index: uint32): HDNode {.exportc: "bip32_$1".} =
+    if node.privateKey.len != 32:
+      raise newException(HdError, "derive privateKey len=" & $node.privateKey.len)
+    var childNumber = (0x80000000'u32 or index)
+    var data = (0x00'u8, node.privateKey, childNumber).toBytesBE
+    var I = sha512.hmac(node.chainCode.toBytes, data).data
+    var privateKey: PrivateKey = I[0..31]
+    var chainCode: ChainCode = I[32..63].ChainCode
+    var deriveNode = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
+    deriveNode.depth = node.depth + 1
+    deriveNode.fingerprint = ripemd160hash(node.publicKey.toBytes.PublicKey).toBytes.toUint32BE
+    deriveNode.childNumber = childNumber
+    deriveNode.chainCode = chainCode.toBuffer
+    deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes.toBuffer
+    deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBuffer
+    deriveNode.versionPub = node.versionPub
+    deriveNode.versionPrv = node.versionPrv
+    result = deriveNode
+
+  proc derive*(node: HDNode, index: uint32): HDNode {.exportc: "bip32_$1".} =
+    var childNumber = index
+    var data = (node.publicKey, childNumber).toBytesBE
+    var I = sha512.hmac(node.chainCode.toBytes, data).data
+    var privateKey: PrivateKey = I[0..31]
+    var chainCode: ChainCode = I[32..63].ChainCode
+    var deriveNode = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
+    deriveNode.depth = node.depth + 1
+    deriveNode.fingerprint = ripemd160hash(node.publicKey.toBytes.PublicKey).toBytes.toUint32BE
+    deriveNode.childNumber = childNumber
+    deriveNode.chainCode = chainCode.toBuffer
+    if node.privateKey.len == 32:
+      deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes.toBuffer
+      deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBuffer
+    else:
+      deriveNode.publicKey = node.publicKey.toBytes.PublicKey.pubObj.tweakAdd(privateKey.toBytes.PrivateKey).pub.toBuffer
+    deriveNode.versionPub = node.versionPub
+    deriveNode.versionPrv = node.versionPrv
+    result = deriveNode
+
+  proc address*(node: HDNode, networkId: NetworkId): cstring {.exportc: "bip32_$1".} =
+    var network = getNetwork(networkId)
+    var s = node.publicKey.toBytes.PublicKey.toAddress(network)
+    node.address.set(s)
+
+  proc segwitAddress*(node: HDNode, networkId: NetworkId): cstring {.exportc: "bip32_$1".} =
+    var network = getNetwork(networkId)
+    var s = node.publicKey.toBytes.PublicKey.toSegwitAddress(network)
+    node.segwitAddress.set(s)
