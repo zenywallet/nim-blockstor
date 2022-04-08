@@ -1,6 +1,19 @@
 # Copyright (c) 2022 zenywallet
 
 when defined(js):
+  import macros, os
+  const srcDir = currentSourcePath().parentDir()
+  const zenyjsFilePath = srcDir / "zenyjs.js"
+  macro loadZenyJS(): untyped =
+    var zenyjsScript = readFile(zenyjsFilePath)
+    result = nnkStmtList.newTree(
+      nnkAsmStmt.newTree(
+        newEmptyNode(),
+        newLit(zenyjsScript)
+      )
+    )
+  loadZenyJS()
+
   import jsffi
   import asyncjs
   import jslib
