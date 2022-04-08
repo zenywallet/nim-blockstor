@@ -74,10 +74,11 @@ when defined(js):
       wait_ready()
 
   template ready*(body: untyped) =
+    proc bodyMain() {.async, discardable.} = body
     loadModule(proc(module: JsObject) =
       when declared(bip32):
         bip32.init(module)
-      body
+      bodyMain()
     )
 
 elif defined(emscripten):
