@@ -62,7 +62,7 @@ proc call*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importc
 
 const NumVar* = "number".cstring
 
-proc strToUint8Array*(str: cstring): Uint8Array =
+proc strToUint8Array*(str: cstring or JsObject): Uint8Array =
   let textenc = newTextEncoder()
   result = (textenc.encode(str)).to(Uint8Array)
 
