@@ -65,6 +65,25 @@ proc `=destroy`[T](queue: var Queue[T]) =
     queue.buf.deallocShared()
     queue.buf = nil
 
+proc `=copy`*[T](a: var Queue[T]; b: Queue[T]) =
+  if a.buf == b.buf: return
+  `=destroy`(a)
+  wasMoved(a)
+  a.bufLen = b.bufLen
+  a.count = b.count
+  a.next = b.next
+  if b.buf != nil:
+    a.buf = cast[ptr UncheckedArray[T]](allocShared(sizeof(T) * a.bufLen))
+    copyMem(a.buf, b.buf, sizeof(T) * a.bufLen)
+
+proc `=sink`*[T](a: var Queue[T]; b: Queue[T]) =
+  `=destroy`(a)
+  wasMoved(a)
+  a.bufLen = b.bufLen
+  a.count = b.count
+  a.next = b.next
+  a.buf = b.buf
+
 
 when isMainModule:
   var queue: Queue[int]
@@ -77,6 +96,10 @@ when isMainModule:
     queue.add(j); inc(j)
     queue.add(j); inc(j)
     assert queue.pop() == k; inc(k)
+
+  var queue2 = queue #=copy
+  var queue3: Queue[int]
+  queue2 = queue3 #=sink
 
   for i in 5000..<10000:
     queue.add(j); inc(j)
