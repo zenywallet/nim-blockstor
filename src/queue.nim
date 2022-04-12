@@ -44,7 +44,7 @@ proc pop*[T](queue: var Queue[T]): T =
     when not T is ptr and not T is pointer:
       raise newException(QueueError, "no data")
 
-iterator pop*[T](queue: var Queue[T]): var T =
+iterator pop*[T](queue: var Queue[T]): lent T =
   while queue.count > 0:
     var pos = queue.next - queue.count
     if pos < 0:
