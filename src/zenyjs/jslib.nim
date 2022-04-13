@@ -26,7 +26,7 @@ var JSON* {.importc, nodecl.}: JsonObj
 var arguments* {.importc, nodecl.}: ArgumentsObj
 
 {.experimental.}
-macro `.`*(typ: typedesc): JsObject =
+macro `static`*(typ: typedesc): JsObject =
   let typeStr = $typ
   result = quote do:
     var staticType {.importc: `typeStr`, nodecl.}: JsObject
