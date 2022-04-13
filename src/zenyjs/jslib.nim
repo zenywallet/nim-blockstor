@@ -26,11 +26,13 @@ var JSON* {.importc, nodecl.}: JsonObj
 var arguments* {.importc, nodecl.}: ArgumentsObj
 
 {.experimental.}
-macro `static`*(typ: typedesc): JsObject =
+macro `.`*(typ: typedesc, field: untyped): JsObject =
   let typeStr = $typ
+  let importString = "#." & $field
   result = quote do:
     var staticType {.importc: `typeStr`, nodecl.}: JsObject
-    staticType
+    proc helper(o: JsObject): JsObject {.importjs: `importString`, gensym.}
+    helper(staticType)
 
 macro `.()`*(typ: typedesc, field: untyped, args: varargs[JsObject, jsFromAst]): JsObject =
   var importString: string
