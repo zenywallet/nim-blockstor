@@ -79,11 +79,14 @@ when defined(js):
       loadModule(proc(module: JsObject) =
         when declared(bip32):
           bip32.init(module)
+        when declared(deoxy):
+          deoxy.init(module)
         bodyMain()
       )
 
 elif defined(emscripten):
   import bip32
+  import deoxy
 
   const ZENYJS_MODULE_NAME = "ZenyJS"
   {.passL: "-s EXPORT_NAME=" & ZENYJS_MODULE_NAME.}
@@ -99,6 +102,9 @@ elif defined(emscripten):
       bracket.add(newLit(functionName))
     when declared(bip32):
       for functionName in bip32.EXPORTED_FUNCTIONS:
+        bracket.add(newLit(functionName))
+    when declared(deoxy):
+      for functionName in deoxy.EXPORTED_FUNCTIONS:
         bracket.add(newLit(functionName))
     result.add(
       nnkConstSection.newTree(
