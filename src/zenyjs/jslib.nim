@@ -25,7 +25,7 @@ var window* {.importc: "Window", nodecl.}: WindowObj
 var JSON* {.importc, nodecl.}: JsonObj
 var arguments* {.importc, nodecl.}: ArgumentsObj
 
-{.experimental.}
+{.experimental: "dotOperators".}
 macro `.`*(typ: typedesc, field: untyped): JsObject =
   let typeStr = $typ
   let importString = "#." & $field
