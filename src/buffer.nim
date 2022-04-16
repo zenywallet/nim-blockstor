@@ -27,19 +27,19 @@ proc `=sink`*(a: var Buffer; b: Buffer) =
   a.len = b.len
   a.data = b.data
 
-proc add*(x: var Buffer; y: Buffer) =
+proc add*(x: var Buffer; y: sink Buffer) =
   let newSize = x.len + y.len
   x.data = cast[ptr UncheckedArray[byte]](reallocShared(x.data, newSize))
   copyMem(addr x.data[x.len], addr y.data[0], y.len)
   x.len = newSize
 
-proc add*(x: var Buffer; y: seq[byte]) =
+proc add*(x: var Buffer; y: sink seq[byte]) =
   let newSize = x.len + y.len
   x.data = cast[ptr UncheckedArray[byte]](reallocShared(x.data, newSize))
   copyMem(addr x.data[x.len], unsafeAddr y[0], y.len)
   x.len = newSize
 
-proc add*(x: var Buffer; y: openArray[byte]) =
+proc add*(x: var Buffer; y: sink openArray[byte]) =
   let newSize = x.len + y.len
   x.data = cast[ptr UncheckedArray[byte]](reallocShared(x.data, newSize))
   copyMem(addr x.data[x.len], unsafeAddr y[0], y.len)
