@@ -23,6 +23,10 @@ when defined(js):
     Bip32Mod.derive = Module.cwrap("bip32_derive", NumVar, [NumVar, NumVar])
     Bip32Mod.address = Module.cwrap("bip32_address", NumVar, [NumVar, NumVar])
     Bip32Mod.segwitAddress = Module.cwrap("bip32_segwitAddress", NumVar, [NumVar, NumVar])
+    Bip32Mod.xprvEx = Module.cwrap("bip32_xprv_ex", NumVar, [NumVar, NumVar])
+    Bip32Mod.xpubEx = Module.cwrap("bip32_xpub_ex", NumVar, [NumVar, NumVar])
+    Bip32Mod.addressEx = Module.cwrap("bip32_address_ex", NumVar, [NumVar, NumVar, NumVar])
+    Bip32Mod.segwitAddressEx = Module.cwrap("bip32_segwitAddress_ex", NumVar, [NumVar, NumVar, NumVar])
 
   proc duplicate(handle: JsObject): JsObject =
     result = Bip32Mod.duplicate(handle)
@@ -62,6 +66,22 @@ when defined(js):
     var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
     return s
 
+  proc xprvEx*(node: HDNode): cstring =
+    var p = Module.malloc(4)
+    var size = Bip32Mod.xprvEx(node.handle, p)
+    var outBuf = newUint32Array(Module.HEAPU32.buffer, p.to(int), 1)[0]
+    var a = newUint8Array(Module.HEAPU8.buffer, outBuf.to(int), size.to(int)).slice()
+    var s = a.uint8ArrayToStr()
+    return s
+
+  proc xpubEx*(node: HDNode): cstring =
+    var p = Module.malloc(4)
+    var size = Bip32Mod.xpubEx(node.handle, p)
+    var outBuf = newUint32Array(Module.HEAPU32.buffer, p.to(int), 1)[0]
+    var a = newUint8Array(Module.HEAPU8.buffer, outBuf.to(int), size.to(int)).slice()
+    var s = a.uint8ArrayToStr()
+    return s
+
   proc node*(x: cstring, testnet: bool = false): HDNode =
     var a = strToUint8Array(x)
     var size = a.length.to(cint)
@@ -87,6 +107,22 @@ when defined(js):
     var s = a.slice(0, a.indexOf(0)).uint8ArrayToStr()
     return s
 
+  proc addressEx*(node: HDNode, networkId: int = 0): cstring =
+    var p = Module.malloc(4)
+    var size = Bip32Mod.addressEx(node.handle, networkId, p)
+    var outBuf = newUint32Array(Module.HEAPU32.buffer, p.to(int), 1)[0]
+    var a = newUint8Array(Module.HEAPU8.buffer, outBuf.to(int), size.to(int)).slice()
+    var s = a.uint8ArrayToStr()
+    return s
+
+  proc segwitAddressEx*(node: HDNode, networkId: int = 0): cstring =
+    var p = Module.malloc(4)
+    var size = Bip32Mod.segwitAddressEx(node.handle, networkId, p)
+    var outBuf = newUint32Array(Module.HEAPU32.buffer, p.to(int), 1)[0]
+    var a = newUint8Array(Module.HEAPU8.buffer, outBuf.to(int), size.to(int)).slice()
+    var s = a.uint8ArrayToStr()
+    return s
+
 elif defined(emscripten):
   import ../bytes
   import ../base58
@@ -99,7 +135,8 @@ elif defined(emscripten):
 
   const EXPORTED_FUNCTIONS* = ["_bip32_free", "_bip32_master", "_bip32_xprv", "_bip32_xpub", "_bip32_node",
                               "_bip32_hardened", "_bip32_derive", "_bip32_address", "_bip32_segwitAddress",
-                              "_bip32_duplicate"]
+                              "_bip32_duplicate", "_bip32_xprv_ex", "_bip32_xpub_ex",
+                              "_bip32_address_ex", "_bip32_segwitAddress_ex"]
 
   const VersionMainnetPublic* = 0x0488B21E'u32
   const VersionMainnetPrivate* = 0x0488ADE4'u32
@@ -207,6 +244,24 @@ elif defined(emscripten):
     var s = base58.enc(d)
     node.xpub.set(s)
 
+  proc xprv*(node: HDNode, xprv: ptr cstring): cint {.exportc: "bip32_$1_ex".} =
+    if node.privateKey.len != 32:
+      raise newException(HdError, "xprv privateKey len=" & $node.privateKey.len)
+    var d = (node.versionPrv, node.depth, node.fingerprint, node.childNumber,
+            node.chainCode, 0x00'u8, node.privateKey.toBytes).toBytesBE.addCheck
+    var s = base58.enc(d)
+    node.xprv.set(s)
+    xprv[] = node.xprv
+    result = s.len.cint
+
+  proc xpub*(node: HDNode, xpub: ptr cstring): cint {.exportc: "bip32_$1_ex".} =
+    var d = (node.versionPub, node.depth, node.fingerprint, node.childNumber,
+            node.chainCode, node.publicKey).toBytesBE.addCheck
+    var s = base58.enc(d)
+    node.xpub.set(s)
+    xpub[] = node.xpub
+    result = s.len.cint
+
   proc node*(x: cstring, testnet: bool = false): HDNode {.exportc: "bip32_$1".} =
     var d = base58.dec(toString(cast[ptr UncheckedArray[byte]](x), x.len))
     if not check(d):
@@ -289,3 +344,17 @@ elif defined(emscripten):
     var network = getNetwork(networkId)
     var s = node.publicKey.toBytes.PublicKey.toSegwitAddress(network)
     node.segwitAddress.set(s)
+
+  proc address*(node: HDNode, networkId: NetworkId, outAddress: ptr cstring): cint {.exportc: "bip32_$1_ex".} =
+    var network = getNetwork(networkId)
+    var s = node.publicKey.toBytes.PublicKey.toAddress(network)
+    node.address.set(s)
+    outAddress[] = node.address
+    result = s.len.cint
+
+  proc segwitAddress*(node: HDNode, networkId: NetworkId, outAddress: ptr cstring): cint {.exportc: "bip32_$1_ex".} =
+    var network = getNetwork(networkId)
+    var s = node.publicKey.toBytes.PublicKey.toSegwitAddress(network)
+    node.segwitAddress.set(s)
+    outAddress[] = node.segwitAddress
+    result = s.len.cint
