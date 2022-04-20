@@ -84,6 +84,21 @@ proc newArray*[T](len: Natural): Array[T] =
   result.data = cast[typeof(result.data)](allocShared0(size))
   result.len = len
 
+proc newArray*[T](a: var Array[T], len: Natural) =
+  let size = sizeof(T) * len
+  a.data = cast[typeof(a.data)](allocShared0(size))
+  a.len = len
+
+proc newArrayUninitialized*[T](len: Natural): Array[T] =
+  let size = sizeof(T) * len
+  result.data = cast[typeof(result.data)](allocShared(size))
+  result.len = len
+
+proc newArrayOfCap*[T](len: Natural): Array[T] =
+  let size = sizeof(T) * len
+  result.data = cast[typeof(result.data)](allocShared(size))
+  result.len = 0
+
 proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
   let size = sizeof(T) * len
   result.data = cast[typeof(result.data)](allocShared0(size))
