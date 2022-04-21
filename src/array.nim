@@ -2,6 +2,7 @@
 
 import bytes
 
+
 type
   Array*[T] = object
     len, cap: int
@@ -83,27 +84,32 @@ proc newArray*[T](len: Natural): Array[T] =
   let size = sizeof(T) * len
   result.data = cast[typeof(result.data)](allocShared0(size))
   result.len = len
+  result.cap = size
 
 proc newArray*[T](a: var Array[T], len: Natural) =
   let size = sizeof(T) * len
   a.data = cast[typeof(a.data)](allocShared0(size))
   a.len = len
+  a.cap = size
 
 proc newArrayUninitialized*[T](len: Natural): Array[T] =
   let size = sizeof(T) * len
   result.data = cast[typeof(result.data)](allocShared(size))
   result.len = len
+  result.cap = size
 
 proc newArrayOfCap*[T](len: Natural): Array[T] =
   let size = sizeof(T) * len
   result.data = cast[typeof(result.data)](allocShared(size))
   result.len = 0
+  result.cap = size
 
 proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
   let size = sizeof(T) * len
   result.data = cast[typeof(result.data)](allocShared0(size))
   copyMem(result.data, buf, size)
   result.len = size
+  result.cap = size
 
 proc toArray*[T](x: openArray[T]): Array[T] =
   if x.len > 0:
