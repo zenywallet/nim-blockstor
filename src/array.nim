@@ -33,7 +33,7 @@ proc `=sink`*[T](a: var Array[T]; b: Array[T]) =
   a.data = b.data
 
 proc nextCap(cap: int): int =
-  if cap == 0:
+  if cap <= 16:
     result = 32
   else:
     result = cap * 2
@@ -41,7 +41,7 @@ proc nextCap(cap: int): int =
 proc add*[T](x: var Array[T]; y: sink Array[T]) =
   let newLen = x.len + y.len
   if x.cap < newLen:
-    x.cap = nextCap(x.cap)
+    x.cap = nextCap(sizeof(T) * x.cap)
     x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
   copyMem(addr x.data[x.len], addr y.data[0], sizeof(T) * y.len)
   x.len = newLen
@@ -49,7 +49,7 @@ proc add*[T](x: var Array[T]; y: sink Array[T]) =
 proc add*[T](x: var Array[T]; y: sink T) =
   let newLen = x.len + 1
   if x.cap < newLen:
-    x.cap = nextCap(x.cap)
+    x.cap = nextCap(sizeof(T) * x.cap)
     x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
   x.data[x.len] = y
   x.len = newLen
@@ -57,7 +57,7 @@ proc add*[T](x: var Array[T]; y: sink T) =
 proc add*[T](x: var Array[T]; y: sink seq[T]) =
   let newLen = x.len + y.len
   if x.cap < newLen:
-    x.cap = nextCap(x.cap)
+    x.cap = nextCap(sizeof(T) * x.cap)
     x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
   copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
   x.len = newLen
@@ -65,7 +65,7 @@ proc add*[T](x: var Array[T]; y: sink seq[T]) =
 proc add*[T](x: var Array[T]; y: sink openArray[T]) =
   let newLen = x.len + y.len
   if x.cap < newLen:
-    x.cap = nextCap(x.cap)
+    x.cap = nextCap(sizeof(T) * x.cap)
     x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
   copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
   x.len = newLen
