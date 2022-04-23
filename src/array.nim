@@ -51,6 +51,7 @@ proc add*[T](x: var Array[T]; y: sink T) =
   if x.cap < newLen:
     x.cap = nextCap(sizeof(T) * x.cap)
     x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+  zeroMem(addr x.data[x.len], sizeof(T))
   x.data[x.len] = y
   x.len = newLen
 
