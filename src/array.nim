@@ -101,7 +101,7 @@ proc newArrayUninitialized*[T](len: Natural): Array[T] =
 
 proc newArrayOfCap*[T](len: Natural): Array[T] =
   let size = sizeof(T) * len
-  result.data = cast[typeof(result.data)](allocShared(size))
+  result.data = cast[typeof(result.data)](allocShared0(size))
   result.len = 0
   result.cap = size
 
