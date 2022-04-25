@@ -71,7 +71,7 @@ proc add*[T](x: var Array[T]; y: sink openArray[T]) =
   copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
   x.len = newLen
 
-proc `[]`*[T](x: Array[T]; i: Natural): lent T =
+proc `[]`*[T](x: Array[T]; i: Natural): var T =
   assert i < x.len
   x.data[i]
 
