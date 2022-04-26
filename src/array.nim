@@ -118,6 +118,7 @@ proc toArray*[T](x: openArray[T]): Array[T] =
     result.data = cast[typeof(result.data)](allocShared0(size))
     copyMem(result.data, unsafeAddr x[0], size)
     result.len = x.len
+    result.cap = size
 
 proc toArray*[T](x: seq[T]): Array[T] =
   if x.len > 0:
@@ -125,6 +126,7 @@ proc toArray*[T](x: seq[T]): Array[T] =
     result.data = cast[typeof(result.data)](allocShared0(size))
     copyMem(result.data, unsafeAddr x[0], size)
     result.len = x.len
+    result.cap = size
 
 proc toBytes*[T](x: Array[T]): seq[byte] =
   result = newSeqOfCap[byte](sizeof(T) * x.len)
