@@ -1,165 +1,189 @@
 # Copyright (c) 2022 zenywallet
 
-import bytes
+when defined(ARRAY_USE_SEQ):
+  import sequtils
 
+  type
+    Array*[T] = seq[T]
 
-type
-  Array*[T] = object
-    len, cap: int
-    data: ptr UncheckedArray[T]
+  template newArray*[T](len: Natural): Array[T] = newSeq[T](len)
 
-proc `=destroy`*[T](x: var Array[T]) =
-  if x.data != nil:
-    x.data.deallocShared()
-    x.data = nil
-    x.len = 0
-    x.cap = 0
+  template newArray*[T](a: var Array[T], len: Natural) = newSeq(a, len)
 
-proc `=copy`*[T](a: var Array[T]; b: Array[T]) =
-  if a.data == b.data: return
-  `=destroy`(a)
-  wasMoved(a)
-  a.len = b.len
-  a.cap = b.cap
-  if b.data != nil:
-    a.data = cast[typeof(a.data)](allocShared0(sizeof(T) * a.cap))
-    copyMem(a.data, b.data, sizeof(T) * a.len)
+  template newArrayUninitialized*[T](len: Natural): Array[T] = newSeqUninitialized[T](len)
 
-proc `=sink`*[T](a: var Array[T]; b: Array[T]) =
-  `=destroy`(a)
-  wasMoved(a)
-  a.len = b.len
-  a.cap = b.cap
-  a.data = b.data
+  template newArrayOfCap*[T](len: Natural): Array[T] = newSeqOfCap[T](len)
 
-proc nextCap(cap: int): int =
-  if cap <= 16:
-    result = 32
-  else:
-    result = cap * 2
+  proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
+    result = newSeq[T](len)
+    copyMem(addr result[0], buf, sizeof(T) * len)
 
-proc add*[T](x: var Array[T]; y: sink Array[T]) =
-  let newLen = x.len + y.len
-  if x.cap < newLen:
-    x.cap = nextCap(sizeof(T) * x.cap)
-    x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
-  copyMem(addr x.data[x.len], addr y.data[0], sizeof(T) * y.len)
-  x.len = newLen
+  proc toArray*[T](x: openArray[T]): Array[T] = toSeq(x)
 
-proc add*[T](x: var Array[T]; y: sink T) =
-  let newLen = x.len + 1
-  if x.cap < newLen:
-    x.cap = nextCap(sizeof(T) * x.cap)
-    x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
-  zeroMem(addr x.data[x.len], sizeof(T))
-  x.data[x.len] = y
-  x.len = newLen
+  proc toArray*[T](x: seq[T]): Array[T] = x
 
-proc add*[T](x: var Array[T]; y: sink seq[T]) =
-  let newLen = x.len + y.len
-  if x.cap < newLen:
-    x.cap = nextCap(sizeof(T) * x.cap)
-    x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
-  copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
-  x.len = newLen
+  template `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] = @a
 
-proc add*[T](x: var Array[T]; y: sink openArray[T]) =
-  let newLen = x.len + y.len
-  if x.cap < newLen:
-    x.cap = nextCap(sizeof(T) * x.cap)
-    x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
-  copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
-  x.len = newLen
+  template `@^`*[T](a: sink seq[T]): Array[T] = @a
 
-proc `[]`*[T](x: Array[T]; i: Natural): var T =
-  assert i < x.len
-  x.data[i]
+else:
+  type
+    Array*[T] = object
+      len, cap: int
+      data: ptr UncheckedArray[T]
 
-proc `[]=`*[T](x: var Array[T]; i: Natural; y: sink T) =
-  assert i < x.len
-  x.data[i] = y
+  proc `=destroy`*[T](x: var Array[T]) =
+    if x.data != nil:
+      x.data.deallocShared()
+      x.data = nil
+      x.len = 0
+      x.cap = 0
 
-proc len*[T](x: Array[T]): int {.inline.} = x.len
+  proc `=copy`*[T](a: var Array[T]; b: Array[T]) =
+    if a.data == b.data: return
+    `=destroy`(a)
+    wasMoved(a)
+    a.len = b.len
+    a.cap = b.cap
+    if b.data != nil:
+      a.data = cast[typeof(a.data)](allocShared0(sizeof(T) * a.cap))
+      copyMem(a.data, b.data, sizeof(T) * a.len)
 
-proc newArray*[T](len: Natural): Array[T] =
-  let size = sizeof(T) * len
-  result.data = cast[typeof(result.data)](allocShared0(size))
-  result.len = len
-  result.cap = size
+  proc `=sink`*[T](a: var Array[T]; b: Array[T]) =
+    `=destroy`(a)
+    wasMoved(a)
+    a.len = b.len
+    a.cap = b.cap
+    a.data = b.data
 
-proc newArray*[T](a: var Array[T], len: Natural) =
-  let size = sizeof(T) * len
-  a.data = cast[typeof(a.data)](allocShared0(size))
-  a.len = len
-  a.cap = size
+  proc nextCap(cap: int): int =
+    if cap <= 16:
+      result = 32
+    else:
+      result = cap * 2
 
-proc newArrayUninitialized*[T](len: Natural): Array[T] =
-  let size = sizeof(T) * len
-  result.data = cast[typeof(result.data)](allocShared(size))
-  result.len = len
-  result.cap = size
+  proc add*[T](x: var Array[T]; y: sink Array[T]) =
+    let newLen = x.len + y.len
+    if x.cap < newLen:
+      x.cap = nextCap(sizeof(T) * x.cap)
+      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+    copyMem(addr x.data[x.len], addr y.data[0], sizeof(T) * y.len)
+    x.len = newLen
 
-proc newArrayOfCap*[T](len: Natural): Array[T] =
-  let size = sizeof(T) * len
-  result.data = cast[typeof(result.data)](allocShared0(size))
-  result.len = 0
-  result.cap = size
+  proc add*[T](x: var Array[T]; y: sink T) =
+    let newLen = x.len + 1
+    if x.cap < newLen:
+      x.cap = nextCap(sizeof(T) * x.cap)
+      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+    zeroMem(addr x.data[x.len], sizeof(T))
+    x.data[x.len] = y
+    x.len = newLen
 
-proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
-  let size = sizeof(T) * len
-  result.data = cast[typeof(result.data)](allocShared0(size))
-  copyMem(result.data, buf, size)
-  result.len = size
-  result.cap = size
+  proc add*[T](x: var Array[T]; y: sink seq[T]) =
+    let newLen = x.len + y.len
+    if x.cap < newLen:
+      x.cap = nextCap(sizeof(T) * x.cap)
+      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+    copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
+    x.len = newLen
 
-proc toArray*[T](x: openArray[T]): Array[T] =
-  if x.len > 0:
-    let size = sizeof(T) * x.len
+  proc add*[T](x: var Array[T]; y: sink openArray[T]) =
+    let newLen = x.len + y.len
+    if x.cap < newLen:
+      x.cap = nextCap(sizeof(T) * x.cap)
+      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+    copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
+    x.len = newLen
+
+  proc `[]`*[T](x: Array[T]; i: Natural): var T =
+    assert i < x.len
+    x.data[i]
+
+  proc `[]=`*[T](x: var Array[T]; i: Natural; y: sink T) =
+    assert i < x.len
+    x.data[i] = y
+
+  proc len*[T](x: Array[T]): int {.inline.} = x.len
+
+  proc newArray*[T](len: Natural): Array[T] =
+    let size = sizeof(T) * len
     result.data = cast[typeof(result.data)](allocShared0(size))
-    copyMem(result.data, unsafeAddr x[0], size)
-    result.len = x.len
+    result.len = len
     result.cap = size
 
-proc toArray*[T](x: seq[T]): Array[T] =
-  if x.len > 0:
-    let size = sizeof(T) * x.len
-    result.data = cast[typeof(result.data)](allocShared0(size))
-    copyMem(result.data, unsafeAddr x[0], size)
-    result.len = x.len
+  proc newArray*[T](a: var Array[T], len: Natural) =
+    let size = sizeof(T) * len
+    a.data = cast[typeof(a.data)](allocShared0(size))
+    a.len = len
+    a.cap = size
+
+  proc newArrayUninitialized*[T](len: Natural): Array[T] =
+    let size = sizeof(T) * len
+    result.data = cast[typeof(result.data)](allocShared(size))
+    result.len = len
     result.cap = size
 
-proc toBytes*[T](x: Array[T]): seq[byte] =
-  result = newSeqOfCap[byte](sizeof(T) * x.len)
-  for i in 0..<x.len:
-    result.add(x[i].toBytes)
+  proc newArrayOfCap*[T](len: Natural): Array[T] =
+    let size = sizeof(T) * len
+    result.data = cast[typeof(result.data)](allocShared0(size))
+    result.len = 0
+    result.cap = size
 
-proc toSeq*[T](x: Array[T]): seq[T] =
-  result = newSeq[T](x.len)
-  for i in 0..<x.len:
-    result[i] = x[i]
+  proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
+    let size = sizeof(T) * len
+    result.data = cast[typeof(result.data)](allocShared0(size))
+    copyMem(result.data, buf, size)
+    result.len = size
+    result.cap = size
 
-proc `$`*[T](a: Array[T]): string = $a.toSeq
+  proc toArray*[T](x: openArray[T]): Array[T] =
+    if x.len > 0:
+      let size = sizeof(T) * x.len
+      result.data = cast[typeof(result.data)](allocShared0(size))
+      copyMem(result.data, unsafeAddr x[0], size)
+      result.len = x.len
+      result.cap = size
 
-proc toHex*[T](a: Array[T]): string = a.toBytes.toHex
+  proc toArray*[T](x: seq[T]): Array[T] =
+    if x.len > 0:
+      let size = sizeof(T) * x.len
+      result.data = cast[typeof(result.data)](allocShared0(size))
+      copyMem(result.data, unsafeAddr x[0], size)
+      result.len = x.len
+      result.cap = size
 
-iterator items*[T](a: Array[T]): lent T =
-  for i in 0..<a.len:
-    yield a.data[i]
+  proc toBytes*[T](x: Array[T]): seq[byte] =
+    result = newSeqOfCap[byte](sizeof(T) * x.len)
+    for i in 0..<x.len:
+      result.add(x[i].toBytes)
 
-iterator pairs*[T](a: Array[T]): tuple[key: int, val: lent T] =
-  for i in 0..<a.len:
-    yield (i, a.data[i])
+  proc toSeq*[T](x: Array[T]): seq[T] =
+    result = newSeq[T](x.len)
+    for i in 0..<x.len:
+      result[i] = x[i]
 
-proc high*[T](x: Array[T]): int {.inline.} = x.len - 1
+  proc `$`*[T](a: Array[T]): string = $a.toSeq
 
-proc low*[T](x: Array[T]): int {.inline.} = 0
+  proc toHex*[T](a: Array[T]): string = a.toBytes.toHex
 
-proc `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] =
-  result = newArray[T](a.len)
-  for i in 0..a.len-1:
-    result[i] = a[i]
+  iterator items*[T](a: Array[T]): lent T =
+    for i in 0..<a.len:
+      yield a.data[i]
 
-proc `@^`*[T](a: sink seq[T]): Array[T] =
-  result = newArray[T](a.len)
-  for i in 0..a.len-1:
-    result[i] = a[i]
+  iterator pairs*[T](a: Array[T]): tuple[key: int, val: lent T] =
+    for i in 0..<a.len:
+      yield (i, a.data[i])
+
+  proc high*[T](x: Array[T]): int {.inline.} = x.len - 1
+
+  proc low*[T](x: Array[T]): int {.inline.} = 0
+
+  proc `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] =
+    result = newArray[T](a.len)
+    for i in 0..a.len-1:
+      result[i] = a[i]
+
+  proc `@^`*[T](a: sink seq[T]): Array[T] =
+    result = newArray[T](a.len)
+    for i in 0..a.len-1:
+      result[i] = a[i]
