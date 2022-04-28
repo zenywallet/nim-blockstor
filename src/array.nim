@@ -162,7 +162,14 @@ else:
     for i in 0..<x.len:
       result[i] = x[i]
 
-  proc `$`*[T](a: Array[T]): string = $a.toSeq
+  proc `$`*[T](a: Array[T]): string =
+    if a.len > 0:
+      result = "@^[" & $a[0]
+      for i in 1..<a.len:
+        result.add(", " & $a[i])
+      result.add("]")
+    else:
+      result = "@^[]"
 
   proc toHex*[T](a: Array[T]): string = a.toBytes.toHex
 
