@@ -194,3 +194,14 @@ else:
     result = newArray[T](a.len)
     for i in 0..a.len-1:
       result[i] = a[i]
+
+  proc concat*[T](arrays: varargs[Array[T]]): Array[T] =
+    var allLen = 0
+    for a in arrays:
+      inc(allLen, a.len)
+    result.newArray(allLen)
+    var i = 0
+    for a in arrays:
+      for item in a:
+        result[i] = item
+        inc(i)
