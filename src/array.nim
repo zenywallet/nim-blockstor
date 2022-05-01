@@ -205,3 +205,11 @@ else:
       for item in a:
         result[i] = item
         inc(i)
+
+  proc `[]`*[T; U, V: Ordinal](a: Array[T]; x: HSlice[U, V]): Array[T] =
+    let len = x.b.int - x.a.int + 1
+    result.newArray(len)
+    var idx = 0
+    for i in x.a.int..x.b.int:
+      result[idx] = a[i]
+      inc(idx)
