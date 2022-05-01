@@ -15,7 +15,7 @@ when defined(ARRAY_USE_SEQ):
   template newArrayOfCap*[T](len: Natural): Array[T] = newSeqOfCap[T](len)
 
   proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
-    result = newSeq[T](len)
+    result.newSeq(len)
     copyMem(addr result[0], buf, sizeof(T) * len)
 
   proc toArray*[T](x: openArray[T]): Array[T] = toSeq(x)
@@ -158,7 +158,7 @@ else:
       result.add(x[i].toBytes)
 
   proc toSeq*[T](x: Array[T]): seq[T] =
-    result = newSeq[T](x.len)
+    result.newSeq(x.len)
     for i in 0..<x.len:
       result[i] = x[i]
 
@@ -186,12 +186,12 @@ else:
   proc low*[T](x: Array[T]): int {.inline.} = 0
 
   proc `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] =
-    result = newArray[T](a.len)
+    result.newArray(a.len)
     for i in 0..a.len-1:
       result[i] = a[i]
 
   proc `@^`*[T](a: sink seq[T]): Array[T] =
-    result = newArray[T](a.len)
+    result.newArray(a.len)
     for i in 0..a.len-1:
       result[i] = a[i]
 
