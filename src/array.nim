@@ -18,9 +18,9 @@ when defined(ARRAY_USE_SEQ):
     result.newSeq(len)
     copyMem(addr result[0], buf, sizeof(T) * len)
 
-  proc toArray*[T](x: openArray[T]): Array[T] = toSeq(x)
+  template toArray*[T](x: openArray[T]): Array[T] = toSeq(x)
 
-  proc toArray*[T](x: seq[T]): Array[T] = x
+  template toArray*[T](x: seq[T]): Array[T] = x
 
   template `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] = @a
 
