@@ -5,3 +5,7 @@ htmldocs/
 !*.*
 !*/
 data*/
+deps/
+public/
+src/config.nim
+closure-compiler-*.jar
