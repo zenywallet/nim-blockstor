@@ -4,6 +4,7 @@
 [submodule "deps/sophia"]
 	path = deps/sophia
 	url = https://github.com/pmwkaa/sophia
+	ignore = dirty
 [submodule "deps/brotli"]
 	path = deps/brotli
 	url = https://github.com/google/brotli
@@ -16,6 +17,7 @@
 [submodule "deps/wasm-secp256k1"]
 	path = deps/wasm-secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
+	ignore = dirty
 [submodule "deps/ed25519"]
 	path = deps/ed25519
 	url = https://github.com/orlp/ed25519
@@ -31,6 +33,7 @@
 [submodule "deps/libressl"]
 	path = deps/libressl
 	url = https://github.com/libressl-portable/portable
+	ignore = all
 [submodule "deps/openssl"]
 	path = deps/openssl
 	url = https://github.com/openssl/openssl
@@ -43,6 +46,8 @@
 [submodule "deps/zbar"]
 	path = deps/zbar
 	url = https://github.com/mchehab/zbar
+	ignore = dirty
 [submodule "deps/rocksdb"]
 	path = deps/rocksdb
 	url = https://github.com/facebook/rocksdb
+	ignore = dirty
