@@ -206,6 +206,17 @@ else:
         result[i] = item
         inc(i)
 
+  proc concat*[T](arrays: Array[Array[T]]): Array[T] =
+    var allLen = 0
+    for a in arrays:
+      inc(allLen, a.len)
+    result.newArray(allLen)
+    var i = 0
+    for a in arrays:
+      for item in a:
+        result[i] = item
+        inc(i)
+
   proc `[]`*[T; U, V: Ordinal](a: Array[T]; x: HSlice[U, V]): Array[T] =
     let len = x.b.int - x.a.int + 1
     result.newArray(len)
