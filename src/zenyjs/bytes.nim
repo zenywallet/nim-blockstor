@@ -1,7 +1,8 @@
 # Copyright (c) 2020 zenywallet
 
 import sequtils, strutils, endians, algorithm
-import opcodes
+import ../opcodes
+import array
 
 type
   VarInt* = distinct int
@@ -14,20 +15,20 @@ type
     data*: string
     size*: int
 
-  Hash* = distinct seq[byte]
+  Hash* = distinct Array[byte]
 
-  Hash160* = distinct seq[byte]
+  Hash160* = distinct Array[byte]
 
-  PushData* = distinct seq[byte]
+  PushData* = distinct Array[byte]
 
   Hex* = distinct string
 
 
-proc toBytes*(x: SomeOrdinal | SomeFloat): seq[byte] =
+proc toBytes*(x: SomeOrdinal | SomeFloat): Array[byte] =
   when sizeof(x) == 1:
-    @[byte x]
+    @^[byte x]
   else:
-    result = newSeq[byte](sizeof(x))
+    result.newArray(sizeof(x))
     when sizeof(x) == 2:
       littleEndian16(addr result[0], unsafeAddr x)
     elif sizeof(x) == 4:
@@ -37,11 +38,11 @@ proc toBytes*(x: SomeOrdinal | SomeFloat): seq[byte] =
     else:
       raiseAssert("toBytes: unsupported type")
 
-proc toBytesBE*(x: SomeOrdinal | SomeFloat): seq[byte] =
+proc toBytesBE*(x: SomeOrdinal | SomeFloat): Array[byte] =
   when sizeof(x) == 1:
-    @[byte x]
+    @^[byte x]
   else:
-    result = newSeq[byte](sizeof(x))
+    result.newArray(sizeof(x))
     when sizeof(x) == 2:
       bigEndian16(addr result[0], unsafeAddr x)
     elif sizeof(x) == 4:
@@ -63,124 +64,138 @@ proc toBE*[T](x: T): T =
   else:
     raiseAssert("toBE: unsupported type")
 
-proc varInt*[T](val: T): seq[byte] =
+proc varInt*[T](val: T): Array[byte] =
   if val < 0xfd:
-    @[byte val]
+    @^[byte val]
   elif val <= 0xffff:
-    concat(@[byte 0xfd], (uint16(val)).toBytes)
+    concat(@^[byte 0xfd], (uint16(val)).toBytes)
   elif val <= 0xffffffff:
-    concat(@[byte 0xfe], (uint32(val)).toBytes)
+    concat(@^[byte 0xfe], (uint32(val)).toBytes)
   else:
-    concat(@[byte 0xff], (uint64(val)).toBytes)
+    concat(@^[byte 0xff], (uint64(val)).toBytes)
 
-proc varStr*(s: string): seq[byte] {.inline.} = concat(varInt(s.len), cast[seq[byte]](s))
+proc varStr*(s: string): Array[byte] {.inline.} = concat(varInt(s.len), cast[Array[byte]](s))
 
-proc pushData*(data: seq[byte]): seq[byte] =
+proc pushData*(data: Array[byte]): Array[byte] =
   if data.len <= 0:
     raiseAssert("pushData: empty")
   elif data.len < OP_PUSHDATA1.ord:
-    result = concat(@[byte data.len], data)
+    result = concat(@^[byte data.len], data)
   elif data.len <= 0xff:
-    result = concat(@[byte OP_PUSHDATA1], (data.len).uint8.toBytes, data)
+    result = concat(@^[byte OP_PUSHDATA1], (data.len).uint8.toBytes, data)
   elif data.len <= 0xffff:
-    result = concat(@[byte OP_PUSHDATA2], (data.len).uint16.toBytes, data)
+    result = concat(@^[byte OP_PUSHDATA2], (data.len).uint16.toBytes, data)
   elif data.len <= 0xffffffff:
-    result = concat(@[byte OP_PUSHDATA4], (data.len).uint32.toBytes, data)
+    result = concat(@^[byte OP_PUSHDATA4], (data.len).uint32.toBytes, data)
   else:
     raiseAssert("pushData: overflow")
 
-proc pushData*(data: openarray[byte]): seq[byte] {.inline.} = pushData(data.toSeq)
+proc pushData*(data: openarray[byte]): Array[byte] {.inline.} = pushData(data.toSeq)
 
-proc pad*(len: int): seq[byte] {.inline.} = newSeq[byte](len)
+proc pad*(len: int): Array[byte] {.inline.} = newArray[byte](len)
 
-proc pad*(len: int, val: byte): seq[byte] {.inline.} =
-  result = newSeqUninitialized[byte](len)
-  result.fill(val)
+proc pad*(len: int, val: byte): Array[byte] {.inline.} =
+  result = newArrayUninitialized[byte](len)
+  for i in 0..<len:
+    result[i] = val
 
 proc newFixedStr*(data: string, size: int): FixedStr {.inline.} = FixedStr(data: data, size: size)
 
-proc fixedStr*(str: string, size: int): seq[byte] {.inline.} =
+proc fixedStr*(str: string, size: int): Array[byte] {.inline.} =
   if size < str.len:
-    concat(cast[seq[byte]](str)[0..<size])
+    concat(cast[seq[byte]](str)[0..<size]).toArray
   else:
-    concat(cast[seq[byte]](str), pad(size - str.len))
+    concat(cast[seq[byte]](str).toArray, pad(size - str.len))
 
-proc toBytes*(x: seq[byte]): seq[byte] {.inline.} = x
-proc toBytes*(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
-proc toBytes*(val: VarInt): seq[byte] {.inline.} = varInt(cast[int](val))
-proc toBytes*(str: VarStr): seq[byte] {.inline.} = varStr(cast[string](str))
-proc toBytes*(len: Pad): seq[byte] {.inline.} = pad(cast[int](len))
-proc toBytes*(fstr: FixedStr): seq[byte] {.inline.} = fixedStr(fstr.data, fstr.size)
-proc toBytes*(hash: Hash): seq[byte] {.inline.} = cast[seq[byte]](hash)
-proc toBytes*(hash: Hash160): seq[byte] {.inline.} = cast[seq[byte]](hash)
-proc toBytes*(p: PushData): seq[byte] {.inline.} = pushData(cast[seq[byte]](p))
-proc toBytes*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x)
+proc toBytes*(x: Array[byte]): Array[byte] {.inline.} = x
+proc toBytes*(x: openarray[byte]): Array[byte] {.inline.} = x.toArray
+proc toBytes*(val: VarInt): Array[byte] {.inline.} = varInt(cast[int](val))
+proc toBytes*(str: VarStr): Array[byte] {.inline.} = varStr(cast[string](str))
+proc toBytes*(len: Pad): Array[byte] {.inline.} = pad(cast[int](len))
+proc toBytes*(fstr: FixedStr): Array[byte] {.inline.} = fixedStr(fstr.data, fstr.size)
+proc toBytes*(hash: Hash): Array[byte] {.inline.} = cast[Array[byte]](hash)
+proc toBytes*(hash: Hash160): Array[byte] {.inline.} = cast[Array[byte]](hash)
+proc toBytes*(p: PushData): Array[byte] {.inline.} = pushData(cast[Array[byte]](p))
+proc toBytes*(x: string): Array[byte] {.inline.} = cast[Array[byte]](x)
 
-proc toBytes*(obj: tuple | object): seq[byte] =
-  var s: seq[seq[byte]]
+proc toBytes*(obj: tuple | object): Array[byte] =
+  var s: Array[Array[byte]]
   for val in obj.fields:
     var b = val.toBytes
     s.add(b)
   concat(s)
 
-proc toBytes*[T](obj: openarray[T]): seq[byte] =
-  var s: seq[seq[byte]]
+proc toBytes*[T](obj: openarray[T]): Array[byte] =
+  var s: Array[Array[byte]]
   for val in obj:
     var b = val.toBytes
     s.add(b)
   concat(s)
 
-proc toBytes*(obj: ref tuple | ref object | ptr tuple | ptr object): seq[byte] =
-  var s: seq[seq[byte]]
+proc toBytes*[T](obj: Array[T]): Array[byte] =
+  when T is Array[byte]:
+    return obj
+  var s: Array[Array[byte]]
+  for val in obj:
+    var b = val.toBytes
+    s.add(b)
+  concat(s)
+
+proc toBytes*(obj: ref tuple | ref object | ptr tuple | ptr object): Array[byte] =
+  var s: Array[Array[byte]]
   for val in obj[].fields:
     var b = val.toBytes
     s.add(b)
   concat(s)
 
-proc toBytes*(buf: ptr UncheckedArray[byte], size: SomeInteger): seq[byte] =
-  result = newSeqOfCap[byte](size)
+proc toBytes*(buf: ptr UncheckedArray[byte], size: SomeInteger): Array[byte] =
+  result = newArrayOfCap[byte](size)
   for i in 0..<size:
     result.add(buf[i])
 
-proc Bytes*(args: varargs[seq[byte], toBytes]): seq[byte] = concat(args)
+proc Bytes*(args: varargs[Array[byte], toBytes]): Array[byte] = concat(args)
 
-proc toBytesBE*(x: seq[byte]): seq[byte] {.inline.} = x
-proc toBytesBE*(x: openarray[byte]): seq[byte] {.inline.} = x.toSeq
-proc toBytesBE*(hash: Hash): seq[byte] {.inline.} = cast[seq[byte]](hash)
-proc toBytesBE*(hash: Hash160): seq[byte] {.inline.} = cast[seq[byte]](hash)
-proc toBytesBE*(x: string): seq[byte] {.inline.} = cast[seq[byte]](x)
+proc toBytesBE*(x: Array[byte]): Array[byte] {.inline.} = x
+proc toBytesBE*(x: openarray[byte]): Array[byte] {.inline.} = x.toArray
+proc toBytesBE*(hash: Hash): Array[byte] {.inline.} = cast[Array[byte]](hash)
+proc toBytesBE*(hash: Hash160): Array[byte] {.inline.} = cast[Array[byte]](hash)
+proc toBytesBE*(x: string): Array[byte] {.inline.} = cast[Array[byte]](x)
 
-proc toBytesBE*(obj: tuple | object): seq[byte] =
-  var s: seq[seq[byte]]
+proc toBytesBE*(obj: tuple | object): Array[byte] =
+  var s: Array[Array[byte]]
   for val in obj.fields:
     var b = val.toBytesBE
-    s.add(b)
+    var a = newArrayUninitialized[byte](b.len)
+    for i in 0..<b.len:
+      a[i] = b[i]
+    s.add(a)
   concat(s)
 
-proc toBytesBE*(obj: ref tuple | ref object | ptr tuple | ptr object): seq[byte] =
-  var s: seq[seq[byte]]
+proc toBytesBE*(obj: ref tuple | ref object | ptr tuple | ptr object): Array[byte] =
+  var s: Array[Array[byte]]
   for val in obj[].fields:
     var b = val.toBytesBE
-    s.add(b)
+    var a = newArrayUninitialized[byte](b.len)
+    for i in 0..<b.len:
+      a[i] = b[i]
+    s.add(a)
   concat(s)
 
-proc BytesBE*(x: SomeOrdinal | SomeFloat): seq[byte] {.inline.} = x.toBytesBE
-proc BytesBE*(args: varargs[seq[byte], toBytesBE]): seq[byte] = concat(args)
+proc BytesBE*(x: SomeOrdinal | SomeFloat): Array[byte] {.inline.} = x.toBytesBE
+proc BytesBE*(args: varargs[Array[byte], toBytesBE]): Array[byte] = concat(args)
 
-proc toBytesFromHex*(s: string): seq[byte] =
+proc toBytesFromHex*(s: string): Array[byte] =
   if s.len mod 2 == 0:
-    result = newSeqOfCap[byte](s.len div 2)
+    result = newArrayOfCap[byte](s.len div 2)
     for i in countup(0, s.len - 2, 2):
       result.add(strutils.fromHex[byte](s[i..i+1]))
-  else:
-    result = @[]
 
-proc toBytes*(x: Hex): seq[byte] {.inline.} = x.string.toBytesFromHex()
+proc toBytes*(x: Hex): Array[byte] {.inline.} = x.string.toBytesFromHex()
 
-proc toReverse*(x: seq[byte]): seq[byte] =
-  var b = x
+proc toReverse*(x: Array[byte]): Array[byte] =
+  var b = x.toSeq
   algorithm.reverse(b)
-  b
+  b.toArray
 
 proc to*(x: var byte, T: typedesc): T {.inline.} = cast[ptr T](addr x)[]
 proc toUint8*(x: var byte): uint8 {.inline.} = x.uint8
@@ -206,19 +221,24 @@ proc toUint16BE*(x: openarray[byte]): uint16 {.inline.} = x.toUint16.toBE
 proc toUint32BE*(x: openarray[byte]): uint32 {.inline.} = x.toUint32.toBE
 proc toUint64BE*(x: openarray[byte]): uint64 {.inline.} = x.toUint64.toBE
 
-proc toHash*(x: var byte): Hash {.inline.} = Hash((cast[ptr array[32, byte]](addr x)[]).toSeq)
-proc toHash*(x: seq[byte]): Hash {.inline.} = Hash(x)
-proc toHash*(x: openarray[byte]): Hash {.inline.} = Hash(x.toSeq)
+proc toHash*(x: var byte): Hash {.inline.} = Hash((cast[ptr array[32, byte]](addr x)[]).toArray)
+proc toHash*(x: Array[byte]): Hash {.inline.} = Hash(x)
+proc toHash*(x: openarray[byte]): Hash {.inline.} = Hash(x.toArray)
 proc toHash*(x: Hex): Hash {.inline} = x.toBytes.toReverse.Hash
 
-proc toHash160*(x: var byte): Hash160 {.inline.} = Hash160((cast[ptr array[20, byte]](addr x)[]).toSeq)
-proc toHash160*(x: seq[byte]): Hash160 {.inline.} = Hash160(x)
-proc toHash160*(x: openarray[byte]): Hash160 {.inline.} = Hash160(x.toSeq)
+proc toHash160*(x: var byte): Hash160 {.inline.} = Hash160((cast[ptr array[20, byte]](addr x)[]).toArray)
+proc toHash160*(x: Array[byte]): Hash160 {.inline.} = Hash160(x)
+proc toHash160*(x: openarray[byte]): Hash160 {.inline.} = Hash160(x.toArray)
 
 when not defined(CSTRING_SAFE):
   proc toString*(s: seq[byte]): string = cast[string](s)
 
 proc toString*(s: openarray[byte]): string =
+  result = newStringOfCap(len(s))
+  for c in s:
+    result.add(cast[char](c))
+
+proc toString*(s: Array[byte]): string =
   result = newStringOfCap(len(s))
   for c in s:
     result.add(cast[char](c))
@@ -276,7 +296,17 @@ else:
     for i in 0..a.high:
       result.add(hexStr[a[i]])
 
-proc `$`*(data: seq[byte]): string =
+  proc toHex*(a: seq[byte]): string =
+    result = newStringOfCap(a.len * 2)
+    for i in 0..a.high:
+      result.add(hexStr[a[i]])
+
+  proc toHex*(a: Array[byte]): string =
+    result = newStringOfCap(a.len * 2)
+    for i in 0..a.high:
+      result.add(hexStr[a[i]])
+
+proc `$`*(data: Array[byte]): string =
   if data.len > 0:
     result = bytes.toHex(data)
   else:
@@ -291,7 +321,7 @@ proc `$`*(len: Pad): string = "Pad(" & $cast[int](len) & ")"
 proc `$`*(fstr: FixedStr): string = "FixedStr(\"" & fstr.data & "\", " & $fstr.size & ")"
 
 proc `$`*(data: Hash): string =
-  var b = cast[seq[byte]](data)
+  var b = cast[Array[byte]](data).toSeq
   algorithm.reverse(b)
   bytes.toHex(b)
 
@@ -299,7 +329,7 @@ proc `$`*(data: Hash160): string = data.toBytes.toHex
 
 proc `$`*(p: PushData): string =
   var op: string
-  var b = cast[seq[byte]](p)
+  var b = cast[Array[byte]](p)
   var len = b.len
   if len < OP_PUSHDATA1.ord:
     op = "PushData"
