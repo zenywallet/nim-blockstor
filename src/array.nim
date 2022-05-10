@@ -152,11 +152,6 @@ else:
       result.len = x.len
       result.cap = size
 
-  proc toBytes*[T](x: Array[T]): seq[byte] =
-    result = newSeqOfCap[byte](sizeof(T) * x.len)
-    for i in 0..<x.len:
-      result.add(x[i].toBytes)
-
   proc toSeq*[T](x: Array[T]): seq[T] =
     result.newSeq(x.len)
     for i in 0..<x.len:
