@@ -60,7 +60,7 @@ task deps, "Build deps":
 
   withDir "deps/rocksdb":
     exec "DEBUG_LEVEL=0 make liblz4.a -j$(nproc)"
-    exec "PLUS_INCLUDE_PATH=./lz4-1.9.3/lib ROCKSDB_DISABLE_ZLIB=1 ROCKSDB_DISABLE_BZIP=1 ROCKSDB_DISABLE_SNAPPY=1 ROCKSDB_DISABLE_ZSTD=1 make static_lib -j$(nproc)"
+    exec "CPLUS_INCLUDE_PATH=./lz4-1.9.3/lib ROCKSDB_DISABLE_ZLIB=1 ROCKSDB_DISABLE_BZIP=1 ROCKSDB_DISABLE_SNAPPY=1 ROCKSDB_DISABLE_ZSTD=1 make static_lib -j$(nproc)"
 
 task ui, "Build ui":
   if dirExists("preload_tmp"):
