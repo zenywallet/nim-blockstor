@@ -43,12 +43,12 @@ task deps, "Build deps":
 
   withDir "deps/secp256k1":
     exec "./autogen.sh"
-    exec "./configure"
+    exec "./configure --enable-module-ecdh --disable-shared --enable-static --disable-tests --disable-benchmark --disable-openssl-tests --disable-exhaustive-tests"
     exec "make -j$(nproc)"
 
   withDir "deps/wasm-secp256k1":
     exec "./autogen.sh"
-    exec "emconfigure ./configure"
+    exec "emconfigure ./configure --enable-module-ecdh --disable-shared --enable-static --disable-tests --disable-benchmark --disable-openssl-tests --disable-exhaustive-tests"
     exec "sed -i 's/\\.\\/\\$(gen_context_BIN)/\\.\\.\\/secp256k1\\/\\$(gen_context_BIN)/' Makefile"
     exec "emmake make -j$(nproc)"
 
