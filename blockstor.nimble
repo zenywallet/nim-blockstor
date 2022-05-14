@@ -36,6 +36,8 @@ task deps, "Build deps":
     exec "make -j$(nproc)"
 
   withDir "deps/libressl":
+    if dirExists("openbsd"):
+      exec "rm -rf openbsd"
     exec "git checkout master"
     exec "./autogen.sh"
     exec "./configure"
