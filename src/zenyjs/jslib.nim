@@ -9,6 +9,7 @@ type
   WindowObj* = JsObject
   JsonObj* = JsObject
   ArgumentsObj* = JsObject
+  MathObj* = JsObject
   WebSocketObj*  = JsObject
   Uint8ArrayObj* = JsObject
   Uint32ArrayObj* = JsObject
@@ -24,6 +25,7 @@ var console* {.importc, nodecl.}: ConsoleObj
 var window* {.importc: "Window", nodecl.}: WindowObj
 var JSON* {.importc, nodecl.}: JsonObj
 var arguments* {.importc, nodecl.}: ArgumentsObj
+var Math* {.importc, nodecl.}: MathObj
 
 {.experimental: "dotOperators".}
 macro `.`*(typ: typedesc, field: untyped): JsObject =
