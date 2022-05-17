@@ -83,7 +83,7 @@ proc hexToUint8Array*(str: cstring or JsObject): Uint8Array =
     if(`str`.length % 2) {
       throw new Error('no even number');
     }
-    return new Uint8Array(`str`.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
+    `result` = new Uint8Array(`str`.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
   """
 
 proc setInterval*(cb: proc(), ms: int): int {.importc, discardable.}
