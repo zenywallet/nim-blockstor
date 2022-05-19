@@ -35,7 +35,8 @@ proc enc*(data: seq[byte]): string =
     inc(zeroLen)
 
   var pos = b.len
-  for d in data[zeroLen..data.high]:
+  for i in zeroLen..data.high:
+    let d = data[i]
     var c = d.int
     var j = b.high
 
@@ -77,7 +78,8 @@ proc dec*(data: string): seq[byte] =
     b[i] = 0'u8
 
   var pos = b.len
-  for d in data[zeroLen..data.high]:
+  for i in zeroLen..data.high:
+    let d = data[i]
     var c = base58Map[d.ord].int
     if c == -1:
       return
@@ -104,7 +106,8 @@ when isMainModule:
         break
       result.add('1')
     var b: seq[byte]
-    for d in data[result.len..data.high]:
+    for i in result.len..data.high:
+      let d = data[i]
       var c = d.int
       var j = 0
       while c > 0 or j < b.len:
@@ -124,7 +127,8 @@ when isMainModule:
         break
       result.add(0'u8)
     var b: seq[byte]
-    for d in data[result.len..data.high]:
+    for i in result.len..data.high:
+      let d = data[i]
       var c = base58Map[d.ord].int
       if c == -1:
         return
