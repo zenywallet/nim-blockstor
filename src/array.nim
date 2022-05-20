@@ -213,9 +213,18 @@ else:
         inc(i)
 
   proc `[]`*[T; U, V: Ordinal](a: Array[T]; x: HSlice[U, V]): Array[T] =
-    let len = x.b.int - x.a.int + 1
+    var xa, xb: int
+    when x.a is BackwardsIndex:
+      xa = a.len - x.a.int
+    else:
+      xa = x.a.int
+    when x.b is BackwardsIndex:
+      xb = a.len - x.b.int
+    else:
+      xb = x.b.int
+    let len = xb - xa + 1
     result.newArray(len)
     var idx = 0
-    for i in x.a.int..x.b.int:
+    for i in xa..xb:
       result[idx] = a[i]
       inc(idx)
