@@ -95,7 +95,7 @@ else:
     copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
     x.len = newLen
 
-  template `[]`*[T](x: Array[T]; i: Natural): var T =
+  template `[]`*[T](x: Array[T]; i: Natural): T =
     assert i < x.len
     x.data[i]
 
