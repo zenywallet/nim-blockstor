@@ -1151,10 +1151,11 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     var ctx = newSslCtx(true)
   var reqStats = newCheckReqs(REQ_LIMIT_HTTPS_ACCEPT_PERIOD)
 
-  while active:
+  while true:
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
     var clientSock = accept(serverSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
+    if not active: break
     when ENABLE_KEEPALIVE:
       clientSock.setSockOptInt(SOL_SOCKET, SO_KEEPALIVE, 1)
     when ENABLE_TCP_NODELAY:
