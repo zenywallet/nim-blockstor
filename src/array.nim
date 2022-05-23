@@ -228,3 +228,6 @@ else:
     for i in xa..xb:
       result[idx] = a[i]
       inc(idx)
+
+  proc empty*[T](x: var Array[T]) =
+    `=destroy`(x)
