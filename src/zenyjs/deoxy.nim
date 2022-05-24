@@ -70,7 +70,7 @@ when defined(js):
         deoxy.stream = DeoxyMod.cipherCreate()
 
     deoxy.ws.onclose = proc() =
-      DeoxyMod.cipherFree(deoxy)
+      DeoxyMod.cipherFree(deoxy.stream)
       deoxy.stream = jsNull
 
     deoxy.ws.onmessage = proc(evt: JsObject) =
