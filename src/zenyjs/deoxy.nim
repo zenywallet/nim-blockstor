@@ -18,11 +18,15 @@ when defined(js):
   import jsffi
   import jslib
 
+  const RECONNECT_COUNT = 120
+  const RECONNECT_WAIT = 15000
+
   type
     Deoxy* = object
       ws*: JsObject
       stream*: JsObject
       ready*: bool
+      reconnectCount: int
 
   var DeoxyMod = JsObject{}
   var Module: JsObject
@@ -58,20 +62,33 @@ when defined(js):
     Module.free(pOutBuf)
     Module.free(p)
 
-  proc connect*(deoxy: var Deoxy, url, protocols: cstring; onRecv: proc(data: Uint8Array)) =
+  proc connect*(deoxy: var Deoxy, url, protocols: cstring; onOpen: proc();
+                onReady: proc(); onRecv: proc(data: Uint8Array); onClose: proc()) =
     deoxy.ws = newWebSocket(url, protocols)
     deoxy.ws.binaryType = "arraybuffer".cstring
+    if deoxy.reconnectCount == 0:
+      deoxy.reconnectCount = RECONNECT_COUNT
 
     deoxy.ws.error = proc(evt: JsObject) =
       console.error("websocket error:", evt);
 
     deoxy.ws.onopen = proc(evt: JsObject) =
       if deoxy.stream.isNil:
+        deoxy.reconnectCount = RECONNECT_COUNT
         deoxy.stream = DeoxyMod.cipherCreate()
+        onOpen()
 
     deoxy.ws.onclose = proc() =
+      if deoxy.stream.isNil: return
       DeoxyMod.cipherFree(deoxy.stream)
       deoxy.stream = jsNull
+      deoxy.ready = false
+      onClose()
+      if deoxy.reconnectCount > 0:
+        dec(deoxy.reconnectCount)
+        let randomWait = Math.round(Math.random() * (RECONNECT_WAIT * 2 / 3).toJs).to(int)
+        let ms = Math.round(RECONNECT_WAIT / 3).to(int) + randomWait
+        setTimeout(proc() = deoxy.connect(url, protocols, onOpen, onReady, onRecv, onClose), ms)
 
     deoxy.ws.onmessage = proc(evt: JsObject) =
       var data = newUint8Array(evt.data)
@@ -97,6 +114,7 @@ when defined(js):
           raise newException(CipherError, "rawSend failed")
         if retProcess == CipherProcessMode.SendReady.int:
           deoxy.ready = true
+          onReady()
 
       Module.free(pOutBufLen)
       Module.free(pOutBuf)
@@ -104,6 +122,7 @@ when defined(js):
 
   proc close*(deoxy: var Deoxy) =
     if not deoxy.ws.isNil:
+      deoxy.reconnectCount = 0
       deoxy.ws.close()
       deoxy.ws = jsNull
 
