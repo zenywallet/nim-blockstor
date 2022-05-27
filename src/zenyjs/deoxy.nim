@@ -69,7 +69,7 @@ when defined(js):
     if deoxy.reconnectCount == 0:
       deoxy.reconnectCount = RECONNECT_COUNT
 
-    deoxy.ws.error = proc(evt: JsObject) =
+    deoxy.ws.onerror = proc(evt: JsObject) =
       console.error("websocket error:", evt);
 
     deoxy.ws.onopen = proc(evt: JsObject) =
