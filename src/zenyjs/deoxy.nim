@@ -69,8 +69,16 @@ when defined(js):
     if deoxy.reconnectCount == 0:
       deoxy.reconnectCount = RECONNECT_COUNT
 
+    template reconnect() {.dirty.} =
+      if deoxy.reconnectCount > 0:
+        dec(deoxy.reconnectCount)
+        let randomWait = Math.round(Math.random() * (RECONNECT_WAIT * 2 / 3).toJs).to(int)
+        let ms = Math.round(RECONNECT_WAIT / 3).to(int) + randomWait
+        setTimeout(proc() = deoxy.connect(url, protocols, onOpen, onReady, onRecv, onClose), ms)
+
     deoxy.ws.onerror = proc(evt: JsObject) =
       console.error("websocket error:", evt);
+      reconnect()
 
     deoxy.ws.onopen = proc(evt: JsObject) =
       if deoxy.stream.isNil:
@@ -84,11 +92,7 @@ when defined(js):
       deoxy.stream = jsNull
       deoxy.ready = false
       onClose()
-      if deoxy.reconnectCount > 0:
-        dec(deoxy.reconnectCount)
-        let randomWait = Math.round(Math.random() * (RECONNECT_WAIT * 2 / 3).toJs).to(int)
-        let ms = Math.round(RECONNECT_WAIT / 3).to(int) + randomWait
-        setTimeout(proc() = deoxy.connect(url, protocols, onOpen, onReady, onRecv, onClose), ms)
+      reconnect()
 
     deoxy.ws.onmessage = proc(evt: JsObject) =
       var data = newUint8Array(evt.data)
