@@ -29,8 +29,8 @@ when defined(ARRAY_USE_SEQ):
 else:
   type
     Array*[T] = object
-      len, cap: int
-      data: ptr UncheckedArray[T]
+      len*, cap*: int
+      data*: ptr UncheckedArray[T]
 
   proc `=destroy`*[T](x: var Array[T]) =
     if x.data != nil:
