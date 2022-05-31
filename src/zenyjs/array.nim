@@ -231,3 +231,11 @@ else:
 
   proc empty*[T](x: var Array[T]) =
     `=destroy`(x)
+
+  proc `==`*[T](x, y: Array[T]): bool =
+    if x.len != y.len:
+      return false
+    for f in x.low..x.high:
+      if x[f] != y[f]:
+        return false
+    result = true
