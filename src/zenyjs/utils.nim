@@ -1,6 +1,7 @@
 # Copyright (c) 2020 zenywallet
 
 import json, strutils, nimcrypto
+import array
 
 proc toJson*(val: uint64): JsonNode =
   if val > 9007199254740991'u64:
@@ -22,3 +23,9 @@ proc sha256d*(data: openarray[byte]): array[32, byte] {.inline.} =
 
 proc sha256s*(data: openarray[byte]): array[32, byte] {.inline.} =
   sha256.digest(data).data
+
+proc sha256d*(data: Array[byte]): array[32, byte] {.inline.} =
+  sha256.digest(sha256.digest(cast[ptr byte](data.data), data.len.uint).data).data
+
+proc sha256s*(data: Array[byte]): array[32, byte] {.inline.} =
+  sha256.digest(cast[ptr byte](data.data), data.len.uint).data
