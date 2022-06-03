@@ -239,3 +239,9 @@ else:
       if x[f] != y[f]:
         return false
     result = true
+
+  proc setLen*[T](x: var Array[T], newLen: Natural) =
+    if x.cap < newLen:
+      x.cap = nextCap(newLen)
+      x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
+    x.len = newlen
