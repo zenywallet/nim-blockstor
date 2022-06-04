@@ -1,7 +1,7 @@
 # Copyright (c) 2020 zenywallet
 
 import json, strutils, nimcrypto
-import array
+import arraylib
 
 proc toJson*(val: uint64): JsonNode =
   if val > 9007199254740991'u64:

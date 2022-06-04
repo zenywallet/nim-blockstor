@@ -2,7 +2,7 @@
 
 import sequtils, strutils, endians, algorithm
 import ../opcodes
-import array
+import arraylib
 
 type
   VarInt* = distinct int
