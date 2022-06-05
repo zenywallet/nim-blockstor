@@ -1,6 +1,7 @@
 # Copyright (c) 2020 zenywallet
 
 import math
+import arraylib
 
 const base58Chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 const base58Map = [int8 -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -23,9 +24,9 @@ const base58Map = [int8 -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 
 const log58_256 = 1.365658237309762
 const log256_58 = 0.7322476243909466
 
-proc enc*(data: seq[byte]): string =
+proc enc*(data: Array[byte]): string =
   let size = int(ceil(data.len.float * log58_256))
-  var b = newSeqUninitialized[byte](size)
+  var b = newArrayUninitialized[byte](size)
   var zeroLen = 0
 
   for d in data:
@@ -55,15 +56,11 @@ proc enc*(data: seq[byte]): string =
   let offset = pos - zerolen
   for i in zeroLen..<bLen:
     b[i] = base58Chars[b[i + offset]].byte
-  when defined(CSTRING_SAFE):
-    result = newStringOfCap(bLen)
-    for i in 0..<bLen:
-      result.add(cast[char](b[i]))
-  else:
-    b.setLen(bLen)
-    result = cast[string](b)
+  result = newStringOfCap(bLen)
+  for i in 0..<bLen:
+    result.add(cast[char](b[i]))
 
-proc dec*(data: string): seq[byte] =
+proc dec*(data: string): Array[byte] =
   var zeroLen = 0
 
   for d in data:
@@ -72,7 +69,7 @@ proc dec*(data: string): seq[byte] =
     inc(zeroLen)
 
   let size = int(ceil((data.len - zeroLen).float * log256_58)) + zeroLen
-  var b = newSeqUninitialized[byte](size)
+  var b = newArrayUninitialized[byte](size)
 
   for i in 0..<zeroLen:
     b[i] = 0'u8
@@ -100,12 +97,12 @@ proc dec*(data: string): seq[byte] =
 
 
 when isMainModule:
-  proc enc_reference*(data: seq[byte]): string =
+  proc enc_reference*(data: Array[byte]): string =
     for d in data:
       if d != 0:
         break
       result.add('1')
-    var b: seq[byte]
+    var b: Array[byte]
     for i in result.len..data.high:
       let d = data[i]
       var c = d.int
@@ -121,12 +118,12 @@ when isMainModule:
     for i in countdown(b.high, 0):
       result.add(base58Chars[b[i]])
 
-  proc dec_reference*(data: string): seq[byte] =
+  proc dec_reference*(data: string): Array[byte] =
     for d in data:
       if d != '1':
         break
       result.add(0'u8)
-    var b: seq[byte]
+    var b: Array[byte]
     for i in result.len..data.high:
       let d = data[i]
       var c = base58Map[d.ord].int
@@ -144,7 +141,7 @@ when isMainModule:
 
   import times, sequtils
 
-  var d = cast[seq[byte]]("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toSeq)
+  var d = cast[Array[byte]]("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toArray)
 
   var a1 = epochTime()
   for i in 0..<10000:
