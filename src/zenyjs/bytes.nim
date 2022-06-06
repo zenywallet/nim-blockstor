@@ -90,7 +90,7 @@ proc pushData*(data: Array[byte]): Array[byte] =
   else:
     raiseAssert("pushData: overflow")
 
-proc pushData*(data: openarray[byte]): Array[byte] {.inline.} = pushData(data.toSeq)
+proc pushData*(data: openarray[byte]): Array[byte] {.inline.} = pushData(data)
 
 proc pad*(len: int): Array[byte] {.inline.} = newArray[byte](len)
 
@@ -116,7 +116,10 @@ proc toBytes*(fstr: FixedStr): Array[byte] {.inline.} = fixedStr(fstr.data, fstr
 proc toBytes*(hash: Hash): Array[byte] {.inline.} = cast[Array[byte]](hash)
 proc toBytes*(hash: Hash160): Array[byte] {.inline.} = cast[Array[byte]](hash)
 proc toBytes*(p: PushData): Array[byte] {.inline.} = pushData(cast[Array[byte]](p))
-proc toBytes*(x: string): Array[byte] {.inline.} = cast[Array[byte]](x)
+proc toBytes*(x: string): Array[byte] {.inline.} =
+  result.newArray(x.len)
+  for i in 0..x.len-1:
+    result[i] = x[i].byte
 
 proc toBytes*(obj: tuple | object): Array[byte] =
   var s: Array[Array[byte]]
@@ -159,7 +162,10 @@ proc toBytesBE*(x: Array[byte]): Array[byte] {.inline.} = x
 proc toBytesBE*(x: openarray[byte]): Array[byte] {.inline.} = x.toArray
 proc toBytesBE*(hash: Hash): Array[byte] {.inline.} = cast[Array[byte]](hash)
 proc toBytesBE*(hash: Hash160): Array[byte] {.inline.} = cast[Array[byte]](hash)
-proc toBytesBE*(x: string): Array[byte] {.inline.} = cast[Array[byte]](x)
+proc toBytesBE*(x: string): Array[byte] {.inline.} =
+  result.newArray(x.len)
+  for i in 0..x.len-1:
+    result[i] = x[i].byte
 
 proc toBytesBE*(obj: tuple | object): Array[byte] =
   var s: Array[Array[byte]]
@@ -209,6 +215,12 @@ proc toUint16*(x: openarray[byte]): uint16 {.inline.} = cast[ptr uint16](unsafeA
 proc toUint32*(x: openarray[byte]): uint32 {.inline.} = cast[ptr uint32](unsafeAddr x[0])[]
 proc toUint64*(x: openarray[byte]): uint64 {.inline.} = cast[ptr uint64](unsafeAddr x[0])[]
 
+proc to*(x: Array[byte], T: typedesc): T {.inline.} = cast[ptr T](unsafeAddr x[0])[]
+proc toUint8*(x: Array[byte]): uint8 {.inline.} = x[0].uint8
+proc toUint16*(x: Array[byte]): uint16 {.inline.} = cast[ptr uint16](unsafeAddr x[0])[]
+proc toUint32*(x: Array[byte]): uint32 {.inline.} = cast[ptr uint32](unsafeAddr x[0])[]
+proc toUint64*(x: Array[byte]): uint64 {.inline.} = cast[ptr uint64](unsafeAddr x[0])[]
+
 proc toBE*(x: var byte, T: typedesc): T {.inline.} = to(x, T)
 proc toUint8BE*(x: var byte): uint8 {.inline.} = x.uint8
 proc toUint16BE*(x: var byte): uint16 {.inline.} = x.toUint16.toBE
@@ -220,6 +232,12 @@ proc toUint8BE*(x: openarray[byte]): uint8 {.inline.} = x[0].uint8
 proc toUint16BE*(x: openarray[byte]): uint16 {.inline.} = x.toUint16.toBE
 proc toUint32BE*(x: openarray[byte]): uint32 {.inline.} = x.toUint32.toBE
 proc toUint64BE*(x: openarray[byte]): uint64 {.inline.} = x.toUint64.toBE
+
+proc toBE*(x: Array[byte], T: typedesc): T {.inline.} = cast[ptr T](unsafeAddr x[0])[]
+proc toUint8BE*(x: Array[byte]): uint8 {.inline.} = x[0].uint8
+proc toUint16BE*(x: Array[byte]): uint16 {.inline.} = x.toUint16.toBE
+proc toUint32BE*(x: Array[byte]): uint32 {.inline.} = x.toUint32.toBE
+proc toUint64BE*(x: Array[byte]): uint64 {.inline.} = x.toUint64.toBE
 
 proc toHash*(x: var byte): Hash {.inline.} = Hash((cast[ptr array[32, byte]](addr x)[]).toArray)
 proc toHash*(x: Array[byte]): Hash {.inline.} = Hash(x)
@@ -238,10 +256,11 @@ proc toString*(s: openarray[byte]): string =
   for c in s:
     result.add(cast[char](c))
 
-proc toString*(s: Array[byte]): string =
-  result = newStringOfCap(len(s))
-  for c in s:
-    result.add(cast[char](c))
+when not defined(ARRAY_USE_SEQ):
+  proc toString*(s: Array[byte]): string =
+    result = newStringOfCap(len(s))
+    for c in s:
+      result.add(cast[char](c))
 
 proc toString*(buf: ptr UncheckedArray[byte], size: SomeInteger): string =
   result = newStringOfCap(size)
@@ -301,16 +320,24 @@ else:
     for i in 0..a.high:
       result.add(hexStr[a[i]])
 
-  proc toHex*(a: Array[byte]): string =
-    result = newStringOfCap(a.len * 2)
-    for i in 0..a.high:
-      result.add(hexStr[a[i]])
+  when not defined(ARRAY_USE_SEQ):
+    proc toHex*(a: Array[byte]): string =
+      result = newStringOfCap(a.len * 2)
+      for i in 0..a.high:
+        result.add(hexStr[a[i]])
 
-proc `$`*(data: Array[byte]): string =
+proc `$`*(data: seq[byte]): string =
   if data.len > 0:
     result = bytes.toHex(data)
   else:
     result = ""
+
+when not defined(ARRAY_USE_SEQ):
+  proc `$`*(data: Array[byte]): string =
+    if data.len > 0:
+      result = bytes.toHex(data)
+    else:
+      result = ""
 
 proc `$`*(val: VarInt): string = "VarInt(" & $cast[int](val) & ")"
 
