@@ -3,12 +3,13 @@
 import macros
 
 type
-  HandleObj* = object of RootObj
+  HandleObj*[T] = object of RootObj
+    handle*: T
 
-template `.`*(handleObj: HandleObj; field: untyped): untyped =
+template `.`*[T](handleObj: HandleObj[T]; field: untyped): untyped =
   handleObj.handle.field
 
-template `.=`*(handleObj: HandleObj; field, value: untyped) =
+template `.=`*[T](handleObj: HandleObj[T]; field, value: untyped) =
   handleObj.handle.field = value
 
 macro returnToLastParam*(theProc: untyped): untyped =
