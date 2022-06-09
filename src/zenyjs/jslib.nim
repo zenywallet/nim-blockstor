@@ -86,6 +86,11 @@ proc hexToUint8Array*(str: cstring or JsObject): Uint8Array =
     `result` = new Uint8Array(`str`.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
   """
 
+proc uint8ArrayToHex*(uint8Array: Uint8Array or JsObject): cstring =
+  asm """
+    `result` = Array.prototype.map.call(`uint8Array`, function(x) {return ('00' + x.toString(16)).slice(-2)}).join('');
+  """
+
 proc setInterval*(cb: proc(), ms: int): int {.importc, discardable.}
 proc setTimeout*(cb: proc(), ms: int): int {.importc, discardable.}
 proc postMessage*(message: JsObject) {.importc.}
