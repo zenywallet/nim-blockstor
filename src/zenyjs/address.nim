@@ -42,7 +42,7 @@ macro includeConfig: untyped =
     )
 includeConfig()
 
-proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
+template getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 
 proc ripemd160hash*(pub: Array[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toArray)
@@ -56,20 +56,24 @@ proc check(prefix: uint8, hash160: Hash160): Array[byte] =
   let hashd = sha256d(hash160Prefix)
   result = concat(hash160Prefix, hashd[0..3].toArray)
 
-proc p2pkh_address*(network: Network, hash160: Hash160): string =
+proc p2pkh_address*(networkId: NetworkId, hash160: Hash160): string =
+  let network = networkId.getNetwork
   let binaddr = check(network.pubkeyPrefix, hash160)
   result = base58.enc(binaddr)
 
-proc p2sh_address*(network: Network, hash160: Hash160): string =
+proc p2sh_address*(networkId: NetworkId, hash160: Hash160): string =
+  let network = networkId.getNetwork
   let binaddr = check(network.scriptPrefix, hash160)
   result = base58.enc(binaddr)
 
-proc p2sh_p2wpkh_address*(network: Network, hash160: Hash160): string =
+proc p2sh_p2wpkh_address*(networkId: NetworkId, hash160: Hash160): string =
+  let network = networkId.getNetwork
   let script = (OP_0, PushData(hash160)).toBytes
   let binaddr = check(network.scriptPrefix, ripemd160hash(script))
   result = base58.enc(binaddr)
 
-proc p2wpkh_address*(network: Network, hash160: Hash160): string =
+proc p2wpkh_address*(networkId: NetworkId, hash160: Hash160): string =
+  let network = networkId.getNetwork
   var data = hash160.toBytes
   var output = newString(128)
   let ret = segwit_addr_encode(output.cstring, network.bech32.cstring, 0.cint, unsafeAddr data[0], data.len.csize_t)
@@ -81,33 +85,33 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
       pos = i
     result = output[0..pos]
 
-proc getAddress*(network: Network, pub: Array[byte]): string {.inline.} =
-  network.p2pkh_address(ripemd160hash(pub))
+proc getAddress*(networkId: NetworkId, pub: Array[byte]): string {.inline.} =
+  networkId.p2pkh_address(ripemd160hash(pub))
 
-proc getSegwitAddress*(network: Network, pub: Array[byte]): string {.inline.} =
-  network.p2wpkh_address(ripemd160hash(pub))
+proc getSegwitAddress*(networkId: NetworkId, pub: Array[byte]): string {.inline.} =
+  networkId.p2wpkh_address(ripemd160hash(pub))
 
-proc getAddress*(network: Network, hash160: Hash160, addressType: AddressType): string =
+proc getAddress*(networkId: NetworkId, hash160: Hash160, addressType: AddressType): string =
   case addressType
   of P2PKH:
-    result = network.p2pkh_address(hash160)
+    result = networkId.p2pkh_address(hash160)
   of P2SH:
-    result = network.p2sh_address(hash160)
+    result = networkId.p2sh_address(hash160)
   of P2SH_P2WPKH:
-    result = network.p2sh_p2wpkh_address(hash160)
+    result = networkId.p2sh_p2wpkh_address(hash160)
   of P2WPKH:
-    result = network.p2wpkh_address(hash160)
+    result = networkId.p2wpkh_address(hash160)
   else:
     result = ""
 
-var defaultNetwork* {.threadvar.}: Network
+var defaultNetworkId* {.threadvar.}: NetworkId
 
-proc setDefaultNetwork*(network: Network) {.inline.} =
-  defaultNetwork = network
+proc setDefaultNetworkId*(networkId: NetworkId) {.inline.} =
+  defaultNetworkId = networkId
 
-template toAddress*(pub: Array[byte], network: Network = defaultNetwork): string = getAddress(network, pub)
+template toAddress*(pub: Array[byte], networkId: NetworkId = defaultNetworkId): string = getAddress(networkId, pub)
 
-template toSegwitAddress*(pub: Array[byte], network: Network = defaultNetwork): string = getSegwitAddress(network, pub)
+template toSegwitAddress*(pub: Array[byte], networkId: NetworkId = defaultNetworkId): string = getSegwitAddress(networkId, pub)
 
 proc getAddressHash160*(script: Script | Chunks): tuple[hash160: Hash160, addressType: AddressType] =
   when script is Script:
@@ -145,17 +149,17 @@ proc getAddressHash160*(script: Script | Chunks): tuple[hash160: Hash160, addres
       elif chunks[1].data.len == 32:
         return (ripemd160hash(chunks[1].data), AddressType.P2WPKH)
 
-proc getAddress*(network: Network, script: Script | Chunks): string =
+proc getAddress*(networkId: NetworkId, script: Script | Chunks): string =
   var addrHash = getAddressHash160(script)
   case addrHash.addressType
-  of AddressType.P2PKH: network.p2pkh_address(addrHash.hash160)
-  of AddressType.P2SH: network.p2sh_address(addrHash.hash160)
-  of AddressType.P2WPKH: network.p2wpkh_address(addrHash.hash160)
-  of AddressType.P2SH_P2WPKH: network.p2sh_p2wpkh_address(addrHash.hash160)
+  of AddressType.P2PKH: networkId.p2pkh_address(addrHash.hash160)
+  of AddressType.P2SH: networkId.p2sh_address(addrHash.hash160)
+  of AddressType.P2WPKH: networkId.p2wpkh_address(addrHash.hash160)
+  of AddressType.P2SH_P2WPKH: networkId.p2sh_p2wpkh_address(addrHash.hash160)
   of AddressType.Unknown: ""
 
-proc getAddresses*(network: Network, script: Script | Chunks): seq[string] =
-  var a = network.getAddress(script)
+proc getAddresses*(networkId: NetworkId, script: Script | Chunks): seq[string] =
+  var a = networkId.getAddress(script)
   if a.len > 0:
     result.add(a)
     return
@@ -168,9 +172,9 @@ proc getAddresses*(network: Network, script: Script | Chunks): seq[string] =
   for chunk in chunks:
     if chunk.type == ChunkType.Data:
       if chunk.data.len == 33:
-        result.add(network.p2pkh_address(ripemd160hash(chunk.data)))
+        result.add(networkId.p2pkh_address(ripemd160hash(chunk.data)))
       elif chunk.data.len == 20:
-        result.add(network.p2pkh_address(Hash160(chunk.data)))
+        result.add(networkId.p2pkh_address(Hash160(chunk.data)))
 
 proc checkAddress*(address: string): bool =
   result = false
@@ -194,7 +198,8 @@ proc p2wpkh_hash160(address: string, bech32Prefix: string): Hash160 =
     if programmlen == 20:
       result = Hash160(programm[0..<20])
 
-proc getHash160*(network: Network, address: string): Hash160 =
+proc getHash160*(networkId: NetworkId, address: string): Hash160 =
+  let network = networkId.getNetwork
   if address.startsWith(network.bech32):
     return p2wpkh_hash160(address, network.bech32)
   elif network.bech32Extra.len > 0:
@@ -221,7 +226,8 @@ proc p2wpkh_script*(address: string, bech32Prefix: string): Array[byte] =
     if programmlen == 20:
       result = (OP_0, ChunkData(programm[0..<20])).toBytes
 
-proc getScript*(network: Network, address: string): Array[byte] =
+proc getScript*(networkId: NetworkId, address: string): Array[byte] =
+  let network = networkId.getNetwork
   var binaddr = base58.dec(address)
   if binaddr.len == 25:
     if binaddr[0] == network.pubKeyPrefix:
@@ -235,7 +241,8 @@ proc getScript*(network: Network, address: string): Array[byte] =
       if address.startsWith(bech32):
         result = p2wpkh_script(address, bech32)
 
-proc getHash160AddressType*(network: Network, address: string): tuple[hash160: Hash160, addressType: AddressType] =
+proc getHash160AddressType*(networkId: NetworkId, address: string): tuple[hash160: Hash160, addressType: AddressType] =
+  let network = networkId.getNetwork
   var binaddr = base58.dec(address)
   if binaddr.len == 25:
     if binaddr[0] == network.pubKeyPrefix:
@@ -254,7 +261,7 @@ proc getHash160AddressType*(network: Network, address: string): tuple[hash160: H
 
 
 when isMainModule:
-  var bitzeny_test = getNetwork(NetworkId.BitZeny_testnet)
+  var bitzeny_test = NetworkId.BitZeny_testnet
   var hash160_p2pkh = bitzeny_test.getHash160("mnfJyrnDZSDnaNUkognbRsbQNUanoNHArK")
   assert bitzeny_test.p2pkh_address(hash160_p2pkh) == "mnfJyrnDZSDnaNUkognbRsbQNUanoNHArK"
   assert bitzeny_test.p2sh_address(hash160_p2pkh) == "2MzPag67humcG6DL7tM6geXjGsMUyCcAU7B"
