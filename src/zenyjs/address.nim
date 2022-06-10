@@ -1,7 +1,13 @@
 # Copyright (c) 2020 zenywallet
 
 import sequtils, strutils, nimcrypto
-import script, segwit, opcodes, bytes, utils, base58
+import script
+import ../segwit
+import ../opcodes
+import bytes
+import utils
+import base58
+import arraylib
 
 type
   Network* = object
@@ -21,34 +27,34 @@ type
 
 import os, macros
 macro includeConfig: untyped =
-  const configFile = currentSourcePath().parentDir() / "config.nim"
+  const configFile = currentSourcePath().parentDir() / ".." / "config.nim"
   if fileExists(configFile):
     nnkStmtList.newTree(
       nnkIncludeStmt.newTree(
-        newIdentNode("config")
+        newIdentNode("../config")
       )
     )
   else:
     nnkStmtList.newTree(
       nnkIncludeStmt.newTree(
-        newIdentNode("config_default")
+        newIdentNode("../config_default")
       )
     )
 includeConfig()
 
 proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 
-proc ripemd160hash*(pub: seq[byte]): Hash160 =
-  Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
+proc ripemd160hash*(pub: Array[byte]): Hash160 =
+  Hash160(ripemd160.digest(sha256s(pub)).data.toArray)
 
-proc checkSum(hash160Prefix: seq[byte]): seq[byte] =
+proc checkSum(hash160Prefix: Array[byte]): Array[byte] =
   let hashd = sha256d(hash160Prefix)
-  result = hashd[0..3]
+  result = hashd[0..3].toArray
 
-proc check(prefix: uint8, hash160: Hash160): seq[byte] =
+proc check(prefix: uint8, hash160: Hash160): Array[byte] =
   let hash160Prefix = (prefix, hash160).toBytes
   let hashd = sha256d(hash160Prefix)
-  result = concat(hash160Prefix, hashd[0..3])
+  result = concat(hash160Prefix, hashd[0..3].toArray)
 
 proc p2pkh_address*(network: Network, hash160: Hash160): string =
   let binaddr = check(network.pubkeyPrefix, hash160)
@@ -75,10 +81,10 @@ proc p2wpkh_address*(network: Network, hash160: Hash160): string =
       pos = i
     result = output[0..pos]
 
-proc getAddress*(network: Network, pub: seq[byte]): string {.inline.} =
+proc getAddress*(network: Network, pub: Array[byte]): string {.inline.} =
   network.p2pkh_address(ripemd160hash(pub))
 
-proc getSegwitAddress*(network: Network, pub: seq[byte]): string {.inline.} =
+proc getSegwitAddress*(network: Network, pub: Array[byte]): string {.inline.} =
   network.p2wpkh_address(ripemd160hash(pub))
 
 proc getAddress*(network: Network, hash160: Hash160, addressType: AddressType): string =
@@ -99,9 +105,9 @@ var defaultNetwork* {.threadvar.}: Network
 proc setDefaultNetwork*(network: Network) {.inline.} =
   defaultNetwork = network
 
-template toAddress*(pub: seq[byte], network: Network = defaultNetwork): string = getAddress(network, pub)
+template toAddress*(pub: Array[byte], network: Network = defaultNetwork): string = getAddress(network, pub)
 
-template toSegwitAddress*(pub: seq[byte], network: Network = defaultNetwork): string = getSegwitAddress(network, pub)
+template toSegwitAddress*(pub: Array[byte], network: Network = defaultNetwork): string = getSegwitAddress(network, pub)
 
 proc getAddressHash160*(script: Script | Chunks): tuple[hash160: Hash160, addressType: AddressType] =
   when script is Script:
@@ -182,7 +188,7 @@ proc getHash160*(address: string): Hash160 =
 
 proc p2wpkh_hash160(address: string, bech32Prefix: string): Hash160 =
   var version: cint = 0
-  var programm = newSeq[byte](40)
+  var programm = newArray[byte](40)
   var programmlen: csize_t = 0
   if segwit_addr_decode(addr version, addr programm[0], addr programmlen, bech32Prefix, address) == 1:
     if programmlen == 20:
@@ -197,25 +203,25 @@ proc getHash160*(network: Network, address: string): Hash160 =
         return p2wpkh_hash160(address, bech32)
   return getHash160(address)
 
-proc p2pkh_script*(address: string): seq[byte] =
+proc p2pkh_script*(address: string): Array[byte] =
   var binaddr = base58.dec(address)
   if binaddr.len == 25: # prefix(1), hash160(20), checksum(4)
     result = (OP_DUP, OP_HASH160, ChunkData(binaddr[1..^5]), OP_EQUALVERIFY, OP_CHECKSIG).toBytes
 
-proc p2sh_script*(address: string): seq[byte] =
+proc p2sh_script*(address: string): Array[byte] =
   var binaddr = base58.dec(address)
   if binaddr.len == 25: # prefix(1), hash160(20), checksum(4)
     result = (OP_HASH160, ChunkData(binaddr[1..^5]), OP_EQUAL).toBytes
 
-proc p2wpkh_script*(address: string, bech32Prefix: string): seq[byte] =
+proc p2wpkh_script*(address: string, bech32Prefix: string): Array[byte] =
   var version: cint = 0
-  var programm = newSeq[byte](40)
+  var programm = newArray[byte](40)
   var programmlen: csize_t = 0
   if segwit_addr_decode(addr version, addr programm[0], addr programmlen, bech32Prefix, address) == 1:
     if programmlen == 20:
       result = (OP_0, ChunkData(programm[0..<20])).toBytes
 
-proc getScript*(network: Network, address: string): seq[byte] =
+proc getScript*(network: Network, address: string): Array[byte] =
   var binaddr = base58.dec(address)
   if binaddr.len == 25:
     if binaddr[0] == network.pubKeyPrefix:
