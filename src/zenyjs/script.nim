@@ -32,7 +32,6 @@ type
 proc `$`*(data: Script): string = $cast[Array[byte]](data)
 
 proc getScriptChunks*(script: Script): Chunks =
-  result.empty()
   var reader = newReader(script)
   try:
     while reader.readable():
@@ -83,8 +82,6 @@ proc filterCodeSeparator*(chunks: Chunks): Chunks =
     else:
       if separatorPos < chunks.high:
         result = chunks[separatorPos+1..^1]
-      else:
-        result.empty()
   else:
     result = chunks
 
