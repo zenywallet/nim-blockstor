@@ -1,7 +1,8 @@
 # Copyright (c) 2020 zenywallet
 
-import sequtils, json
-import opcodes, bytes, reader
+import json
+import ../opcodes, bytes, reader
+import arraylib
 
 type
   ChunkType* = enum
@@ -11,27 +12,27 @@ type
     PushData2
     PushData4
 
-  ChunkData* = distinct seq[byte]
+  ChunkData* = distinct Array[byte]
 
   Chunk* = object
     case type*: ChunkType
     of Code:
       op*: Opcode
     of Data:
-      data*: seq[byte]
+      data*: Array[byte]
     of PushData1, PushData2, PushData4:
       val*: uint
 
-  Chunks* = seq[Chunk]
+  Chunks* = Array[Chunk]
 
-  Script* = distinct seq[byte]
+  Script* = distinct Array[byte]
 
   ScriptError* = object of CatchableError
 
-proc `$`*(data: Script): string = $cast[seq[byte]](data)
+proc `$`*(data: Script): string = $cast[Array[byte]](data)
 
 proc getScriptChunks*(script: Script): Chunks =
-  result = @[]
+  result.empty()
   var reader = newReader(script)
   try:
     while reader.readable():
@@ -83,19 +84,19 @@ proc filterCodeSeparator*(chunks: Chunks): Chunks =
       if separatorPos < chunks.high:
         result = chunks[separatorPos+1..^1]
       else:
-        result = @[]
+        result.empty()
   else:
     result = chunks
 
-proc toBytes*(op: Opcode): seq[byte] = @[byte op.uint8]
+proc toBytes*(op: Opcode): Array[byte] = @^[byte op.uint8]
 
-proc toBytes*(chunk: Chunk): seq[byte] =
+proc toBytes*(chunk: Chunk): Array[byte] =
   if chunk.type == Code:
-    result = @[byte chunk.op.uint8]
+    result = @^[byte chunk.op.uint8]
   elif chunk.type == Data:
     var length = chunk.data.len
     if length < OP_PUSHDATA1.ord and length > 0:
-      result = concat(@[byte length], chunk.data)
+      result = concat(@^[byte length], chunk.data)
     else:
       result = chunk.data
   elif chunk.type == PushData1:
@@ -105,14 +106,12 @@ proc toBytes*(chunk: Chunk): seq[byte] =
   elif chunk.type == PushData4:
     result = chunk.val.uint32.toBytes
 
-proc toBytes*(chunks: Chunks): seq[byte] =
-  var c: seq[byte]
+proc toBytes*(chunks: Chunks): Array[byte] =
   for chunk in chunks:
-    c.add(chunk.toBytes)
-  c
+    result.add(chunk.toBytes)
 
-proc toBytes*(data: ChunkData): seq[byte] =
-  var b = cast[seq[byte]](data)
+proc toBytes*(data: ChunkData): Array[byte] =
+  var b = cast[Array[byte]](data)
   if b.len > 0:
     result = concat(varInt(b.len), b)
 
