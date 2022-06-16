@@ -1,10 +1,11 @@
 # Copyright (c) 2020 zenywallet
 
 import bytes
+import arraylib
 
 type
-  SeqReader* = ref object
-    data*: seq[byte]
+  ArrayReader* = ref object
+    data*: Array[byte]
     pos*: int
     size*: int
 
@@ -13,26 +14,26 @@ type
     pos*: int
     size*: int
 
-  Reader* = SeqReader | PtrReader
+  Reader* = ArrayReader | PtrReader
 
   ReaderError* = object of CatchableError
 
 
-proc newReader*(data: seq[byte]): SeqReader =
-  SeqReader(data: data, pos: 0, size: data.len.int)
+proc newReader*(data: Array[byte]): ArrayReader =
+  ArrayReader(data: data, pos: 0, size: data.len.int)
 
-proc newReader*[T](data: T): SeqReader =
-  let data = cast[seq[byte]](data)
-  SeqReader(data: data, pos: 0, size: data.len.int)
+proc newReader*[T](data: T): ArrayReader =
+  let data = cast[Array[byte]](data)
+  ArrayReader(data: data, pos: 0, size: data.len.int)
 
 proc newReader*(data: ptr UncheckedArray[byte], size: int): PtrReader =
   PtrReader(data: data, pos: 0, size: size)
 
-proc newReader*(data: var seq[byte]): PtrReader =
+proc newReader*(data: var Array[byte]): PtrReader =
   PtrReader(data: cast[ptr UncheckedArray[byte]](addr data[0]), pos: 0, size: data.len.int)
 
 proc newReader*[T](data: var T): PtrReader =
-  let data = cast[seq[byte]](data)
+  let data = cast[Array[byte]](data)
   PtrReader(data: cast[ptr UncheckedArray[byte]](addr data[0]), pos: 0, size: data.len.int)
 
 proc getUint64*(r: Reader): uint64 =
@@ -90,13 +91,13 @@ proc getVarInt*(r: Reader): int =
       raise newException(ReaderError, "varint: out of range")
     result = u64.int
 
-proc getBytes*(r: SeqReader, size: int): seq[byte] =
+proc getBytes*(r: ArrayReader, size: int): Array[byte] =
   if r.size < r.pos + size:
     raise newException(ReaderError, "bytes: out of range")
   result = r.data[r.pos..<r.pos+size]
   inc(r.pos, size)
 
-proc getBytes*(r: PtrReader, size: int): seq[byte] =
+proc getBytes*(r: PtrReader, size: int): Array[byte] =
   if r.size < r.pos + size:
     raise newException(ReaderError, "bytes: out of range")
   result = cast[ptr UncheckedArray[byte]](addr r.data[r.pos]).toBytes(size)
