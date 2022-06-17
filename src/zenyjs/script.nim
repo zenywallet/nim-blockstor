@@ -29,6 +29,8 @@ type
 
   ScriptError* = object of CatchableError
 
+proc `$`*(data: Chunks): string = $cast[Array[byte]](data)
+
 proc `$`*(data: Script): string = $cast[Array[byte]](data)
 
 proc getScriptChunks*(script: Script): Chunks =
