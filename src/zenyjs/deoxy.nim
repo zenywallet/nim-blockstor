@@ -77,7 +77,7 @@ when defined(js):
         setTimeout(proc() = deoxy.connect(url, protocols, onOpen, onReady, onRecv, onClose), ms)
 
     deoxy.ws.onerror = proc(evt: JsObject) =
-      console.error("websocket error:", evt);
+      console.error("websocket error:", evt)
       reconnect()
 
     deoxy.ws.onopen = proc(evt: JsObject) =
