@@ -34,7 +34,7 @@ const ENABLE_TCP_NODELAY = true
 const ENABLE_SSL = defined(ENABLE_SSL)
 when ENABLE_SSL:
   import openssl
-  import nimcrypto
+  import nimcrypto except toHex
 
 when (compiles do: include config):
   include config
