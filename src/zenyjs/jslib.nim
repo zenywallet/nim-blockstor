@@ -20,9 +20,9 @@ type
   Uint32Array* = ref object of Uint32ArrayObj
   Number* = ref object of NumberObj
 
-var document* {.importc: "Document", nodecl.}: DocumentObj
+var document* {.importc, nodecl.}: DocumentObj
 var console* {.importc, nodecl.}: ConsoleObj
-var window* {.importc: "Window", nodecl.}: WindowObj
+var window* {.importc, nodecl.}: WindowObj
 var JSON* {.importc, nodecl.}: JsonObj
 var arguments* {.importc, nodecl.}: ArgumentsObj
 var Math* {.importc, nodecl.}: MathObj
