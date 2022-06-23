@@ -65,6 +65,8 @@ proc newNumber*(val: JsObject): Number {.importcpp: "new Number(#)".}
 proc call*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
 
 const NumVar* = "number".cstring
+const StringVar* = "string".cstring
+const ArrayVar* = "array".cstring
 
 proc strToUint8Array*(str: cstring or JsObject): Uint8Array =
   let textenc = newTextEncoder()
