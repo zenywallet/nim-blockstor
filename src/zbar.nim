@@ -6,6 +6,7 @@
 # see https://github.com/Naahuel/zbar-wasm-barcode-reader
 
 import os
+when defined(nimHasUsed): {.used.}
 
 const zbarPath = splitPath(currentSourcePath()).head & "/../deps/zbar"
 {.passL: zbarPath & "/zbar/.libs/libzbar.a".}
