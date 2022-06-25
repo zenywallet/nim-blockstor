@@ -1923,6 +1923,16 @@ EM_JS(void, set_worker, (void* stream), {
     }
 });
 
+EM_JS(void, remove_worker, (), {
+    deoxy.miningWorkers = deoxy.miningWorkers || [];
+    var workers = deoxy.miningWorkers;
+    for(let worker of workers) {
+        worker.terminate();
+    }
+    deoxy.miningWorkers = [];
+    deoxy.miningStatus = {};
+});
+
 EM_JS(int, get_miners_num, (), {
     if(deoxy.miningWorkers) {
         return deoxy.miningWorkers.length;
@@ -2018,6 +2028,7 @@ static void ShowMiningWindow(bool* p_open)
                 std::string mining_nid_s = std::to_string(mining_nid);
                 std::string s = "{\"cmd\":\"mining-off\",\"data\":{\"nid\":" + mining_nid_s + "}}";
                 streamSend(s.c_str(), s.length());
+                remove_worker();
             }
         }
 
