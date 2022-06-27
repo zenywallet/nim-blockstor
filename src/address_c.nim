@@ -10,7 +10,7 @@ var networks {.threadvar.}: seq[Network]
 
 proc address_init*() {.exportc.} =
   networks = @[]
-  for nid in NetworkId.low..NetworkId.high:
+  for nid in 0..<getNetworksLen():
     networks.add(getNetwork(nid.NetworkId))
 
 proc get_address*(networkId: int, hash160: ptr UncheckedArray[byte], size: cint,

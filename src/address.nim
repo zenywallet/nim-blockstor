@@ -38,6 +38,8 @@ includeConfig()
 
 proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 
+proc getNetworksLen*(): int = Networks.len
+
 proc ripemd160hash*(pub: seq[byte]): Hash160 =
   Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
 
