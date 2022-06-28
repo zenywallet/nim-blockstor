@@ -94,5 +94,7 @@ proc uint8ArrayToHex*(uint8Array: Uint8Array or JsObject): cstring =
   """
 
 proc setInterval*(cb: proc(), ms: int): int {.importc, discardable.}
+proc clearInterval*(intervalId: int) {.importc.}
 proc setTimeout*(cb: proc(), ms: int): int {.importc, discardable.}
+proc clearTimeout*(timeoutId: int) {.importc.}
 proc postMessage*(message: JsObject) {.importc.}
