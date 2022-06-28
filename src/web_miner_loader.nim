@@ -86,6 +86,9 @@ Module = JsObject{
     miner.start = Module.cwrap("start", jsNull, [].toJs)
     miner.stop = Module.cwrap("stop", jsNull, [].toJs)
 
+    proc sendReady() =
+      postMessage(JsObject{cmd: "ready".cstring})
+
     proc sendStatus() =
       var minerCount = miner.getMinerCount()
       postMessage(JsObject{cmd: "status".cstring, data: minerCount})
@@ -105,7 +108,9 @@ Module = JsObject{
       if not active:
         active = true
         miner.start()
-        sendStatus(),
+        sendStatus()
+
+    sendReady(),
   preRun: [].toJs,
   postRun: [].toJs,
   print: proc() =
