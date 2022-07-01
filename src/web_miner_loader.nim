@@ -77,6 +77,14 @@ var onMessage* {.importc: "onmessage", nodecl.}: EventListenerCb
 var miner = JsObject{}
 
 var Module {.exportc.}: JsObject
+
+template withStack*(body: untyped) =
+  block stackBlock:
+    var stack = Module.stackSave()
+    defer:
+      Module.stackRestore(stack)
+    body
+
 Module = JsObject{
   onRuntimeInitialized: proc() =
     const NumberStr = "number".cstring
@@ -103,10 +111,10 @@ Module = JsObject{
       data.set(hex2buf(evt.data.target).reverse(), 80)
       var nonce = evt.data.nonce
       var nid = evt.data.nid
-      var pdata = Module.malloc(116)
-      Module.HEAPU8.set(data, pdata)
-      miner.setMinerData(pdata, nonce, nid)
-      Module.free(pdata)
+      withStack:
+        var pdata = Module.stackAlloc(116)
+        Module.HEAPU8.set(data, pdata)
+        miner.setMinerData(pdata, nonce, nid)
       if not active:
         active = true
         miner.start()
