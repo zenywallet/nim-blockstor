@@ -86,6 +86,8 @@ Module = JsObject{
     miner.start = Module.cwrap("start", jsNull, [].toJs)
     miner.stop = Module.cwrap("stop", jsNull, [].toJs)
 
+    miner.init()
+
     proc sendReady() =
       postMessage(JsObject{cmd: "ready".cstring})
 
