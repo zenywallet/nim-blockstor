@@ -57,15 +57,14 @@ proc call(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcp
 proc malloc(module: JsObject, size: int): JsObject = call(module, "_malloc".cstring, size.toJs)
 proc free(module: JsObject, p: JsObject) = call(module, "_free".cstring, p)
 
-asm """
-function hex2buf(hexstr) {
-  if(hexstr.length % 2) {
-    throw new Error('no even number');
-  }
-  return new Uint8Array(hexstr.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
-}
-"""
-proc hex2buf(str: cstring or JsObject): Uint8ArrayObj {.importc.}
+proc hex2buf(str: cstring or JsObject): Uint8ArrayObj =
+  asm """
+    if(`str`.length % 2) {
+      throw new Error('no even number');
+    }
+    return new Uint8Array(`str`.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
+  """
+
 proc setInterval(cb: proc(), ms: int) {.importc.}
 proc setTimeout(cb: proc(), ms: int) {.importc.}
 proc postMessage(data: JsObject) {.importc.}
