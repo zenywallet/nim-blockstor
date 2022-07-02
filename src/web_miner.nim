@@ -28,7 +28,7 @@ proc `$`*(o: TargetObj): string = $toReverse(o.toBytes)
 proc emscripten_sleep(ms: uint) {.importc.}
 
 var minerParam: MinerParam
-var minerDatas: ptr UncheckedArray[MinerData]
+var minerDatas: array[2, MinerData]
 var minerDataShift: int
 var minerCount: int
 
@@ -62,7 +62,7 @@ proc miner(param: ptr MinerParam) {.thread.} =
     emscripten_sleep(0)
 
 proc init*() {.exportc.} =
-  minerDatas = cast[ptr UncheckedArray[MinerData]](allocShared0(sizeof(MinerData) * 2))
+  zeroMem(addr minerDatas[0], sizeof(minerDatas))
   minerDataShift = 0
 
 proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: int) {.exportc: "set_miner_data".} =
@@ -71,10 +71,10 @@ proc setMinerData*(minerData: ptr MinerData, nonce: uint32, nid: int) {.exportc:
     minerDataShift = 1
   else:
     minerDataShift = 0
-  minerDatas[][shift] = minerData[]
-  minerDatas[][shift].header.nonce = nonce
-  minerDatas[][shift].nid = nid
-  minerParam.data = addr minerDatas[][shift]
+  minerDatas[shift] = minerData[]
+  minerDatas[shift].header.nonce = nonce
+  minerDatas[shift].nid = nid
+  minerParam.data = addr minerDatas[shift]
 
 proc getMinerCount(): int {.exportc: "get_miner_count".} =
   result = minerCount
