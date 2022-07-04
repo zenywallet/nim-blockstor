@@ -186,17 +186,17 @@ else:
         elif chunks[1].data.len == 32:
           return (ripemd160hash(chunks[1].data), AddressType.P2WPKH)
 
-  proc getAddress*(networkId: NetworkId, script: Script | Chunks): string =
+  proc getAddress*(network: NetWork | NetworkId, script: Script | Chunks): string =
     var addrHash = getAddressHash160(script)
     case addrHash.addressType
-    of AddressType.P2PKH: networkId.p2pkh_address(addrHash.hash160)
-    of AddressType.P2SH: networkId.p2sh_address(addrHash.hash160)
-    of AddressType.P2WPKH: networkId.p2wpkh_address(addrHash.hash160)
-    of AddressType.P2SH_P2WPKH: networkId.p2sh_p2wpkh_address(addrHash.hash160)
+    of AddressType.P2PKH: network.p2pkh_address(addrHash.hash160)
+    of AddressType.P2SH: network.p2sh_address(addrHash.hash160)
+    of AddressType.P2WPKH: network.p2wpkh_address(addrHash.hash160)
+    of AddressType.P2SH_P2WPKH: network.p2sh_p2wpkh_address(addrHash.hash160)
     of AddressType.Unknown: ""
 
-  proc getAddresses*(networkId: NetworkId, script: Script | Chunks): seq[string] =
-    var a = networkId.getAddress(script)
+  proc getAddresses*(network: NetWork | NetworkId, script: Script | Chunks): seq[string] =
+    var a = network.getAddress(script)
     if a.len > 0:
       result.add(a)
       return
@@ -209,9 +209,9 @@ else:
     for chunk in chunks:
       if chunk.type == ChunkType.Data:
         if chunk.data.len == 33:
-          result.add(networkId.p2pkh_address(ripemd160hash(chunk.data)))
+          result.add(network.p2pkh_address(ripemd160hash(chunk.data)))
         elif chunk.data.len == 20:
-          result.add(networkId.p2pkh_address(Hash160(chunk.data)))
+          result.add(network.p2pkh_address(Hash160(chunk.data)))
 
   proc checkAddress*(address: string): bool =
     result = false
@@ -235,8 +235,9 @@ else:
       if programmlen == 20:
         result = Hash160(programm[0..<20])
 
-  proc getHash160*(networkId: NetworkId, address: string): Hash160 =
-    let network = networkId.getNetwork
+  proc getHash160*(network: NetWork | NetworkId, address: string): Hash160 =
+    when network is NetworkId:
+      let network = network.getNetwork
     if address.startsWith(network.bech32):
       return p2wpkh_hash160(address, network.bech32)
     elif network.bech32Extra.len > 0:
@@ -263,8 +264,9 @@ else:
       if programmlen == 20:
         result = (OP_0, ChunkData(programm[0..<20])).toBytes
 
-  proc getScript*(networkId: NetworkId, address: string): Array[byte] =
-    let network = networkId.getNetwork
+  proc getScript*(network: NetWork | NetworkId, address: string): Array[byte] =
+    when network is NetworkId:
+      let network = network.getNetwork
     var binaddr = base58.dec(address)
     if binaddr.len == 25:
       if binaddr[0] == network.pubKeyPrefix:
@@ -278,8 +280,9 @@ else:
         if address.startsWith(bech32):
           result = p2wpkh_script(address, bech32)
 
-  proc getHash160AddressType*(networkId: NetworkId, address: string): tuple[hash160: Hash160, addressType: AddressType] =
-    let network = networkId.getNetwork
+  proc getHash160AddressType*(network: NetWork | NetworkId, address: string): tuple[hash160: Hash160, addressType: AddressType] =
+    when network is NetworkId:
+      let network = network.getNetwork
     var binaddr = base58.dec(address)
     if binaddr.len == 25:
       if binaddr[0] == network.pubKeyPrefix:
