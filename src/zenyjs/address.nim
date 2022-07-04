@@ -53,7 +53,7 @@ when defined(js):
 
   proc checkAddress*(networkId: int, address: cstring): bool =
     withStack:
-      var addressUint8Array = strToUint8Array(address.cstring)
+      var addressUint8Array = strToUint8Array(address)
       var p = Module.stackAlloc(addressUint8Array.length.to(int) + 1)
       Module.HEAPU8.set(addressUint8Array, p)
       Module.HEAPU8[p.to(int) + addressUint8Array.length.to(int)] = 0
