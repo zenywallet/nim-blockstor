@@ -48,8 +48,9 @@ when defined(js):
   template withStack*(body: untyped) =
     block stackBlock:
       var stack = Module.stackSave()
+      defer:
+        Module.stackRestore(stack)
       body
-      Module.stackRestore(stack)
 
   proc checkAddress*(networkId: int, address: cstring): bool =
     withStack:
