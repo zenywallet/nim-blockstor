@@ -2,25 +2,31 @@
 
 import sequtils, json
 import bytes, utils, reader, address, script
+import arraylib
+import custom
 
 type
   Flags* = distinct uint8
 
-  Witness* = distinct seq[byte]
+  Witness* = distinct Array[byte]
 
-  Sig* = distinct seq[byte]
+  Sig* = distinct Array[byte]
 
   TxIn* = tuple[tx: Hash, n: uint32, sig: Sig, sequence: uint32]
 
   TxOut* = tuple[value: uint64, script: Script]
 
-  Tx* = ref object
+  TxObj* = object
     ver*: int32
     flags*: Flags
-    ins*: seq[TxIn]
-    outs*: seq[TxOut]
-    witnesses*: seq[seq[Witness]]
+    ins*: Array[TxIn]
+    outs*: Array[TxOut]
+    witnesses*: Array[Array[Witness]]
     locktime*: uint32
+
+  TxHandle* = ptr TxObj
+
+  Tx* = object of HandleObj[TxHandle]
 
 const
   SIGHASH_ALL* = 1
@@ -32,31 +38,40 @@ const
   SIGHASH_OUTPUT_MASK* = 3
   SIGHASH_INPUT_MASK* = 0x80
 
+proc `=destroy`*(tx: var Tx) =
+  if tx.handle.isNil: return
+  let tx = tx.handle
+  `=destroy`(tx.witnesses)
+  `=destroy`(tx.outs)
+  `=destroy`(tx.ins)
+  tx.deallocShared()
 
-proc toBytes*(flags: Flags): seq[byte] =
+proc toBytes*(flags: Flags): Array[byte] =
   var val = cast[uint8](flags)
   if val > 0:
-    result = @[byte 0, val]  # marker, flags
+    result = @^[byte 0, val]  # marker, flags
 
-proc toBytes*(data: Witness | Sig | Script): seq[byte] =
-  var b = cast[seq[byte]](data)
+proc toBytes*(data: Witness | Sig | Script): Array[byte] =
+  var b = cast[Array[byte]](data)
   result = concat(varInt(b.len), b)
 
-proc toBytes*(datas: seq[TxIn] | seq[TxOut]): seq[byte] =
+proc toBytes*(datas: Array[TxIn] | Array[TxOut]): Array[byte] =
   if datas.len > 0:
     result = varInt(datas.len)
     for data in datas:
       result.add(data.toBytes)
 
-proc toBytes*(datas: seq[Witness]): seq[byte] =
+proc toBytes*(datas: Array[Witness]): Array[byte] =
   result = varInt(datas.len)
   for data in datas:
     result.add(data.toBytes)
 
+proc `$`*(tx: Tx): string = $tx.handle
+
 proc `$`*(data: Flags): string = $cast[uint8](data)
 
 proc `$`*(data: Sig): string =
-  var sigBytes = cast[seq[byte]](data)
+  var sigBytes = cast[Array[byte]](data)
   try:
     var reader = newReader(sigBytes)
     var sigLen = reader.getVarInt
@@ -79,19 +94,20 @@ proc `$`*(data: Sig): string =
   except:
     result = $sigBytes
 
-proc `$`*(data: Witness): string = $cast[seq[byte]](data)
+proc `$`*(data: Witness): string = $cast[Array[byte]](data)
 
 const USE_SEQOFCAP_FOR_TX = true
 
 proc toTx*(reader: Reader): Tx =
-  let tx = new Tx
+  #let tx = new Tx
+  let tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
   tx.ver = reader.getInt32
   var insLen = reader.getVarInt
   if insLen == 0:
     tx.flags = Flags(reader.getUint8)
     insLen = reader.getVarInt
   when USE_SEQOFCAP_FOR_TX:
-    tx.ins = newSeqOfCap[TxIn](insLen)
+    tx.ins = newArrayOfCap[TxIn](insLen)
   for i in 0..<insLen:
     let hash = Hash(reader.getBytes(32))
     let n = reader.getUint32
@@ -99,7 +115,7 @@ proc toTx*(reader: Reader): Tx =
     tx.ins.add((hash, n, Sig(reader.getBytes(sigLen)), reader.getUint32))
   let outsLen = reader.getVarInt
   when USE_SEQOFCAP_FOR_TX:
-    tx.outs = newSeqOfCap[TxOut](outsLen)
+    tx.outs = newArrayOfCap[TxOut](outsLen)
   for i in 0..<outsLen:
     let value = reader.getUint64
     let scriptLen = reader.getVarInt
@@ -108,17 +124,17 @@ proc toTx*(reader: Reader): Tx =
     for i in 0..<insLen:
       let witnessLen = reader.getVarInt
       when USE_SEQOFCAP_FOR_TX:
-        var witness = newSeqOfCap[Witness](witnessLen)
+        var witness = newArrayOfCap[Witness](witnessLen)
       else:
-        var witness: seq[Witness]
+        var witness: Array[Witness]
       for j in 0..<witnessLen:
         let witnessSize = reader.getVarInt
         witness.add(Witness(reader.getBytes(witnessSize)))
       tx.witnesses.add(witness)
   tx.locktime = reader.getUint32
-  tx
+  result.handle = tx
 
-proc toTx*(data: seq[byte]): Tx {.inline.} =
+proc toTx*(data: Array[byte]): Tx {.inline.} =
   var reader = newReader(data)
   reader.toTx()
 
@@ -127,22 +143,24 @@ proc toTx*(data: ptr UncheckedArray[byte], size: int): Tx {.inline.} =
   reader.toTx()
 
 proc stripWitness(tx: Tx): Tx =
-  Tx(ver: tx.ver,
-    ins: tx.ins,
-    outs: tx.outs,
-    locktime: tx.locktime)
+  var tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
+  tx.ver = tx.ver
+  tx.ins = tx.ins
+  tx.outs = tx.outs
+  tx.locktime = tx.locktime
+  result.handle = tx
 
-proc hash(data: seq[byte]): Hash = Hash(sha256d(data).toSeq)
+proc hash(data: Array[byte]): Hash = Hash(sha256d(data).toArray)
 
 proc txid*(tx: Tx): Hash = tx.stripWitness.toBytes.hash
 
 proc hash*(tx: Tx): Hash = tx.toBytes.hash
 
-proc hashBin(data: seq[byte]): seq[byte] = sha256d(data).toSeq
+proc hashBin(data: Array[byte]): Array[byte] = sha256d(data).toArray
 
-proc txidBin*(tx: Tx): seq[byte] = tx.stripWitness.toBytes.hashBin
+proc txidBin*(tx: Tx): Array[byte] = tx.stripWitness.toBytes.hashBin
 
-proc hashBin*(tx: Tx): seq[byte] = tx.toBytes.hashBin
+proc hashBin*(tx: Tx): Array[byte] = tx.toBytes.hashBin
 
 proc `%`*(o: Flags): JsonNode = newJInt(o.int)
 
@@ -161,6 +179,10 @@ proc `%`*(obj: TxIn | TxOut): JsonNode =
       var j = %val
       if j.kind != JNull:
         result[key] = %val
+
+proc `%`*[T](a: Array[T]): JsonNode = %a.toSeq
+
+proc `%`*(tx: Tx): JsonNode = %tx.handle[]
 
 proc toJson*(tx: Tx, network: Network): JsonNode =
   var json = %tx
