@@ -1,198 +1,202 @@
 # Copyright (c) 2020 zenywallet
 
-import sequtils, json
-import bytes, utils, reader, address, script
-import arraylib
-import custom
+when defined(js):
+  discard
+else:
+  import sequtils, json
+  import bytes, utils, reader, address, script
+  import arraylib
+  import custom
 
-type
-  Flags* = distinct uint8
+  type
+    Flags* = distinct uint8
 
-  Witness* = distinct Array[byte]
+    Witness* = distinct Array[byte]
 
-  Sig* = distinct Array[byte]
+    Sig* = distinct Array[byte]
 
-  TxIn* = tuple[tx: Hash, n: uint32, sig: Sig, sequence: uint32]
+    TxIn* = tuple[tx: Hash, n: uint32, sig: Sig, sequence: uint32]
 
-  TxOut* = tuple[value: uint64, script: Script]
+    TxOut* = tuple[value: uint64, script: Script]
 
-  TxObj* = object
-    ver*: int32
-    flags*: Flags
-    ins*: Array[TxIn]
-    outs*: Array[TxOut]
-    witnesses*: Array[Array[Witness]]
-    locktime*: uint32
+    TxObj* = object
+      ver*: int32
+      flags*: Flags
+      ins*: Array[TxIn]
+      outs*: Array[TxOut]
+      witnesses*: Array[Array[Witness]]
+      locktime*: uint32
 
-  TxHandle* = ptr TxObj
+    TxHandle* = ptr TxObj
 
-  Tx* = object of HandleObj[TxHandle]
+    Tx* = object of HandleObj[TxHandle]
 
-const
-  SIGHASH_ALL* = 1
-  SIGHASH_NONE* = 2
-  SIGHASH_SINGLE* = 3
-  SIGHASH_ANYONECANPAY* = 0x80
+  const
+    SIGHASH_ALL* = 1
+    SIGHASH_NONE* = 2
+    SIGHASH_SINGLE* = 3
+    SIGHASH_ANYONECANPAY* = 0x80
 
-  SIGHASH_DEFAULT* = 0
-  SIGHASH_OUTPUT_MASK* = 3
-  SIGHASH_INPUT_MASK* = 0x80
+    SIGHASH_DEFAULT* = 0
+    SIGHASH_OUTPUT_MASK* = 3
+    SIGHASH_INPUT_MASK* = 0x80
 
-proc `=destroy`*(tx: var Tx) =
-  if tx.handle.isNil: return
-  let tx = tx.handle
-  `=destroy`(tx.witnesses)
-  `=destroy`(tx.outs)
-  `=destroy`(tx.ins)
-  tx.deallocShared()
+  proc `=destroy`*(tx: var Tx) =
+    if tx.handle.isNil: return
+    let tx = tx.handle
+    `=destroy`(tx.witnesses)
+    `=destroy`(tx.outs)
+    `=destroy`(tx.ins)
+    tx.deallocShared()
 
-proc toBytes*(flags: Flags): Array[byte] =
-  var val = cast[uint8](flags)
-  if val > 0:
-    result = @^[byte 0, val]  # marker, flags
+  proc toBytes*(flags: Flags): Array[byte] =
+    var val = cast[uint8](flags)
+    if val > 0:
+      result = @^[byte 0, val]  # marker, flags
 
-proc toBytes*(data: Witness | Sig | Script): Array[byte] =
-  var b = cast[Array[byte]](data)
-  result = concat(varInt(b.len), b)
+  proc toBytes*(data: Witness | Sig | Script): Array[byte] =
+    var b = cast[Array[byte]](data)
+    result = concat(varInt(b.len), b)
 
-proc toBytes*(datas: Array[TxIn] | Array[TxOut]): Array[byte] =
-  if datas.len > 0:
+  proc toBytes*(datas: Array[TxIn] | Array[TxOut]): Array[byte] =
+    if datas.len > 0:
+      result = varInt(datas.len)
+      for data in datas:
+        result.add(data.toBytes)
+
+  proc toBytes*(datas: Array[Witness]): Array[byte] =
     result = varInt(datas.len)
     for data in datas:
       result.add(data.toBytes)
 
-proc toBytes*(datas: Array[Witness]): Array[byte] =
-  result = varInt(datas.len)
-  for data in datas:
-    result.add(data.toBytes)
+  proc `$`*(tx: Tx): string = $tx.handle
 
-proc `$`*(tx: Tx): string = $tx.handle
+  proc `$`*(data: Flags): string = $cast[uint8](data)
 
-proc `$`*(data: Flags): string = $cast[uint8](data)
-
-proc `$`*(data: Sig): string =
-  var sigBytes = cast[Array[byte]](data)
-  try:
-    var reader = newReader(sigBytes)
-    var sigLen = reader.getVarInt
-    var sig = reader.getBytes(sigLen - 1)
-    var sigHashType = reader.getUint8()
-    var pubLen = reader.getVarInt
-    var pub = reader.getBytes(pubLen)
-    result.add("(sigHash: " & $sig)
-    if (sigHashType and SIGHASH_ALL.uint8) > 0:
-      result.add(", sigHashType: SIGHASH_ALL")
-    elif (sigHashType and SIGHASH_NONE.uint8) > 0:
-      result.add(", sigHashType: SIGHASH_NONE")
-    elif (sigHashType and SIGHASH_SINGLE.uint8) > 0:
-      result.add(", sigHashType: SIGHASH_SINGLE")
-    else:
-      result.add(", sigHashType: Unknown")
-    if (sigHashType and SIGHASH_ANYONECANPAY.uint8) > 0:
-      result.add(" | SIGHASH_ANYONECANPAY")
-    result.add(", pub: " & $pub & ")")
-  except:
-    result = $sigBytes
-
-proc `$`*(data: Witness): string = $cast[Array[byte]](data)
-
-const USE_SEQOFCAP_FOR_TX = true
-
-proc toTx*(reader: Reader): Tx =
-  #let tx = new Tx
-  let tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
-  tx.ver = reader.getInt32
-  var insLen = reader.getVarInt
-  if insLen == 0:
-    tx.flags = Flags(reader.getUint8)
-    insLen = reader.getVarInt
-  when USE_SEQOFCAP_FOR_TX:
-    tx.ins = newArrayOfCap[TxIn](insLen)
-  for i in 0..<insLen:
-    let hash = Hash(reader.getBytes(32))
-    let n = reader.getUint32
-    let sigLen = reader.getVarInt
-    tx.ins.add((hash, n, Sig(reader.getBytes(sigLen)), reader.getUint32))
-  let outsLen = reader.getVarInt
-  when USE_SEQOFCAP_FOR_TX:
-    tx.outs = newArrayOfCap[TxOut](outsLen)
-  for i in 0..<outsLen:
-    let value = reader.getUint64
-    let scriptLen = reader.getVarInt
-    tx.outs.add((value, Script(reader.getBytes(scriptLen))))
-  if tx.flags.uint8 == 1'u8:
-    for i in 0..<insLen:
-      let witnessLen = reader.getVarInt
-      when USE_SEQOFCAP_FOR_TX:
-        var witness = newArrayOfCap[Witness](witnessLen)
+  proc `$`*(data: Sig): string =
+    var sigBytes = cast[Array[byte]](data)
+    try:
+      var reader = newReader(sigBytes)
+      var sigLen = reader.getVarInt
+      var sig = reader.getBytes(sigLen - 1)
+      var sigHashType = reader.getUint8()
+      var pubLen = reader.getVarInt
+      var pub = reader.getBytes(pubLen)
+      result.add("(sigHash: " & $sig)
+      if (sigHashType and SIGHASH_ALL.uint8) > 0:
+        result.add(", sigHashType: SIGHASH_ALL")
+      elif (sigHashType and SIGHASH_NONE.uint8) > 0:
+        result.add(", sigHashType: SIGHASH_NONE")
+      elif (sigHashType and SIGHASH_SINGLE.uint8) > 0:
+        result.add(", sigHashType: SIGHASH_SINGLE")
       else:
-        var witness: Array[Witness]
-      for j in 0..<witnessLen:
-        let witnessSize = reader.getVarInt
-        witness.add(Witness(reader.getBytes(witnessSize)))
-      tx.witnesses.add(witness)
-  tx.locktime = reader.getUint32
-  result.handle = tx
+        result.add(", sigHashType: Unknown")
+      if (sigHashType and SIGHASH_ANYONECANPAY.uint8) > 0:
+        result.add(" | SIGHASH_ANYONECANPAY")
+      result.add(", pub: " & $pub & ")")
+    except:
+      result = $sigBytes
 
-proc toTx*(data: Array[byte]): Tx {.inline.} =
-  var reader = newReader(data)
-  reader.toTx()
+  proc `$`*(data: Witness): string = $cast[Array[byte]](data)
 
-proc toTx*(data: ptr UncheckedArray[byte], size: int): Tx {.inline.} =
-  var reader = newReader(data, size)
-  reader.toTx()
+  const USE_SEQOFCAP_FOR_TX = true
 
-proc stripWitness(tx: Tx): Tx =
-  var tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
-  tx.ver = tx.ver
-  tx.ins = tx.ins
-  tx.outs = tx.outs
-  tx.locktime = tx.locktime
-  result.handle = tx
+  proc toTx*(reader: Reader): Tx =
+    #let tx = new Tx
+    let tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
+    tx.ver = reader.getInt32
+    var insLen = reader.getVarInt
+    if insLen == 0:
+      tx.flags = Flags(reader.getUint8)
+      insLen = reader.getVarInt
+    when USE_SEQOFCAP_FOR_TX:
+      tx.ins = newArrayOfCap[TxIn](insLen)
+    for i in 0..<insLen:
+      let hash = Hash(reader.getBytes(32))
+      let n = reader.getUint32
+      let sigLen = reader.getVarInt
+      tx.ins.add((hash, n, Sig(reader.getBytes(sigLen)), reader.getUint32))
+    let outsLen = reader.getVarInt
+    when USE_SEQOFCAP_FOR_TX:
+      tx.outs = newArrayOfCap[TxOut](outsLen)
+    for i in 0..<outsLen:
+      let value = reader.getUint64
+      let scriptLen = reader.getVarInt
+      tx.outs.add((value, Script(reader.getBytes(scriptLen))))
+    if tx.flags.uint8 == 1'u8:
+      for i in 0..<insLen:
+        let witnessLen = reader.getVarInt
+        when USE_SEQOFCAP_FOR_TX:
+          var witness = newArrayOfCap[Witness](witnessLen)
+        else:
+          var witness: Array[Witness]
+        for j in 0..<witnessLen:
+          let witnessSize = reader.getVarInt
+          witness.add(Witness(reader.getBytes(witnessSize)))
+        tx.witnesses.add(witness)
+    tx.locktime = reader.getUint32
+    result.handle = tx
 
-proc hash(data: Array[byte]): Hash = Hash(sha256d(data).toArray)
+  proc toTx*(data: Array[byte]): Tx {.inline.} =
+    var reader = newReader(data)
+    reader.toTx()
 
-proc txid*(tx: Tx): Hash = tx.stripWitness.toBytes.hash
+  proc toTx*(data: ptr UncheckedArray[byte], size: int): Tx {.inline.} =
+    var reader = newReader(data, size)
+    reader.toTx()
 
-proc hash*(tx: Tx): Hash = tx.toBytes.hash
+  proc stripWitness(tx: Tx): Tx =
+    var tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
+    tx.ver = tx.ver
+    tx.ins = tx.ins
+    tx.outs = tx.outs
+    tx.locktime = tx.locktime
+    result.handle = tx
 
-proc hashBin(data: Array[byte]): Array[byte] = sha256d(data).toArray
+  proc hash(data: Array[byte]): Hash = Hash(sha256d(data).toArray)
 
-proc txidBin*(tx: Tx): Array[byte] = tx.stripWitness.toBytes.hashBin
+  proc txid*(tx: Tx): Hash = tx.stripWitness.toBytes.hash
 
-proc hashBin*(tx: Tx): Array[byte] = tx.toBytes.hashBin
+  proc hash*(tx: Tx): Hash = tx.toBytes.hash
 
-proc `%`*(o: Flags): JsonNode = newJInt(o.int)
+  proc hashBin(data: Array[byte]): Array[byte] = sha256d(data).toArray
 
-proc `%`*(o: Hash): JsonNode = newJString($o)
+  proc txidBin*(tx: Tx): Array[byte] = tx.stripWitness.toBytes.hashBin
 
-proc `%`*(o: Witness | Sig | Script): JsonNode = newJString($o)
+  proc hashBin*(tx: Tx): Array[byte] = tx.toBytes.hashBin
 
-proc `%`*(obj: TxIn | TxOut): JsonNode =
-  result = newJObject()
-  for key, val in obj.fieldPairs:
-    when val is uint64:
-      result[key] = val.toJson
-    elif val is int64:
-      result[key] = val.uint64.toJson
-    else:
-      var j = %val
-      if j.kind != JNull:
-        result[key] = %val
+  proc `%`*(o: Flags): JsonNode = newJInt(o.int)
 
-proc `%`*[T](a: Array[T]): JsonNode = %a.toSeq
+  proc `%`*(o: Hash): JsonNode = newJString($o)
 
-proc `%`*(tx: Tx): JsonNode = %tx.handle[]
+  proc `%`*(o: Witness | Sig | Script): JsonNode = newJString($o)
 
-proc toJson*(tx: Tx, network: Network): JsonNode =
-  var json = %tx
-  for i, o in tx.outs:
-    var script = o.script
-    json["outs"][i]["chunks"] = %script.getScriptChunks
-    var addrs = network.getAddresses(script)
-    if addrs.len > 0:
-      json["outs"][i]["addrs"] = %addrs
-  json
+  proc `%`*(obj: TxIn | TxOut): JsonNode =
+    result = newJObject()
+    for key, val in obj.fieldPairs:
+      when val is uint64:
+        result[key] = val.toJson
+      elif val is int64:
+        result[key] = val.uint64.toJson
+      else:
+        var j = %val
+        if j.kind != JNull:
+          result[key] = %val
+
+  proc `%`*[T](a: Array[T]): JsonNode = %a.toSeq
+
+  proc `%`*(tx: Tx): JsonNode = %tx.handle[]
+
+  proc toJson*(tx: Tx, network: Network): JsonNode =
+    var json = %tx
+    for i, o in tx.outs:
+      var script = o.script
+      json["outs"][i]["chunks"] = %script.getScriptChunks
+      var addrs = network.getAddresses(script)
+      if addrs.len > 0:
+        json["outs"][i]["addrs"] = %addrs
+    json
+
 
 when isMainModule:
   # bitcoin-cli getblockhash 100000
