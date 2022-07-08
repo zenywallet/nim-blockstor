@@ -68,3 +68,32 @@ macro returnToLastParam*(theProc: untyped): untyped =
       newEmptyNode()
     ))
     result[3][0] = newEmptyNode()
+
+macro returnToHandle*(theProc: untyped): untyped =
+  result = theProc
+  var n: NimNode
+  let resultLen = result[3][0].len
+  if resultLen > 0:
+    n = result[3][0][resultLen - 1]
+  else:
+    n = result[3][0]
+  if n.kind == nnkIdent:
+    if result[6].kind == nnkEmpty:
+      result[6] = nnkStmtList.newTree(
+        nnkAsgn.newTree(
+          newIdentNode("result"),
+          nnkDotExpr.newTree(
+            nnkCall.newTree(
+              theProc.name
+            ),
+            newIdentNode("handle")
+          )
+        )
+      )
+      for i in 1..<result[3].len:
+        for j in 0..<result[3][i].len - 2:
+          if result[3][i][j].kind == nnkIdent:
+            result[6][0][1][0].add(result[3][i][j])
+
+    result[0] = newIdentNode($theProc.name & "_returnToHandle")
+    result[3][0] = newIdentNode("auto")
