@@ -86,6 +86,8 @@ else:
   when defined(emscripten):
     const EXPORTED_FUNCTIONS* = ["_array_destroy"]
 
+  import json
+
   type
     Array*[T] = object
       len*, cap*: int
@@ -307,3 +309,5 @@ else:
       x.cap = nextCap(newLen)
       x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
     x.len = newlen
+
+  proc `%`*[T](a: Array[T]): JsonNode = %a.toSeq
