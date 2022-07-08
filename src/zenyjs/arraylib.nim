@@ -1,32 +1,91 @@
 # Copyright (c) 2022 zenywallet
 
-when defined(ARRAY_USE_SEQ):
-  import sequtils
+when defined(js):
+  import jsffi
+  import jslib
 
   type
-    Array*[T] = seq[T]
+    Array*[T] = object
+      handle*: JsObject
 
-  template newArray*[T](len: Natural): Array[T] = newSeq[T](len)
+    ArrayError* = object of CatchableError
 
-  template newArray*[T](a: var Array[T], len: Natural) = newSeq(a, len)
+  var ArrayMod = JsObject{}
+  var Module: JsObject
 
-  template newArrayUninitialized*[T](len: Natural): Array[T] = newSeqUninitialized[T](len)
+  proc init*(module: JsObject) =
+    Module = module
+    ArrayMod.destroy = Module.cwrap("array_destroy", jsNull, [NumVar])
 
-  template newArrayOfCap*[T](len: Natural): Array[T] = newSeqOfCap[T](len)
+  proc `=destroy`*[T](x: var Array[T]) =
+    if not x.handle.isNull:
+      ArrayMod.destroy(x.handle)
+      Module.free(x.handle)
+      x.handle = jsNull
 
-  proc newArray*[T](buf: ptr UncheckedArray[T], len: Natural): Array[T] =
-    result.newSeq(len)
-    copyMem(addr result[0], buf, sizeof(T) * len)
+  proc `=copy`*[T](a: var Array[T]; b: Array[T]) =
+    raise newException(ArrayError, "unsupported =copy")
 
-  template toArray*[T](x: openArray[T]): Array[T] = toSeq(x)
+  proc `=sink`*[T](a: var Array[T]; b: Array[T]) =
+    raise newException(ArrayError, "unsupported =sink")
 
-  template toArray*[T](x: seq[T]): Array[T] = x
+  proc init*[T](x: var Array[T]) =
+    `=destroy`(x)
+    x.handle = Module.malloc(12)
+    var zeroData = newUint8Array(12)
+    Module.HEAPU8.set(zeroData, x.handle)
 
-  template `@^`*[IDX, T](a: sink array[IDX, T]): Array[T] = @a
+  proc newArray*[T](): Array[T] = result.init()
 
-  template `@^`*[T](a: sink seq[T]): Array[T] = @a
+  proc len*[T](x: Array[T]): int =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint), 4).slice().buffer, 0, 1)
+    arrayObj[0].to(int)
+
+  proc cap*[T](x: Array[T]): int =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint) + 4, 4).slice().buffer, 0, 1)
+    arrayObj[0].to(int)
+
+  proc data*[T](x: Array[T]): int =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint) + 8, 4).slice().buffer, 0, 1)
+    arrayObj[0].to(int)
+
+  proc toUint8Array*[T](x: Array[T]): Uint8Array =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint), 12).slice().buffer, 0, 3)
+    when T is byte:
+      newUint8Array(Module.HEAPU8.buffer, arrayObj[2].to(int), arrayObj[0].to(int)).slice().to(Uint8Array)
+    else:
+      discard
+
+  proc toString*(x: Array[byte]): cstring =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint), 12).slice().buffer, 0, 3)
+    var uint8Array = newUint8Array(Module.HEAPU8.buffer, arrayObj[2].to(int), arrayObj[0].to(int)).slice()
+    let textdec = newTextDecoder()
+    result = textdec.decode(uint8Array).to(cstring)
+
+  proc toBytes*(uint8Array: Uint8Array): Array[byte] =
+    var arrayLen = uint8Array.length
+    var arrayBuf = Module.malloc(arrayLen)
+    Module.HEAPU8.set(uint8Array, arrayBuf)
+    var arrayData = newUint32Array(3)
+    arrayData[0] = arrayLen
+    arrayData[1] = arrayLen
+    arrayData[2] = arrayBuf
+    result.handle = Module.malloc(12)
+    discard Module.HEAPU8.set(newUint8Array(arrayData.buffer), result.handle)
+
+  proc toBytes*(s: cstring): Array[byte] =
+    var uint8Array = strToUint8Array(s)
+    uint8Array.toBytes
+
+  proc toHex*(x: Array[byte]): cstring =
+    var arrayObj = newUint32Array(newUint8Array(Module.HEAPU8.buffer, x.handle.to(cint), 12).slice().buffer, 0, 3)
+    var uint8Array = newUint8Array(Module.HEAPU8.buffer, arrayObj[2].to(int), arrayObj[0].to(int)).slice()
+    result = uint8ArrayToHex(uint8Array)
 
 else:
+  when defined(emscripten):
+    const EXPORTED_FUNCTIONS* = ["_array_destroy"]
+
   type
     Array*[T] = object
       len*, cap*: int
@@ -55,6 +114,9 @@ else:
     a.len = b.len
     a.cap = b.cap
     a.data = b.data
+
+  when defined(emscripten):
+    proc destroy*(x: var Array[byte]) {.exportc: "array_destroy".} = `=destroy`(x)
 
   proc nextCap(cap: int): int =
     if cap <= 16:
