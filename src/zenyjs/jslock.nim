@@ -50,10 +50,8 @@ template lock*(lock: Lock; body: untyped) =
   try:
     proc bodyMain() {.async, discardable.} = body
     await bodyMain()
-  except:
-    let msg = getCurrentExceptionMsg()
-    echo "except: ", msg
-  releaseLock()
+  finally:
+    releaseLock()
 
 
 when isMainModule:
