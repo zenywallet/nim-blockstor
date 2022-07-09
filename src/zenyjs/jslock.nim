@@ -1,5 +1,7 @@
 # Copyright (c) 2022 zenywallet
 
+import jsffi
+import jslib
 import asyncjs
 import macros
 
@@ -18,32 +20,19 @@ template newLock*(): Lock =
   lock.id = getLockId()
   lock
 
-type JsLockObj = ref object of RootObj
-proc emptyArray: JsLockObj {.importcpp: "[@]".}
+var mutex = [].toJs
 
-var mutex = emptyArray()
-var sleep: JsLockObj
-
-asm """
-`sleep` = function(ms) {
-  return new Promise(function(resolve) {
-    setTimeout(resolve, ms);
-  });
-}
-"""
+proc sleep(ms: int): Future[void] {.discardable.} =
+  return newPromise do (resolve: proc()):
+    setTimeout(resolve, ms)
 
 proc acquireLock(id: int) {.async, discardable.} =
-  asm """
-    `mutex`.push(`id`);
-    while(`mutex`[0] != `id`) {
-      await `sleep`(10);
-    }
-  """
+  mutex.push(id.toJs)
+  while mutex[0] != id.toJs:
+    await sleep(10)
 
 proc releaseLock() =
-  asm """
-    `mutex`.shift();
-  """
+  mutex.shift()
 
 template lock*(lock: Lock; body: untyped) =
   await acquireLock(lock.id)
