@@ -78,7 +78,6 @@ when defined(js):
 
     deoxy.ws.onerror = proc(evt: JsObject) =
       console.error("websocket error:", evt)
-      reconnect()
 
     deoxy.ws.onopen = proc(evt: JsObject) =
       if deoxy.stream.isNil:
@@ -87,11 +86,11 @@ when defined(js):
         onOpen()
 
     deoxy.ws.onclose = proc() =
-      if deoxy.stream.isNil: return
-      DeoxyMod.cipherFree(deoxy.stream)
-      deoxy.stream = jsNull
-      deoxy.ready = false
-      onClose()
+      if deoxy.stream.isNil:
+        DeoxyMod.cipherFree(deoxy.stream)
+        deoxy.stream = jsNull
+        deoxy.ready = false
+        onClose()
       reconnect()
 
     deoxy.ws.onmessage = proc(evt: JsObject) =
