@@ -48,9 +48,9 @@ when defined(js):
       Module = JsObject{
         onRuntimeInitialized: proc() =
           Module.malloc = proc(size: int): JsObject =
-            Module.call("_malloc".cstring, size.toJs)
+            Module.modCall("_malloc".cstring, size.toJs)
           Module.free = proc(p: JsObject) =
-            Module.call("_free".cstring, p)
+            Module.modCall("_free".cstring, p)
           module_ready = ModuleStatus.Ready,
         preRun: [].toJs,
         postRun: [].toJs,

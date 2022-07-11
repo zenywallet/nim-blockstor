@@ -62,7 +62,7 @@ proc newTextEncoder*(): JsObject {.importcpp: "new TextEncoder()".}
 proc newTextDecoder*(): JsObject {.importcpp: "new TextDecoder()".}
 proc newNumber*(val: JsObject): Number {.importcpp: "new Number(#)".}
 
-proc call*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
+proc modCall*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
 
 const NumVar* = "number".cstring
 const StringVar* = "string".cstring
