@@ -13,7 +13,7 @@ type
   WebSocketObj*  = JsObject
   Uint8ArrayObj* = JsObject
   Uint32ArrayObj* = JsObject
-  NumberObj = JsObject
+  NumberObj* = JsObject
 
   WebSocket* = ref object of WebSocketObj
   Uint8Array* = ref object of Uint8ArrayObj
