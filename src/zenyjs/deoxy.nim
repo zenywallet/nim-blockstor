@@ -83,7 +83,7 @@ when defined(js):
       if deoxy.stream.isNil:
         deoxy.reconnectCount = RECONNECT_COUNT
         deoxy.stream = DeoxyMod.cipherCreate()
-        onOpen()
+      onOpen()
 
     deoxy.ws.onclose = proc(evt: JsObject) =
       console.log("websocket close:", evt.code)
@@ -91,7 +91,7 @@ when defined(js):
         DeoxyMod.cipherFree(deoxy.stream)
         deoxy.stream = jsNull
         deoxy.ready = false
-        onClose()
+      onClose() # In case of an error, a close event may occur without an open event
       reconnect()
 
     deoxy.ws.onmessage = proc(evt: JsObject) =
