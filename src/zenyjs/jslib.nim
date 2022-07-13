@@ -14,11 +14,15 @@ type
   Uint8ArrayObj* = JsObject
   Uint32ArrayObj* = JsObject
   NumberObj* = JsObject
+  ArrayObj* = JsObject
 
   WebSocket* = ref object of WebSocketObj
   Uint8Array* = ref object of Uint8ArrayObj
   Uint32Array* = ref object of Uint32ArrayObj
   Number* = ref object of NumberObj
+  Array* = ref object of ArrayObj
+
+  JslibError* = object of CatchableError
 
 var document* {.importc, nodecl.}: DocumentObj
 var console* {.importc, nodecl.}: ConsoleObj
@@ -80,18 +84,15 @@ proc uint8ArrayToStr*(uint8Array: JsObject): cstring =
   let textdec = newTextDecoder()
   result = textdec.decode(uint8Array).to(cstring)
 
+proc match_regexp2(s: cstring): JsObject {.importcpp: "#.match(/.{2}/g)".}
+
 proc hexToUint8Array*(str: cstring or JsObject): Uint8Array =
-  asm """
-    if(`str`.length % 2) {
-      throw new Error('no even number');
-    }
-    `result` = new Uint8Array(`str`.match(/.{2}/g).map(function(byte) {return parseInt(byte, 16)}));
-  """
+  if str.toJs.length % 2.toJs != 0.toJs:
+    raise newException(JslibError, "no even number")
+  newUint8Array(str.match_regexp2().map(proc(b: JsObject): JsObject = Number.parseInt(b, 16)))
 
 proc uint8ArrayToHex*(uint8Array: Uint8Array or JsObject): cstring =
-  asm """
-    `result` = Array.prototype.map.call(`uint8Array`, function(x) {return ('00' + x.toString(16)).slice(-2)}).join('');
-  """
+  Array.prototype.map.call(uint8Array, proc(x: JsObject): JsObject = ("00".toJs + (x.toString(16))).slice(-2)).join("").to(cstring)
 
 proc setInterval*(cb: proc(), ms: int): int {.importc, discardable.}
 proc clearInterval*(intervalId: int) {.importc.}
