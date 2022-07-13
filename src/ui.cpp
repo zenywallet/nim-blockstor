@@ -1903,8 +1903,9 @@ EM_JS(void, set_worker, (void* stream), {
     deoxy.miningWorkers = deoxy.miningWorkers || [];
     deoxy.miningStatus = deoxy.miningStatus || {};
     var workers = deoxy.miningWorkers;
+    var cpuCount = navigator.hardwareConcurrency || 2;
     if(workers.length == 0) {
-        for(var i = 0; i < navigator.hardwareConcurrency; i++) {
+        for(var i = 0; i < cpuCount; i++) {
             var worker = new Worker("miner.js");
             workers.push(worker);
         }
