@@ -1947,7 +1947,7 @@ EM_JS(int, get_miners_hashrate, (), {
         for(i in deoxy.miningStatus) {
             count += deoxy.miningStatus[i];
         }
-        return Math.round(count / 5);
+        return Math.round(count);
     } else {
         return 0;
     }

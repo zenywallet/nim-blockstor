@@ -19,6 +19,7 @@ var WebSocket* {.importc, nodecl.}: WebSocketObj
 var Uint8Array* {.importc, nodecl.}: Uint8ArrayObj
 var Uint32Array* {.importc, nodecl.}: Uint32ArrayObj
 var arguments* {.importc, nodecl.}: JsObject
+var Math* {.importc, nodecl.}: JsObject
 
 converter objToJs*(obj: DocumentObj | ConsoleObj | WindowObj | JsonObj |
                   WebSocketObj | Uint8ArrayObj | Uint32ArrayObj): JsObject = obj.toJs
@@ -44,6 +45,7 @@ proc newUint32Array*(buffer: JsObject, byteOffset: int, length: int): Uint32Arra
 proc newTextEncoder*(): JsObject {.importcpp: "new TextEncoder()".}
 proc newTextDecoder*(): JsObject {.importcpp: "new TextDecoder()".}
 proc newNumber*(val: JsObject): JsObject {.importcpp: "new Number(#)".}
+proc newDate*(): JsObject {.importcpp: "new Date()".}
 
 proc strToUint8Array*(str: cstring): Uint8ArrayObj =
   let textenc = newTextEncoder()
@@ -98,10 +100,16 @@ Module = JsObject{
     proc sendReady() =
       postMessage(JsObject{cmd: "ready".cstring})
 
+    var prevTime = 0.toJs
     proc sendStatus() =
       var minerCount = miner.getMinerCount()
-      postMessage(JsObject{cmd: "status".cstring, data: minerCount})
-      setTimeout(sendStatus, 5000)
+      var curTime = newDate().getTime() / 1000.toJs
+      var diffTime = curTime - prevTime
+      if (diffTime > 0.toJs).to(bool):
+        minerCount = Math.round(minerCount / diffTime)
+        postMessage(JsObject{cmd: "status".cstring, data: minerCount})
+      prevTime = curTime
+      setTimeout(sendStatus, 3000)
 
     var active = false
     onMessage = proc(evt: JsObject) =
@@ -116,8 +124,9 @@ Module = JsObject{
         miner.setMinerData(pdata, nonce, nid)
       if not active:
         active = true
+        prevTime = newDate().getTime() / 1000.toJs
         miner.start()
-        sendStatus()
+        setTimeout(sendStatus, 3000)
 
     sendReady(),
   preRun: [].toJs,
