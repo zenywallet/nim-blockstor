@@ -6,26 +6,22 @@ import bytes
 {.used.}
 
 var strtmp {.threadvar.}: string
-var networks {.threadvar.}: seq[Network]
 
-proc address_init*() {.exportc.} =
-  networks = @[]
-  for nid in 0..<getNetworksLen():
-    networks.add(getNetwork(nid.NetworkId))
+proc address_init*() {.exportc.} = discard
 
 proc get_address*(networkId: int, hash160: ptr UncheckedArray[byte], size: cint,
                 addressType: uint8): cstring {.exportc.} =
-  strtmp = getAddress(networks[networkId], hash160.toBytes(size).Hash160, addressType.AddressType) & "\0"
+  strtmp = getAddress(getNetwork(networkId.NetworkId), hash160.toBytes(size).Hash160, addressType.AddressType) & "\0"
   result = strtmp.cstring
 
 proc get_address_from_hex*(networkId: int, hash160_hex: cstring, addressType: uint8): cstring {.exportc.} =
-  strtmp = getAddress(networks[networkId], ($hash160_hex).Hex.toBytes.Hash160, addressType.AddressType) & "\0"
+  strtmp = getAddress(getNetwork(networkId.NetworkId), ($hash160_hex).Hex.toBytes.Hash160, addressType.AddressType) & "\0"
   result = strtmp.cstring
 
 proc check_address*(address: cstring): bool {.exportc.} = checkAddress($address)
 
 proc get_hash160_hex*(networkId: int, address: cstring): cstring {.exportc.} =
-  var hash160 = getHash160(networks[networkId], $address)
+  var hash160 = getHash160(getNetwork(networkId.NetworkId), $address)
   result = hash160.toBytes.toHex.cstring
 
 #[
