@@ -3,6 +3,7 @@
 import blocks, bytes
 import yespower
 import os
+import times
 
 const srcPath = currentSourcePath().parentDir()
 {.passL: "--extern-pre-js " & srcPath / "web_miner_loader.js".}
@@ -31,9 +32,13 @@ var minerParam: MinerParam
 var minerDatas: array[2, MinerData]
 var minerDataShift: int
 var minerCount: int
+var skipCount: int
+var skipMod: int = 10
+var skipTime: float
 
 proc miner(param: ptr MinerParam) {.thread.} =
   var yhash: YespowerHash
+  skipTime = epochTime()
   while not param.abort:
     let data = param.data
     discard yespower_hash(cast[ptr UncheckedArray[byte]](addr data[].header), 80, yhash)
@@ -59,7 +64,21 @@ proc miner(param: ptr MinerParam) {.thread.} =
 
     inc(cast[var uint32](addr data[].header.nonce))
     inc(minerCount)
-    emscripten_sleep(0)
+    inc(skipCount)
+    if skipCount mod skipMod == 0:
+      var curTime = epochTime()
+      var diffTime = curTime - skipTime
+      skipTime = curTime
+      if diffTime == 0:
+        skipMod = skipMod * 2
+        skipCount = 0
+      else:
+        var delta = (3.0f - diffTime) / (3.0f * 3.0f)
+        if delta > 2.0f:
+          delta = 2.0f
+        skipMod = skipMod + (skipMod.float * delta).int
+        skipCount = 0
+      emscripten_sleep(0)
 
 proc init*() {.exportc.} =
   zeroMem(addr minerDatas[0], sizeof(minerDatas))
