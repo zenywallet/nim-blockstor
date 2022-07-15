@@ -152,9 +152,9 @@ type
 
 template debug(x: varargs[string, `$`]) =
   when DEBUG_LOG:
-    discard
-  else:
     echo join(x)
+  else:
+    discard
 
 template error(x: varargs[string, `$`]) = echo join(x)
 
