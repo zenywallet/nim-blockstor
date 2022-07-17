@@ -49,6 +49,24 @@ else:
     `=destroy`(tx.ins)
     tx.deallocShared()
 
+  proc `=copy`*(a: var Tx; b: Tx) =
+    if a.handle == b.handle: return
+    `=destroy`(a)
+    wasMoved(a)
+    if b.handle != nil:
+      a.handle = cast[typeof(a.handle)](allocShared0(sizeof(TxObj)))
+      a.handle.ver = b.handle.ver
+      a.handle.flags = b.handle.flags
+      a.handle.ins = b.handle.ins
+      a.handle.outs = b.handle.outs
+      a.handle.witnesses = b.handle.witnesses
+      a.handle.locktime = b.handle.locktime
+
+  proc `=sink`*(a: var Tx; b: Tx) =
+    `=destroy`(a)
+    wasMoved(a)
+    a.handle = b.handle
+
   proc toBytes*(flags: Flags): Array[byte] =
     var val = cast[uint8](flags)
     if val > 0:
