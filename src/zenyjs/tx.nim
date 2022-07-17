@@ -119,6 +119,9 @@ else:
 
   const USE_SEQOFCAP_FOR_TX = true
 
+  proc newTx*(): Tx =
+    result.handle = cast[TxHandle](allocShared0(sizeof(TxObj)))
+
   proc toTx*(reader: Reader): Tx =
     let tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
     tx.ver = reader.getInt32
