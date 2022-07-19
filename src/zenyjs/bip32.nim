@@ -33,18 +33,18 @@ when defined(js):
     return result
 
   proc `=destroy`*(node: var HDNode) =
-    if not node.handle.isUndefined and not node.handle.isNull:
+    if not node.handle.isNil:
       Bip32Mod.free(node.handle)
       node.handle = jsNull
 
   proc `=copy`*(a: var HDNode; b: HDNode) =
     `=destroy`(a)
-    if not b.handle.isUndefined and not b.handle.isNull:
+    if not b.handle.isNil:
       a.handle = b.handle.duplicate()
 
   proc `=sink`*(a: var HDNode; b: HDNode) =
     `=destroy`(a)
-    if not b.handle.isUndefined and not b.handle.isNull:
+    if not b.handle.isNil:
       a.handle = b.handle
 
   proc master*(seed: Uint8Array, testnet: bool = false): HDNode =
