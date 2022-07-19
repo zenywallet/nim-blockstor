@@ -1395,5 +1395,7 @@ when isMainModule:
     debug "bye from signal ", sig
     quitServer()
 
+  signal(SIGPIPE, SIG_IGN)
+
   setUlimit(ULIMIT_SIZE)
   start()
