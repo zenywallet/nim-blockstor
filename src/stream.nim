@@ -783,6 +783,8 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       if nid > streamDbInsts.high or nid < streamDbInsts.low:
         raise newException(StreamError, "invalid nid")
       let (hash160, addressType) = networks[nid].getHash160AddressType(astr)
+      if addressType == AddressType.Unknown:
+        raise newException(StreamError, "invalid address")
       if cmdSwitch == ParseCmdSwitch.On:
         client.setTag((hash160, addressType, nid.uint16).toBytes)
       elif cmdSwitch == ParseCmdSwitch.Off:
