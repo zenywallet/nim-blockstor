@@ -610,6 +610,18 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
         if curTime[nodeId] != prevCurTime[nodeId]:
           prevCurTime[nodeId] = curTime[nodeId]
           curHeader[nodeId].time = curTime[nodeId]
+          for s in streamTable.items(("mining", nodeId.uint16).toBytes):
+            var client = clientTable[s.val.toBytes]
+            if not client.isNil:
+              let streamId = cast[ptr StreamObj](client.pStream).streamId
+              let sb = streamId.toBytes
+              if streamBlockHeaders[nodeId].hasKey(sb):
+                let h = streamBlockHeaders[nodeId][sb]
+                h.time = curTime[nodeId]
+                let retJson = %*{"type": "mining", "data": {"header": h.toBytes.toHex,
+                                "target": curTarget[nodeId], "nid": nodeId}}
+                streamId.streamSend(retJson)
+        else:
           for s in pendingStream.deduplicate():
             let nodeId = s.nodeId
             let streamId = s.streamId
