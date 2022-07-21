@@ -87,7 +87,7 @@ when defined(js):
 
     deoxy.ws.onclose = proc(evt: JsObject) =
       console.log("websocket close:", evt.code)
-      if deoxy.stream.isNil:
+      if not deoxy.stream.isNil:
         DeoxyMod.cipherFree(deoxy.stream)
         deoxy.stream = jsNull
         deoxy.ready = false
