@@ -67,6 +67,16 @@ else:
     wasMoved(a)
     a.handle = b.handle
 
+  proc duplicate*(node: Tx): Tx =
+    var h = cast[TxHandle](allocShared0(sizeof(TxObj)))
+    h.ver = node.ver
+    h.flags = node.flags
+    h.ins = node.ins
+    h.outs = node.outs
+    h.witnesses = node.witnesses
+    h.locktime = node.locktime
+    result.handle = h
+
   proc toBytes*(flags: Flags): Array[byte] =
     var val = cast[uint8](flags)
     if val > 0:
