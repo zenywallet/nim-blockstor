@@ -3,10 +3,14 @@
 when defined(js):
   discard
 else:
+  when defined(emscripten):
+    const EXPORTED_FUNCTIONS* = ["_tx_newTx", "_tx_toTx", "_tx_stripWitness", "_tx_txid", "_tx_hash", "_tx_free", "_tx_duplicate"]
+
   import sequtils, json
   import bytes, utils, reader, address, script
   import arraylib
   import custom
+  import macros
 
   type
     Flags* = distinct uint8
@@ -41,13 +45,15 @@ else:
     SIGHASH_OUTPUT_MASK* = 3
     SIGHASH_INPUT_MASK* = 0x80
 
-  proc `=destroy`*(tx: var Tx) =
+  proc free*(tx: Tx) {.exportc: "tx_$1".} =
     if tx.handle.isNil: return
     let tx = tx.handle
     `=destroy`(tx.witnesses)
     `=destroy`(tx.outs)
     `=destroy`(tx.ins)
     tx.deallocShared()
+
+  proc `=destroy`*(tx: var Tx) = tx.free()
 
   proc `=copy`*(a: var Tx; b: Tx) =
     if a.handle == b.handle: return
@@ -76,6 +82,8 @@ else:
     h.witnesses = node.witnesses
     h.locktime = node.locktime
     result.handle = h
+
+  proc duplicate*(node: Tx): Tx {.returnToHandle, exportc: "tx_duplicate".}
 
   proc toBytes*(flags: Flags): Array[byte] =
     var val = cast[uint8](flags)
@@ -132,6 +140,8 @@ else:
   proc newTx*(): Tx =
     result.handle = cast[TxHandle](allocShared0(sizeof(TxObj)))
 
+  proc newTx*(): Tx {.returnToHandle, exportc: "tx_newTx".}
+
   proc toTx*(reader: Reader): Tx =
     let tx = cast[TxHandle](allocShared0(sizeof(TxObj)))
     tx.ver = reader.getInt32
@@ -171,6 +181,8 @@ else:
     var reader = newReader(data)
     reader.toTx()
 
+  proc toTx*(data: Array[byte]): Tx {.returnToHandle, exportc: "tx_toTx".}
+
   proc toTx*(data: ptr UncheckedArray[byte], size: int): Tx {.inline.} =
     var reader = newReader(data, size)
     reader.toTx()
@@ -183,11 +195,17 @@ else:
     tx.locktime = tx.locktime
     result.handle = tx
 
+  proc stripWitness(tx: Tx): Tx {.returnToHandle, exportc: "tx_stripWitness".}
+
   proc hash(data: Array[byte]): Hash = Hash(sha256d(data).toArray)
 
-  proc txid*(tx: Tx): Hash = tx.stripWitness.toBytes.hash
+  proc txid*(tx: Tx): Hash {.inline.} = tx.stripWitness.toBytes.hash
 
-  proc hash*(tx: Tx): Hash = tx.toBytes.hash
+  proc txid*(tx: Tx): Hash {.returnToLastParam, exportc: "tx_$1".}
+
+  proc hash*(tx: Tx): Hash {.inline.} = tx.toBytes.hash
+
+  proc hash*(tx: Tx): Hash {.returnToLastParam, exportc: "tx_$1".}
 
   proc hashBin(data: Array[byte]): Array[byte] = sha256d(data).toArray
 
