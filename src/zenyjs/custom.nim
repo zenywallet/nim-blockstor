@@ -80,20 +80,34 @@ macro returnToHandle*(theProc: untyped): untyped =
   if n.kind == nnkIdent:
     if result[6].kind == nnkEmpty:
       result[6] = nnkStmtList.newTree(
+        nnkVarSection.newTree(
+          nnkIdentDefs.newTree(
+            newIdentNode("ret"),
+            newEmptyNode(),
+            nnkCall.newTree(
+              theProc.name
+            )
+          )
+        ),
         nnkAsgn.newTree(
           newIdentNode("result"),
           nnkDotExpr.newTree(
-            nnkCall.newTree(
-              theProc.name
-            ),
+            newIdentNode("ret"),
             newIdentNode("handle")
           )
+        ),
+        nnkAsgn.newTree(
+          nnkDotExpr.newTree(
+            newIdentNode("ret"),
+            newIdentNode("handle")
+          ),
+          newNilLit()
         )
       )
       for i in 1..<result[3].len:
         for j in 0..<result[3][i].len - 2:
           if result[3][i][j].kind == nnkIdent:
-            result[6][0][1][0].add(result[3][i][j])
+            result[6][0][0][2].add(result[3][i][j])
 
     result[0] = newIdentNode($theProc.name & "_returnToHandle")
     result[3][0] = newIdentNode("auto")
