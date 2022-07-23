@@ -1,7 +1,59 @@
 # Copyright (c) 2020 zenywallet
 
 when defined(js):
-  discard
+  import jsffi
+  import jslib except Array
+  import arraylib
+
+  type
+    Tx* = object
+      handle*: JsObject
+
+  var TxMod = JsObject{}
+  var Module: JsObject
+
+  proc init*(module: JsObject) =
+    Module = module
+    TxMod.newTx = Module.cwrap("tx_newTx", NumVar, [].toJs)
+    TxMod.toTx = Module.cwrap("tx_toTx", NumVar, [NumVar])
+    TxMod.stripWitness = Module.cwrap("tx_stripWitness", NumVar, [NumVar])
+    TxMod.txid = Module.cwrap("tx_txid", jsNull, [NumVar, NumVar])
+    TxMod.hash = Module.cwrap("tx_hash", jsNull, [NumVar, NumVar])
+    TxMod.free = Module.cwrap("tx_free", jsNull, [NumVar])
+    TxMod.duplicate = Module.cwrap("tx_duplicate", NumVar, [NumVar])
+
+  proc `=destroy`*(tx: var Tx) =
+    if not tx.handle.isNil:
+      TxMod.free(tx)
+      tx.handle = jsNull
+
+  proc `=copy`*(a: var Tx; b: Tx) =
+    `=destroy`(a)
+    if not b.handle.isNil:
+      a.handle = TxMod.duplicate(b.handle)
+
+  proc `=sink`*(a: var Tx; b: Tx) =
+    `=destroy`(a)
+    if not b.handle.isNil:
+      a.handle = b.handle
+
+  proc newTx*(): Tx =
+    result.handle = TxMod.newTx()
+
+  proc toTx*(data: Array[byte]): Tx =
+    result.handle = TxMod.toTx(data.handle)
+
+  proc stripWitness*(tx: Tx): Tx =
+    result.handle = TxMod.stripWitness(tx)
+
+  proc txid*(tx: Tx): Array[byte] =
+    result = newArray[byte]()
+    TxMod.txid(tx, result.handle)
+
+  proc hash*(tx: Tx): Array[byte] =
+    result = newArray[byte]()
+    TxMod.hash(tx, result.handle)
+
 else:
   when defined(emscripten):
     const EXPORTED_FUNCTIONS* = ["_tx_newTx", "_tx_toTx", "_tx_stripWitness", "_tx_txid", "_tx_hash", "_tx_free", "_tx_duplicate"]
