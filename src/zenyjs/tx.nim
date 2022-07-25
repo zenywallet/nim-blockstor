@@ -9,6 +9,12 @@ when defined(js):
     Tx* = object
       handle*: JsObject
 
+    Hash* {.borrow: `.`.} = distinct Array[byte]
+
+  proc toHex*(x: Hash): cstring =
+    var uint8Array = cast[Array[byte]](x).toUint8Array()
+    result = uint8ArrayToHex(uint8Array.reverse())
+
   var TxMod = JsObject{}
   var Module: JsObject
 
@@ -46,12 +52,12 @@ when defined(js):
   proc stripWitness*(tx: Tx): Tx =
     result.handle = TxMod.stripWitness(tx)
 
-  proc txid*(tx: Tx): Array[byte] =
-    result = newArray[byte]()
+  proc txid*(tx: Tx): Hash =
+    result = newArray[byte]().Hash
     TxMod.txid(tx, result.handle)
 
-  proc hash*(tx: Tx): Array[byte] =
-    result = newArray[byte]()
+  proc hash*(tx: Tx): Hash =
+    result = newArray[byte]().Hash
     TxMod.hash(tx, result.handle)
 
 else:
