@@ -8,6 +8,8 @@ when defined(js):
     Array*[T] = object
       handle*: JsObject
 
+    ArrayByte = Array[byte]
+
     ArrayError* = object of CatchableError
 
   var ArrayMod = JsObject{}
