@@ -123,7 +123,13 @@ when defined(js):
     var s = a.uint8ArrayToStr()
     return s
 
-elif defined(emscripten):
+else:
+  when defined(emscripten):
+    const EXPORTED_FUNCTIONS* = ["_bip32_free", "_bip32_master", "_bip32_xprv", "_bip32_xpub", "_bip32_node",
+                                "_bip32_hardened", "_bip32_derive", "_bip32_address", "_bip32_segwitAddress",
+                                "_bip32_duplicate", "_bip32_xprv_ex", "_bip32_xpub_ex",
+                                "_bip32_address_ex", "_bip32_segwitAddress_ex"]
+
   import ../bytes
   import ../base58
   import nimcrypto
@@ -132,11 +138,6 @@ elif defined(emscripten):
   import ../utils
   import ../address
   import ../buffer
-
-  const EXPORTED_FUNCTIONS* = ["_bip32_free", "_bip32_master", "_bip32_xprv", "_bip32_xpub", "_bip32_node",
-                              "_bip32_hardened", "_bip32_derive", "_bip32_address", "_bip32_segwitAddress",
-                              "_bip32_duplicate", "_bip32_xprv_ex", "_bip32_xpub_ex",
-                              "_bip32_address_ex", "_bip32_segwitAddress_ex"]
 
   const VersionMainnetPublic* = 0x0488B21E'u32
   const VersionMainnetPrivate* = 0x0488ADE4'u32
