@@ -13,7 +13,7 @@ try {
   }
 } catch(e) {}
 try {
-   if(!global.crypto) {
+  if(!global.crypto) {
     global.crypto = require('crypto');
   }
   var seed = crypto.randomBytes($1);
