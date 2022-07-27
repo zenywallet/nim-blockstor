@@ -130,14 +130,14 @@ else:
                                 "_bip32_duplicate", "_bip32_xprv_ex", "_bip32_xpub_ex",
                                 "_bip32_address_ex", "_bip32_segwitAddress_ex"]
 
-  import ../bytes
-  import ../base58
+  import bytes
+  import base58
   import nimcrypto
   import sequtils
-  import ../eckey
-  import ../utils
-  import ../address
-  import ../buffer
+  import eckey
+  import utils
+  import address
+  import arraylib
 
   const VersionMainnetPublic* = 0x0488B21E'u32
   const VersionMainnetPrivate* = 0x0488ADE4'u32
@@ -145,15 +145,15 @@ else:
   const VersionTestnetPrivate* = 0x04358394'u32
 
   type
-    ChainCode* = distinct seq[byte]
+    ChainCode* = distinct Array[byte]
 
     HDNodeObj = object
       depth*: uint8
       fingerprint*: uint32
       childNumber*: uint32
-      chainCode*: Buffer
-      privateKey*: Buffer
-      publicKey*: Buffer
+      chainCode*: ChainCode
+      privateKey*: PrivateKey
+      publicKey*: PublicKey
       versionPub: uint32
       versionPrv: uint32
       xprv: cstring
@@ -165,8 +165,8 @@ else:
 
     HdError* = object of CatchableError
 
-  proc toBuffer(publicKey: PublicKey): Buffer = cast[seq[byte]](publicKey).toBuffer
-  proc toBuffer(chainCode: ChainCode): Buffer = cast[seq[byte]](chainCode).toBuffer
+  converter toBytes*(o: ChainCode): Array[byte] = cast[Array[byte]](o)
+  converter toChainCode*(s: Array[byte]): ChainCode {.inline.} = ChainCode(s)
 
   proc free*(node: HDNode) {.exportc: "bip32_$1".} =
     if not node.segwitAddress.isNil:
@@ -193,19 +193,19 @@ else:
     result.versionPub = node.versionPub
     result.versionPrv = node.versionPrv
 
-  proc master*(seed: seq[byte], versionPub: uint32, versionPrv: uint32): HDNode =
+  proc master*(seed: Array[byte], versionPub: uint32, versionPrv: uint32): HDNode =
     result = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
-    var I = sha512.hmac("Bitcoin seed", seed).data
+    var I = sha512.hmac("Bitcoin seed", seed.toSeq).data
     result.depth = 0
     result.fingerprint = 0
     result.childNumber = 0
-    result.chainCode = I[32..63].toBuffer
-    result.privateKey = I[0..31].toBuffer
-    result.publicKey = result.privateKey.toBytes.PrivateKey.pub.toBuffer
+    result.chainCode = I[32..63].toBytes
+    result.privateKey = I[0..31].toBytes
+    result.publicKey = result.privateKey.toBytes.PrivateKey.pub.toBytes
     result.versionPub = versionPub
     result.versionPrv = versionPrv
 
-  proc master*(seed: seq[byte], testnet: bool = false): HDNode =
+  proc master*(seed: Array[byte], testnet: bool = false): HDNode =
     if testnet:
       result = master(seed, VersionTestnetPublic, VersionTestnetPrivate)
     else:
@@ -215,11 +215,11 @@ else:
     var seed = seedBuf.toBytes(seedSize)
     result = master(seed, testnet)
 
-  proc addCheck*(data: seq[byte]): seq[byte] = concat(data, sha256d(data)[0..3])
+  proc addCheck*(data: Array[byte]): Array[byte] = concat(data.toSeq, sha256d(data)[0..3]).toBytes
 
-  proc check(data: seq[byte]): bool =
+  proc check(data: Array[byte]): bool =
     var chk = data[^4..^1]
-    if chk == sha256d(data[0..^5])[0..3]:
+    if chk == sha256d(data[0..^5])[0..3].toArray:
       return true
     return false
 
@@ -271,26 +271,26 @@ else:
     node.depth = d[4]
     node.fingerprint = d[5].toUint32BE
     node.childNumber = d[9].toUint32BE
-    node.chainCode = d[13..44].toBuffer
+    node.chainCode = d[13..44].toBytes
     var ver = d.toUint32BE
     if testnet:
       if ver == VersionTestnetPublic:
-        node.publicKey = d[45..77].toBuffer
+        node.publicKey = d[45..77].toBytes
         node.versionPub = VersionTestnetPublic
       elif ver == VersionTestnetPrivate:
-        node.privateKey = d[46..77].toBuffer
-        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBuffer
+        node.privateKey = d[46..77].toBytes
+        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBytes
         node.versionPub = VersionTestnetPublic
         node.versionPrv = VersionTestnetPrivate
       else:
         raise newException(HdError, "unknown version " & $ver.toBytesBE)
     else:
       if ver == VersionMainnetPublic:
-        node.publicKey = d[45..77].toBuffer
+        node.publicKey = d[45..77].toBytes
         node.versionPub = VersionMainnetPublic
       elif ver == VersionMainnetPrivate:
-        node.privateKey = d[46..77].toBuffer
-        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBuffer
+        node.privateKey = d[46..77].toBytes
+        node.publicKey = node.privateKey.toBytes.PrivateKey.pub.toBytes
         node.versionPub = VersionMainnetPublic
         node.versionPrv = VersionMainnetPrivate
       else:
@@ -302,16 +302,16 @@ else:
       raise newException(HdError, "derive privateKey len=" & $node.privateKey.len)
     var childNumber = (0x80000000'u32 or index)
     var data = (0x00'u8, node.privateKey, childNumber).toBytesBE
-    var I = sha512.hmac(node.chainCode.toBytes, data).data
+    var I = sha512.hmac(node.chainCode.toBytes.toSeq, data.toSeq).data.toBytes
     var privateKey: PrivateKey = I[0..31]
-    var chainCode: ChainCode = I[32..63].ChainCode
+    var chainCode: ChainCode = I[32..63]
     var deriveNode = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
     deriveNode.depth = node.depth + 1
     deriveNode.fingerprint = ripemd160hash(node.publicKey.toBytes.PublicKey).toBytes.toUint32BE
     deriveNode.childNumber = childNumber
-    deriveNode.chainCode = chainCode.toBuffer
-    deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes.toBuffer
-    deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBuffer
+    deriveNode.chainCode = chainCode.toBytes
+    deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes
+    deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBytes
     deriveNode.versionPub = node.versionPub
     deriveNode.versionPrv = node.versionPrv
     result = deriveNode
@@ -319,19 +319,19 @@ else:
   proc derive*(node: HDNode, index: uint32): HDNode {.exportc: "bip32_$1".} =
     var childNumber = index
     var data = (node.publicKey, childNumber).toBytesBE
-    var I = sha512.hmac(node.chainCode.toBytes, data).data
+    var I = sha512.hmac(node.chainCode.toBytes.toSeq, data.toSeq).data.toBytes
     var privateKey: PrivateKey = I[0..31]
-    var chainCode: ChainCode = I[32..63].ChainCode
+    var chainCode: ChainCode = I[32..63]
     var deriveNode = cast[HDNode](allocShared0(sizeof(HDNodeObj)))
     deriveNode.depth = node.depth + 1
     deriveNode.fingerprint = ripemd160hash(node.publicKey.toBytes.PublicKey).toBytes.toUint32BE
     deriveNode.childNumber = childNumber
-    deriveNode.chainCode = chainCode.toBuffer
+    deriveNode.chainCode = chainCode.toBytes
     if node.privateKey.len == 32:
-      deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes.toBuffer
-      deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBuffer
+      deriveNode.privateKey = privateKey.tweakAdd(node.privateKey.toBytes.PrivateKey).toBytes
+      deriveNode.publicKey = deriveNode.privateKey.toBytes.PrivateKey.pub.toBytes
     else:
-      deriveNode.publicKey = node.publicKey.toBytes.PublicKey.pubObj.tweakAdd(privateKey.toBytes.PrivateKey).pub.toBuffer
+      deriveNode.publicKey = node.publicKey.toBytes.PublicKey.pubObj.tweakAdd(privateKey.toBytes.PrivateKey).pub.toBytes
     deriveNode.versionPub = node.versionPub
     deriveNode.versionPrv = node.versionPrv
     result = deriveNode
