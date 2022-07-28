@@ -8,7 +8,7 @@ when defined(js):
     Array*[T] = object
       handle*: JsObject
 
-    ArrayByte = Array[byte]
+    ArrayByte* = Array[byte]
 
     ArrayError* = object of CatchableError
 
