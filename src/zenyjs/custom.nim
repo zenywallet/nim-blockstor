@@ -14,13 +14,8 @@ template `.=`*[T](handleObj: HandleObj[T]; field, value: untyped) =
 
 macro returnToLastParam*(theProc: untyped): untyped =
   result = theProc
-  var n: NimNode
-  let resultLen = result[3][0].len
-  if resultLen > 0:
-    n = result[3][0][resultLen - 1]
-  else:
-    n = result[3][0]
-  if n.kind == nnkIdent:
+  var n: NimNode = result[3][0]
+  if n.kind == nnkIdent or n.kind == nnkBracketExpr:
     if result[6].kind == nnkEmpty:
       result[6] = nnkStmtList.newTree(
         nnkAsgn.newTree(
