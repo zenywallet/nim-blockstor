@@ -1080,7 +1080,7 @@ when ENABLE_SSL:
       ASN1_INTEGER_free(serial)
       BN_free(big)
       BN_free(exp)
-      if rsa.isNil: RSA_free(rsa)
+      if not rsa.isNil: RSA_free(rsa)
       EVP_PKEY_free(pkey)
       X509_free(x509)
 
