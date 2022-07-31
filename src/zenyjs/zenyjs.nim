@@ -74,15 +74,13 @@ when defined(js):
       wait_ready()
 
   template ready*(body: untyped) =
-    block ready:
-      proc bodyMain() {.async, discardable.} = body
-      loadModule(proc(module: JsObject) =
-        when declared(bip32):
-          bip32.init(module)
-        when declared(deoxy):
-          deoxy.init(module)
-        bodyMain()
-      )
+    loadModule(proc(module: JsObject) =
+      when declared(bip32):
+        bip32.init(module)
+      when declared(deoxy):
+        deoxy.init(module)
+      discard (proc() {.async.} = body)()
+    )
 
 elif defined(emscripten):
   import bip32
