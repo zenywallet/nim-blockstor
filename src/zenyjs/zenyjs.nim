@@ -75,16 +75,28 @@ when defined(js):
 
   template ready*(body: untyped) =
     loadModule(proc(module: JsObject) =
+      when declared(arraylib):
+        arraylib.init(module)
       when declared(bip32):
         bip32.init(module)
       when declared(deoxy):
         deoxy.init(module)
+      when declared(tx):
+        tx.init(module)
+      when declared(address.Network):
+        address.init(module)
+      when declared(base58):
+        base58.init(module)
       discard (proc() {.async.} = body)()
     )
 
 elif defined(emscripten):
+  import arraylib
   import bip32
   import deoxy
+  import tx
+  import address
+  import base58
 
   const ZENYJS_MODULE_NAME = "ZenyJS"
   {.passL: "-s EXPORT_NAME=" & ZENYJS_MODULE_NAME.}
@@ -98,11 +110,23 @@ elif defined(emscripten):
     var bracket = nnkBracket.newTree()
     for functionName in DEFAULT_EXPORTED_FUNCTIONS:
       bracket.add(newLit(functionName))
-    when declared(bip32):
+    when declared(arraylib.EXPORTED_FUNCTIONS):
+      for functionName in arraylib.EXPORTED_FUNCTIONS:
+        bracket.add(newLit(functionName))
+    when declared(bip32.EXPORTED_FUNCTIONS):
       for functionName in bip32.EXPORTED_FUNCTIONS:
         bracket.add(newLit(functionName))
-    when declared(deoxy):
+    when declared(deoxy.EXPORTED_FUNCTIONS):
       for functionName in deoxy.EXPORTED_FUNCTIONS:
+        bracket.add(newLit(functionName))
+    when declared(tx.EXPORTED_FUNCTIONS):
+      for functionName in tx.EXPORTED_FUNCTIONS:
+        bracket.add(newLit(functionName))
+    when declared(address.EXPORTED_FUNCTIONS):
+      for functionName in address.EXPORTED_FUNCTIONS:
+        bracket.add(newLit(functionName))
+    when declared(base58.EXPORTED_FUNCTIONS):
+      for functionName in base58.EXPORTED_FUNCTIONS:
         bracket.add(newLit(functionName))
     result.add(
       nnkConstSection.newTree(
