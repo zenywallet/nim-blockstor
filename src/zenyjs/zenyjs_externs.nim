@@ -23,6 +23,37 @@ var externs = {
   HEAPU32: {},
   buffer: 0
 };
+
+var fomantic = {
+  tab: 0,
+  checkbox: 0,
+  rating: {
+    icon: 0,
+    initialRating: 0,
+    maxRating: 0,
+    fireOnInit: 0,
+    clearable: 0,
+    interactive: 0,
+    onRate: function() {}
+  },
+  toast: {
+    title: 0,
+    message: 0,
+    class: 0,
+    className: {
+      toast: 0
+    },
+    displayTime: 0
+  },
+  modal: {
+    onShow: function() {},
+    onVisible: function() {},
+    onHide: function() {},
+    onHidden: function() {},
+    onApprove: function() {},
+    onDeny: function() {}
+  }
+};
 """
 
 import os
