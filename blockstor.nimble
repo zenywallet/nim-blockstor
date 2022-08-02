@@ -124,3 +124,10 @@ $closure_compiler --compilation_level ADVANCED --jscomp_off=checkVars --jscomp_o
   exec "rm public/miner.js_tmp"
   exec "rm src/web_miner_externs.js"
   exec "rm src/web_miner_loader.js"
+
+task webmining, "Build web mining html":
+  withDir "src/zenyjs":
+    exec "nim c -r zenyjs_build.nim mining.nim"
+    exec "mv zenyjs.wasm ../../public"
+    exec "mv mining.html ../../public"
+    exec "mv mining.js ../../public"
