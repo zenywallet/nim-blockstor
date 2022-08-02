@@ -54,6 +54,26 @@ var fomantic = {
     onDeny: function() {}
   }
 };
+
+var nodejs = {
+  global: 0,
+  Module: function() {},
+  fs: {
+    readFileSync: function() {},
+    readFile: function() {}
+  },
+  FS: {
+    createDataFile: 0,
+    createPreloadedFile: 0
+  },
+  nodePath: 0,
+  process: {
+    versions: {
+      node: 0
+    },
+    on: function() {}
+  }
+};
 """
 
 import os
