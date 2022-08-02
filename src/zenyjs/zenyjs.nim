@@ -31,18 +31,13 @@ when defined(js):
   proc ZenyJS_Module(mods: JsObject): Future[JsObject] {.async, importc: "ZenyJS".}
 
   proc purge_wait_cb(module: JsObject) =
-    asm """
-      var p = `wait_cb`.shift();
-      while(p) {
-        p(`module`);
-        p = `wait_cb`.shift();
-      }
-    """
+    var p = wait_cb.shift().to(proc(module: JsObject))
+    while not p.isNil:
+      p(module)
+      p = wait_cb.shift().to(proc(module: JsObject))
 
   proc loadModule(cb: proc(module: JsObject)) {.async, discardable.} =
-    asm """
-      `wait_cb`.push(`cb`);
-    """
+    wait_cb.push(cb)
     if module_ready == ModuleStatus.None:
       module_ready = ModuleStatus.Loading
       Module = JsObject{
