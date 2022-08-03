@@ -10,6 +10,26 @@ import templates
 import strformat
 import times
 import deoxy
+
+var ui {.compileTime.} = true
+import os, macros
+macro includeConfig: untyped =
+  const configFile = currentSourcePath().parentDir() / ".." / "config.nim"
+  var existTest = staticExec("test -f \"" & configFile & "\" && echo \"find\"")
+  if existTest.len > 0:
+    nnkStmtList.newTree(
+      nnkIncludeStmt.newTree(
+        newIdentNode("../config")
+      )
+    )
+  else:
+    nnkStmtList.newTree(
+      nnkIncludeStmt.newTree(
+        newIdentNode("../config_default")
+      )
+    )
+includeConfig()
+
 import address
 include karax / prelude
 
@@ -513,4 +533,4 @@ zenyjs.ready:
       connectionError = true
       appInst.redraw()
 
-  stream.connect("ws://localhost:8000/ws", "deoxy-0.1", onOpen, onReady, onRecv, onClose)
+  stream.connect(WEBSOCKET_ENTRY_URL, WEBSOCKET_PROTOCOL, onOpen, onReady, onRecv, onClose)
