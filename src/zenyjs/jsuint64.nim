@@ -35,6 +35,15 @@ proc newUint64*(sval: cstring): Uint64 =
   result = newUint64(0)
   result.fromString(sval)
 
+proc newUint64*(jval: JsObject): Uint64 =
+  let typ = jsTypeof(jval)
+  if typ == "number":
+    result = newUint64(jval.to(uint))
+  elif typ == "string":
+    result = newUint64(jval.to(cstring))
+  else:
+    raise
+
 proc `+`*(a, b: Uint64): Uint64 =
   result = a.clone().to(Uint64)
   result.add(b)
@@ -79,3 +88,15 @@ when isMainModule:
   console.log(val.toString, val.toUint8Array)
   val = val / newUint64(255)
   console.log(val.toString, val.toUint8Array)
+
+  block jsobj_number:
+    var x = 12345.toJs
+    echo jstypeof(x)
+    var y = newUint64(x)
+    console.log(y.toString)
+
+  block jsobj_string:
+    var x = "12345".toJs
+    echo jstypeof(x)
+    var y = newUint64(x)
+    console.log(y.toString)
