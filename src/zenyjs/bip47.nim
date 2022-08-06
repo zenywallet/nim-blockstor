@@ -1,10 +1,11 @@
 # Copyright (c) 2021 zenywallet
 
 import bip32, bytes, base58
-import secp256k1
-import secp256k1_ecdh
+import ../secp256k1
+import ../secp256k1_ecdh
 import sequtils
 import eckey
+import arraylib
 
 proc paymentCode*(node: HDNode): string =
   var d = (0x47'u8, 0x01'u8, 0x00'u8, node.publicKey, node.chainCode, Pad(13)).toBytes.addCheck
@@ -16,10 +17,10 @@ var ecdhFunc: secp256k1_ecdh_hash_function = proc (output: ptr uint8;
   copyMem(output, x32, 32)
   result = 1.cint
 
-proc ecdh*(prv: PrivateKey, pub: PublicKeyObj): seq[byte] =
+proc ecdh*(prv: PrivateKey, pub: PublicKeyObj): Array[byte] =
   if prv.len != 32 or pub.len != 64:
     raise newException(EcError, "ecdh parameters")
-  var output = newSeq[byte](32)
+  var output = newArray[byte](32)
   let prvSeq = prv.toBytes
   let pubSeq = pub.toBytes
   if secp256k1_ecdh(ctx(), cast[ptr uint8](addr output[0]),
@@ -35,7 +36,8 @@ when isMainModule:
   import script
   import nimcrypto
   import tx
-  import opcodes
+  import ../opcodes
+  import custom
 
   echo "###Alice's wallet:"
   var seed_alice = "64dca76abc9c6f0cf3d212d248c380c4622c8f93b2c425ec6a5567fd5db57e10d3e6f94a2f6af4ac2edb8998072aad92098db73558c323777abf5bd1082d970a".Hex.toBytes
@@ -85,7 +87,7 @@ when isMainModule:
     var m_bob_47h_0h_0h_i = m_bob_47h_0h_0h.derive(i.uint32)
     var aB = m_alice_47h_0h_0h_0.privateKey.ecdh(m_bob_47h_0h_0h_i.publicKey.pubObj)
     var S = PrivateKey(aB)
-    var s = sha256s(S.toBytes).toBytes
+    var s = sha256s(S).toBytes
     var B_prime = tweakAdd(m_bob_47h_0h_0h_i.publicKey.pubObj, s)
     echo bitcoin.getAddress(B_prime.pub)
 
@@ -113,7 +115,7 @@ when isMainModule:
   var s = alicePrv.ecdh(m_bob_47h_0h_0h_0.publicKey.pubObj)
   echo "Shared secret: ", s
 
-  var I = sha512.hmac(outputAlice, s).data # opposite? s = HMAC-SHA512(x, o)
+  var I = sha512.hmac(outputAlice.toSeq, s.toSeq).data # opposite? s = HMAC-SHA512(x, o)
   var mask = I.toSeq
   echo "Blinding mask:"
   echo mask
@@ -124,7 +126,7 @@ when isMainModule:
   echo pcAlicePayload
 
   var alicePub = alicePrv.pub
-  var tx1 = new Tx
+  var tx1 = newTx()
   tx1.ver = 1'i32
   tx1.ins.add((tx: outputAlice[0..31].Hash, n: outputAlice[32..^1].toUint32,
                sig: bitcoin.getScript(bitcoin.getAddress(alicePub)).Sig, sequence: 0xffffffff'u32))
