@@ -10,26 +10,22 @@ var module {.importc, nodecl.}: JsObject
 # https://github.com/pierrec/js-cuint
 {.emit: staticRead(currentSourcePath().parentDir() / "../../deps/js-cuint/lib/uint64.js").}
 
-var Module = JsObject{}
+var ModuleUINT64: JsObject
 
 if not this["UINT64"].isNil:
-  Module.UINT64 = this["UINT64"]
+  ModuleUINT64 = this["UINT64"]
 elif not module.exports.isNil:
-  Module.UINT64 = module.exports
+  ModuleUINT64 = module.exports
 else:
   raise
-
-asm """
-`Module`.newUint64 = function(val) {
-  return new `Module`.`UINT64`(val)
-}
-"""
 
 type
   Uint64Obj* = JsObject
   Uint64* = ref object of Uint64Obj
 
-proc newUint64*(val: uint = 0): Uint64 = Module.newUint64(val).to(Uint64)
+proc newUint64(jsMod: JsObject, val: uint): Uint64 {.importcpp: "new #(#)".}
+
+proc newUint64*(val: uint = 0): Uint64 = ModuleUINT64.newUint64(val)
 
 proc newUint64*(sval: cstring): Uint64 =
   result = newUint64(0)
