@@ -54,3 +54,6 @@
 [submodule "deps/js-cuint"]
 	path = deps/js-cuint
 	url = https://github.com/pierrec/js-cuint
+[submodule "deps/js-levenshtein"]
+	path = deps/js-levenshtein
+	url = https://github.com/gustf/js-levenshtein
