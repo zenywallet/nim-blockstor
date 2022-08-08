@@ -21,7 +21,7 @@ else:
 
 asm """
 `Module`.newUint64 = function(val) {
-  return new `Module`.UINT64(val)
+  return new `Module`.`UINT64`(val)
 }
 """
 
