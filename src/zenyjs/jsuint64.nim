@@ -32,7 +32,7 @@ proc newUint64*(sval: cstring): Uint64 =
   result.fromString(sval)
 
 proc newUint64*(jval: JsObject): Uint64 =
-  let typ = jsTypeof(jval)
+  let typ = jsTypeOf(jval)
   if typ == "number":
     result = newUint64(jval.to(uint))
   elif typ == "string":
@@ -87,12 +87,12 @@ when isMainModule:
 
   block jsobj_number:
     var x = 12345.toJs
-    echo jstypeof(x)
+    echo jsTypeOf(x)
     var y = newUint64(x)
     console.log(y.toString)
 
   block jsobj_string:
     var x = "12345".toJs
-    echo jstypeof(x)
+    echo jsTypeOf(x)
     var y = newUint64(x)
     console.log(y.toString)
