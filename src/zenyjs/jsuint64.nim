@@ -12,8 +12,8 @@ var module {.importc, nodecl.}: JsObject
 
 var ModuleUINT64: JsObject
 
-if not this["UINT64"].isNil:
-  ModuleUINT64 = this["UINT64"]
+if not this.UINT64.isNil:
+  ModuleUINT64 = this.UINT64
 elif not module.exports.isNil:
   ModuleUINT64 = module.exports
 else:
