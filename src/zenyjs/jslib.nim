@@ -94,6 +94,15 @@ proc hexToUint8Array*(str: cstring or JsObject): Uint8Array =
 proc uint8ArrayToHex*(uint8Array: Uint8Array or JsObject): cstring =
   Array.prototype.map.call(uint8Array, proc(x: JsObject): JsObject = ("00".toJs + (x.toString(16))).slice(-2)).join("").to(cstring)
 
+proc `$`*(uint8Array: Uint8Array): string =
+  result = "Uint8Array["
+  for i in 0..<uint8Array.length.to(int):
+    if i > 0:
+      result.add(", " & $uint8Array[i].to(int))
+    else:
+      result.add($uint8Array[i].to(int))
+  result.add("]")
+
 proc setInterval*(cb: proc(), ms: int): int {.importc, discardable.}
 proc clearInterval*(intervalId: int) {.importc.}
 proc setTimeout*(cb: proc(), ms: int): int {.importc, discardable.}
