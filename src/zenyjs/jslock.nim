@@ -22,14 +22,16 @@ template newLock*(): Lock =
 
 var mutex = [].toJs
 
-proc sleep(ms: int): Future[void] {.discardable.} =
+proc sleep_async(ms: int): Future[void] {.discardable.} =
   return newPromise do (resolve: proc()):
     setTimeout(resolve, ms)
+
+template sleep(ms: int) = await sleep_async(ms)
 
 proc acquireLock(id: int) {.async, discardable.} =
   mutex.push(id.toJs)
   while mutex[0] != id.toJs:
-    await sleep(10)
+    sleep(10)
 
 proc releaseLock() =
   mutex.shift()
