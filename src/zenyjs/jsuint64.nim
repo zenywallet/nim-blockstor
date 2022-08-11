@@ -58,14 +58,17 @@ proc `/`*(a, b: Uint64): Uint64 =
 
 proc remainder*(a: Uint64): Uint64 = a.toJs.remainder.to(Uint64)
 
+proc a00*(a: Uint64): uint16 {.importcpp: "#._a00".}
+proc a16*(a: Uint64): uint16 {.importcpp: "#._a16".}
+proc a32*(a: Uint64): uint16 {.importcpp: "#._a32".}
+proc a48*(a: Uint64): uint16 {.importcpp: "#._a48".}
+
 proc toUint8Array*(a: Uint64): Uint8Array =
-  asm """
-    `result` = new Uint8Array([
-      `a`._a00 & 0xff, `a`._a00 >>> 8,
-      `a`._a16 & 0xff, `a`._a16 >>> 8,
-      `a`._a32 & 0xff, `a`._a32 >>> 8,
-      `a`._a48 & 0xff, `a`._a48 >>> 8]);
-  """
+  result = newUint8Array([
+    a.a00 and 0xff'u8, a.a00 shr 8,
+    a.a16 and 0xff'u8, a.a16 shr 8,
+    a.a32 and 0xff'u8, a.a32 shr 8,
+    a.a48 and 0xff'u8, a.a48 shr 8].toJs)
 
 proc toNumber*(a: Uint64): int = a.toJs.toNumber().to(int)  # last 32 bits are dropped
 
