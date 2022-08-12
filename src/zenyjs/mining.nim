@@ -375,7 +375,7 @@ proc appMain(data: RouterData): VNode =
       h3(class="ui inverted header"):
         italic(class="microchip icon")
         tdiv(class="content"):
-          text "CPU " & cpuCountStr & " / " & cpuMaxCountStr
+          text fmt"CPU {cpuCountStr} / {cpuMaxCountStr}"
           if cpuMaxCountUnknown:
             text " (Unknown CPU)"
 
