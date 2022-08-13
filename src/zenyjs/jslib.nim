@@ -65,6 +65,8 @@ proc newUint32Array*(buffer: JsObject, byteOffset: int, length: int): Uint32Arra
 proc newTextEncoder*(): JsObject {.importcpp: "new TextEncoder()".}
 proc newTextDecoder*(): JsObject {.importcpp: "new TextDecoder()".}
 proc newNumber*(val: JsObject): Number {.importcpp: "new Number(#)".}
+proc newWorker*(url: cstring): JsObject {.importcpp: "new Worker(#)".}
+proc newWorker*(url: cstring, options: JsObject): JsObject {.importcpp: "new Worker(#, #)".}
 
 proc modCall*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
 

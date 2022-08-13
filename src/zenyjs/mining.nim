@@ -132,10 +132,6 @@ proc convCoin(val: string): string =
 proc convCoin(val: cstring): cstring = convCoin($val).cstring
 
 
-proc newWorker*(url: cstring): JsObject {.importcpp: "new Worker(#)".}
-proc newWorker*(url: cstring, options: JsObject): JsObject {.importcpp: "new Worker(#, #)".}
-
-
 type Notify = enum
   Success
   Error
