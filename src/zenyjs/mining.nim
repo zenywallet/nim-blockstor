@@ -506,7 +506,6 @@ zenyjs.ready:
       appInst.redraw()
 
   proc onReady() =
-    echo "onReady"
     cmdSend """{"cmd":"status-on"}"""
     cmdSend """{"cmd":"noralist"}"""
     if miningActive:
@@ -514,12 +513,10 @@ zenyjs.ready:
       cmdSend fmtj"""{"cmd":"mining-on","data":{"nid":<activeNid>,"addr":"<miningAddress>"}}"""
 
   proc onOpen() =
-    echo "onOpen"
     connectionError = false
     clearNotify("connect")
 
   proc onClose() =
-    echo "onClose"
     if not pageUnload:
       if not connectionError:
         Notify.Error.show("Server connection failed.", "connect", true)
