@@ -133,19 +133,9 @@ when defined(js):
 
   template ready*(deoxy: var Deoxy, body: untyped) =
     block ready:
-      var sleep: JsObject
-      asm """
-        `sleep` = function(ms) {
-          return new Promise(function(resolve) {
-            setTimeout(resolve, ms);
-          });
-        }
-      """
       proc bodyMain() {.async, discardable.} =
         while not deoxy.ready:
-          asm """
-            await `sleep`(100);
-          """
+          sleep(100)
         body
       bodyMain()
 
