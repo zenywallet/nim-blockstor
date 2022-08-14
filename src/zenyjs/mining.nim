@@ -214,7 +214,6 @@ proc changeMiningWorker(num: int) =
           if not retSend:
             miningPendingFinds.push(findData)
         elif e.data["cmd"].to(cstring) == "status".cstring:
-          console.log("status =", e.data["data"])
           miningStatus[this.id.to(cstring)] = e.data["data"]
         elif e.data["cmd"].to(cstring) == "ready".cstring:
           this.readyFlag = true
