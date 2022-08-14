@@ -28,12 +28,6 @@ type ReqId = cstring
 
 proc getReqId(): ReqId = Math.random().to(cstring) & "-" & $epochTime()
 
-proc sleep_async(ms: int): Future[void] {.discardable.} =
-  return newPromise do (resolve: proc()):
-    setTimeout(resolve, ms)
-
-template sleep(ms: int) = await sleep_async(ms)
-
 proc acquireLock(id: int, reqId: ReqId) {.async, discardable.} =
   mutex[id].push(reqId.toJs)
   while mutex[id][0] != reqId.toJs:

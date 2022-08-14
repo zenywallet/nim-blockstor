@@ -2,6 +2,7 @@
 
 import jsffi
 import macros
+import asyncjs
 
 type
   DocumentObj* = JsObject
@@ -110,3 +111,9 @@ proc clearInterval*(intervalId: int) {.importc.}
 proc setTimeout*(cb: proc(), ms: int): int {.importc, discardable.}
 proc clearTimeout*(timeoutId: int) {.importc.}
 proc postMessage*(message: JsObject) {.importc.}
+
+proc sleep_async*(ms: int): Future[void] {.discardable.} =
+  return newPromise do (resolve: proc()):
+    setTimeout(resolve, ms)
+
+template sleep*(ms: int) = await sleep_async(ms)
