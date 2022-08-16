@@ -95,6 +95,8 @@ else:
       len*, cap*: int
       data*: ptr UncheckedArray[T]
 
+    ArrayByte* = Array[byte]
+
   proc `=destroy`*[T](x: var Array[T]) =
     if x.data != nil:
       x.data.deallocShared()
