@@ -301,7 +301,6 @@ proc appMain(data: RouterData): VNode =
                   miningAddressValid = checkAddress(activeNid, miningAddress.cstring)
                   if miningAddressValid:
                     cmdSend fmtj"""{"cmd":"addr-on","data":{"nid":<activeNid>,"addr":"<miningAddress>"}}"""
-                    cmdSend fmtj"""{"cmd":"addrlog","data":{"nid":<activeNid>,"addr":"<miningAddress>","rev":1}}"""
             text n
       h2(class="ui inverted dividing header"): text noraList[activeNid]
       if blockDatas.hasKey(activeNidStr):
@@ -339,7 +338,6 @@ proc appMain(data: RouterData): VNode =
               miningAddressValid = checkAddress(activeNid, miningAddress.cstring)
               if miningAddressValid:
                 cmdSend fmtj"""{"cmd":"addr-on","data":{"nid":<activeNid>,"addr":"<miningAddress>"}}"""
-                cmdSend fmtj"""{"cmd":"addrlog","data":{"nid":<activeNid>,"addr":"<miningAddress>","rev":1}}"""
         a(class="ui inverted tag label"):
           proc onclick(ev: Event, n: Vnode) =
             if miningActive:
