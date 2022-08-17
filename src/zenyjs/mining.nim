@@ -131,6 +131,13 @@ proc convCoin(val: string): string =
 
 proc convCoin(val: cstring): cstring = convCoin($val).cstring
 
+proc convCoin(val: JsonNode): string =
+  let kind = val.kind
+  if kind == JsonNodeKind.JInt:
+    result = convCoin($val.getBiggestInt)
+  elif kind == JsonNodeKind.JString:
+    result = convCoin(val.getStr)
+
 
 type Notify = enum
   Success
@@ -395,7 +402,7 @@ proc appMain(data: RouterData): VNode =
         tdiv:
           bold: text "amount: "
           if addressDatas[activeNidStr].hasKey("val"):
-            text convCoin($addressDatas[activeNidStr]["val"].getBiggestInt)
+            text convCoin(addressDatas[activeNidStr]["val"])
           else:
             text "(unused)"
         tdiv:
@@ -418,7 +425,7 @@ proc appMain(data: RouterData): VNode =
                     span(class="blockheight"): text "#" & $d["height"].getInt
                   code:
                     tdiv(class="hash"): text "txid: " & d["tx"].getStr
-                    tdiv: text "value: " & convCoin($d["val"].getBiggestInt)
+                    tdiv: text "value: " & convCoin(d["val"])
                     tdiv:
                       text "type: " & (if d["trans"].getInt == 0: "Send" else: "Receive")
                       if d["mined"].getInt == 1:
