@@ -148,13 +148,13 @@ const NotifyVal = [Success: "success".cstring, Error: "error".cstring]
 proc show(notify: Notify, msg: cstring, tag: string = "", infinite: bool = false) =
   let notifyVal = NotifyVal[notify]
   jq("body").toast(JsObject{
-    "title": ($notify).cstring,
-    "message": msg,
-    "class": notifyVal,
-    "className": JsObject{
-      "toast": (if tag.len > 0: ("ui message " & tag).cstring else: "ui message".cstring)
+    title: ($notify).cstring,
+    message: msg,
+    "class": notifyVal, # Do not remove "class" double quotes
+    className: JsObject{
+      toast: (if tag.len > 0: ("ui message " & tag).cstring else: "ui message".cstring)
     },
-    "displayTime": (if infinite: 0 else: 5000)
+    displayTime: (if infinite: 0 else: 5000)
   })
 
 proc clearNotify(tag: string = "") =
@@ -276,7 +276,7 @@ proc onRate(value: int) =
 
 proc afterScript(data: RouterData) =
   jq("#mining .checkbox").checkbox()
-  jq("#mining .rating").rating(JsObject{"onRate": onRate})
+  jq("#mining .rating").rating(JsObject{onRate: onRate})
 
 proc cmdSend(cmd: string) = stream.send(strToUint8Array(cmd.cstring))
 
