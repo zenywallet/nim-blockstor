@@ -1,7 +1,7 @@
 # Copyright (c) 2022 zenywallet
 
 import zenyjs
-import jsffi
+import jsffi except `.=`
 import jslib
 import asyncjs
 import arraylib
@@ -116,6 +116,15 @@ macro genarateHtml() =
 genarateHtml()
 
 
+{.experimental: "dotOperators".}
+macro `.=`*(obj: JsObject, field, value: untyped): untyped =
+  let importString = "#." & $field & " = #"
+  result = quote do:
+    proc helper(o: JsObject, v: auto)
+      {.importjs: `importString`, gensym.}
+    helper(`obj`, `value`)
+
+
 proc jq(selector: cstring): JsObject {.importcpp: "$$(#)".}
 template fmtj(pattern: static string): untyped = fmt(pattern, '<', '>')
 
@@ -150,7 +159,7 @@ proc show(notify: Notify, msg: cstring, tag: string = "", infinite: bool = false
   jq("body").toast(JsObject{
     title: ($notify).cstring,
     message: msg,
-    "class": notifyVal, # Do not remove "class" double quotes
+    class: notifyVal,
     className: JsObject{
       toast: (if tag.len > 0: ("ui message " & tag).cstring else: "ui message".cstring)
     },
