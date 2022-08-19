@@ -30,8 +30,10 @@ var dbnames: seq[string]
 for node in nodes:
   dbnames.add($node.networkId)
 
+const DATA_DIR = "data"
+
 echo "db open"
-var dbInsts = db.opens("data", dbnames)
+var dbInsts = db.opens(DATA_DIR, dbnames)
 echo "db open - done"
 
 var workers: seq[WorkerParams]
