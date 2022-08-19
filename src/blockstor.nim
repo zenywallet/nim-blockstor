@@ -32,6 +32,9 @@ for node in nodes:
 
 const DATA_DIR = "data"
 
+if not dirExists(DATA_DIR):
+  createDir(DATA_DIR)
+
 echo "db open"
 var dbInsts = db.opens(DATA_DIR, dbnames)
 echo "db open - done"
