@@ -634,7 +634,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
 
     while true:
       if not node.connect():
-        raise newException(BlockstorError, "connect failed: " & $node.networkId)
+        raise newException(BlockstorError, "connect failed network=" & $node.networkId)
       echo "connect: ", node.networkId
       try:
         node.start(params.nodeParams, height, blkHash, cb)
