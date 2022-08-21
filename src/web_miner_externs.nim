@@ -1,7 +1,7 @@
 # Copyright (c) 2022 zenywallet
 
 asm """
-var externs = {
+var web_miner_externs = {
   minerMod: {
     onRuntimeInitialized: function() {},
     preRun: [],
