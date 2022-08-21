@@ -33,3 +33,5 @@ var pageYOffset = 0;
 var event = {};
 var id = 0;
 """
+
+include web_miner_externs
