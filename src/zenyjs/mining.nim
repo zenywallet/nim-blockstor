@@ -351,11 +351,12 @@ proc appMain(data: RouterData): VNode =
           proc onclick(ev: Event, n: Vnode) =
             if miningActive:
               miningActive = false
-              cmdSend fmtj"""{"cmd":"mining-off","data":{"nid":<activeNid>,"addr":"<miningAddress>"}}"""
+              if miningAddressValid:
+                cmdSend fmtj"""{"cmd":"mining-off","data":{"nid":<activeNid>,"addr":"<miningAddress>"}}"""
+                miningData = jsNull
+                changeMiningWorker(0)
+                stopMiningDataUpdater()
               jq(".ui.checkbox").checkbox("set unchecked")
-              miningData = jsNull
-              changeMiningWorker(0)
-              stopMiningDataUpdater()
             else:
               miningActive = true
               jq(".ui.checkbox").checkbox("set checked")
