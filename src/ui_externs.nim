@@ -1,7 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
 asm """
-var externs = {
+var ui_externs = {
   deoxyMod: {
     onRuntimeInitialized: function() {},
     preRun: [],
