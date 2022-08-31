@@ -120,6 +120,7 @@ when ADD_POST_HEADER:
 proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: string] =
   var outbuf: ref string = new string
   let curl: Pcurl = easy_init()
+  # discard curl.easy_setopt(OPT_VERBOSE, 1)
   discard curl.easy_setopt(OPT_URL, rpcConfig.rpcUrl)
   discard curl.easy_setopt(OPT_POST, 1)
   discard curl.easy_setopt(OPT_USERPWD, rpcConfig.rpcUserPass)
