@@ -1,7 +1,15 @@
 # Copyright (c) 2020 zenywallet
 
+const USE_CURL = true
+
 import libcurl, strutils, json, locks
 export json
+
+when not USE_CURL:
+  import nativesockets, posix
+  import bytes
+  import re
+  import base64
 
 type
   CoreCommand* = enum
@@ -103,35 +111,159 @@ type RpcConfig* = ref object
 var defaultRpcConfig {.threadvar.}: RpcConfig
 defaultRpcConfig = RpcConfig(rpcUrl: "http://127.0.0.1:9252/",
                             rpcUserPass: "rpcuser:rpcpassword")
+when not USE_CURL:
+  var rpcHostname {.threadvar.}: string
+  var rpcPort {.threadvar.}: Port
+  var rpcAuthorization {.threadvar.}: string
+  var rpcRecvBuf {.threadvar.}: seq[byte]
+
+  var rcvbufSock = createNativeSocket()
+  var tcp_rmem = rcvbufSock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
+  rcvbufSock.close()
 
 proc setRpcConfig*(rpcConfig: RpcConfig) =
   defaultRpcConfig = rpcConfig
+  when not USE_CURL:
+    if rpcConfig.rpcUrl =~ re"\w+://([\w\._-]+):(\d+)":
+      rpcHostname = matches[0]
+      rpcPort = matches[1].parseInt.Port
+    rpcAuthorization = base64.encode(rpcConfig.rpcUserPass)
+    rpcRecvBuf = newSeq[byte](tcp_rmem)
 
-proc writeCallback(buffer: cstring, size: int, nitems: int, outstream: pointer): int =
-  var outbuf = cast[ref string](outstream)
-  outbuf[] &= buffer
-  result = size * nitems
+when USE_CURL:
+  proc writeCallback(buffer: cstring, size: int, nitems: int, outstream: pointer): int =
+    var outbuf = cast[ref string](outstream)
+    outbuf[] &= buffer
+    result = size * nitems
 
-const ADD_POST_HEADER = false
-when ADD_POST_HEADER:
-  var headers: PSlist
-  headers = slist_append(headers, "Content-Type: application/json")
-
-proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: string] =
-  var outbuf: ref string = new string
-  let curl: Pcurl = easy_init()
-  # discard curl.easy_setopt(OPT_VERBOSE, 1)
-  discard curl.easy_setopt(OPT_URL, rpcConfig.rpcUrl)
-  discard curl.easy_setopt(OPT_POST, 1)
-  discard curl.easy_setopt(OPT_USERPWD, rpcConfig.rpcUserPass)
-  discard curl.easy_setopt(OPT_POSTFIELDS, postData)
-  discard curl.easy_setopt(OPT_WRITEDATA, outbuf)
-  discard curl.easy_setopt(OPT_WRITEFUNCTION, writeCallback)
+  const ADD_POST_HEADER = false
   when ADD_POST_HEADER:
-    discard curl.easy_setopt(OPT_HTTPHEADER, headers)
-  let ret = curl.easy_perform()
-  curl.easy_cleanup()
-  (ret, outbuf[])
+    var headers: PSlist
+    headers = slist_append(headers, "Content-Type: application/json")
+
+  proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: string] =
+    var outbuf: ref string = new string
+    let curl: Pcurl = easy_init()
+    # discard curl.easy_setopt(OPT_VERBOSE, 1)
+    discard curl.easy_setopt(OPT_URL, rpcConfig.rpcUrl.cstring)
+    discard curl.easy_setopt(OPT_POST, 1)
+    discard curl.easy_setopt(OPT_USERPWD, rpcConfig.rpcUserPass.cstring)
+    discard curl.easy_setopt(OPT_POSTFIELDS, postData)
+    discard curl.easy_setopt(OPT_WRITEDATA, outbuf)
+    discard curl.easy_setopt(OPT_WRITEFUNCTION, writeCallback)
+    when ADD_POST_HEADER:
+      discard curl.easy_setopt(OPT_HTTPHEADER, headers)
+    let ret = curl.easy_perform()
+    curl.easy_cleanup()
+    (ret, outbuf[])
+
+else:
+  proc parseHeader(data: seq[byte]): tuple[code, contentLength, headerSize: int] =
+    var i = 0
+    var cur = 0
+    var code = 0
+    var contentLength = 0
+
+    while i < data.len - 1:
+      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+        var reqdata = (cast[ptr UncheckedArray[byte]](unsafeAddr data[cur])).toString(i - cur)
+        if reqdata.startsWith("HTTP/"):
+          code = reqdata[9..11].parseInt
+          inc(i, 2)
+          cur = i
+          break
+        inc(i, 2)
+        cur = i
+      else:
+        inc(i)
+
+    while i < data.len - 1:
+      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+        var reqdata = (cast[ptr UncheckedArray[byte]](unsafeAddr data[cur])).toString(i - cur)
+        if reqdata.startsWith("Content-Length: "):
+          contentLength = reqdata["Content-Length: ".len..^1].parseInt
+          inc(i, 2)
+          cur = i
+          break
+        inc(i, 2)
+        cur = i
+      else:
+        inc(i)
+
+    while i < data.len - 1:
+      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+        if i == cur:
+          return (code, contentLength, i + 2)
+        inc(i, 2)
+        cur = i
+      else:
+        inc(i)
+
+  proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: string] =
+    var sock = createNativeSocket()
+    sock.setSockOptInt(Protocol.IPPROTO_TCP.int, TCP_NODELAY, 1)
+
+    var aiList: ptr AddrInfo
+    try:
+      aiList = getAddrInfo(rpcHostname, rpcPort, Domain.AF_INET)
+    except:
+      sock.close()
+      return (E_COULDNT_RESOLVE_HOST, cast[string](nil))
+
+    let retConnect = sock.connect(aiList.ai_addr, aiList.ai_addrlen.SockLen)
+    freeaddrinfo(aiList)
+    if retConnect != 0:
+      return (E_COULDNT_CONNECT, cast[string](nil))
+
+    var data = "POST / HTTP/1.1\c\L" &
+      "Authorization: Basic " & rpcAuthorization & "\c\L" &
+      "Content-Length: " & $postData.len & "\c\L" &
+      "\c\L" & postData
+
+    while true:
+      var sendRet = sock.send(addr data[0], data.len.cint, 0'i32)
+      if sendRet < 0 and errno == EINTR:
+        continue
+      break
+
+    sock.setBlocking(false)
+
+    var buf: seq[byte]
+    var code = 0
+    var contentLength = 0
+    var headerSize = 0
+
+    while true:
+      var waitCount = 0
+      while true:
+        var readFds: seq[SocketHandle]
+        readFds.add(sock)
+        var retSel = selectRead(readFds, 1000)
+        if retSel == 0:
+          inc(waitCount)
+          if waitCount >= 30:
+            return (E_OPERATION_TIMEOUTED, cast[string](nil))
+          continue
+        break
+
+      while true:
+        var recvLen = sock.recv(addr rpcRecvBuf[0], rpcRecvBuf.len, 0'i32)
+        if recvLen > 0:
+          buf = buf & rpcRecvBuf[0..<recvLen]
+          break
+        elif recvLen < 0:
+          if errno == EINTR:
+            continue
+          return (E_RECV_ERROR, cast[string](nil))
+        else:
+          return (E_RECV_ERROR, cast[string](nil))
+
+      (code, contentLength, headerSize) = parseHeader(buf)
+      if code != 200 and code != 0:
+        return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
+      let totalSize = contentLength + headerSize
+      if totalSize == buf.len:
+        return (E_OK, buf[headerSize..^1].toString())
 
 proc filterAlphaNumeric(s: string): string =
   var check = true
