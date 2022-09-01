@@ -165,7 +165,7 @@ else:
     var contentLength = 0
 
     while i < data.len - 1:
-      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+      if equalMem(unsafeAddr data[i], "\c\L".cstring, 2):
         var reqdata = (cast[ptr UncheckedArray[byte]](unsafeAddr data[cur])).toString(i - cur)
         if reqdata.startsWith("HTTP/"):
           code = reqdata[9..11].parseInt
@@ -178,7 +178,7 @@ else:
         inc(i)
 
     while i < data.len - 1:
-      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+      if equalMem(unsafeAddr data[i], "\c\L".cstring, 2):
         var reqdata = (cast[ptr UncheckedArray[byte]](unsafeAddr data[cur])).toString(i - cur)
         if reqdata.startsWith("Content-Length: "):
           contentLength = reqdata["Content-Length: ".len..^1].parseInt
@@ -191,7 +191,7 @@ else:
         inc(i)
 
     while i < data.len - 1:
-      if data[i] == byte('\c') and data[i + 1] == byte('\L'):
+      if equalMem(unsafeAddr data[i], "\c\L".cstring, 2):
         if i == cur:
           return (code, contentLength, i + 2)
         inc(i, 2)
