@@ -220,6 +220,7 @@ proc changeMiningWorker(num: int) =
       worker.terminate()
     while req.to(int) > miningWorkers.length.to(int):
       let worker = newWorker("miner.js")
+      worker.onerror = proc(e: JsObject) = console.dir(e)
       worker.id = miningWorkers.length
       worker.readyFlag = false
       worker.started = false
