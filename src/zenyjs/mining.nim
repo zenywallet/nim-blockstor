@@ -11,11 +11,11 @@ import strformat
 import times
 import deoxy
 
-var ui {.compileTime.} = true
+let ui {.compileTime.} = true
 import os, macros
 macro includeConfig: untyped =
   const configFile = currentSourcePath().parentDir() / ".." / "config.nim"
-  var existTest = staticExec("test -f \"" & configFile & "\" && echo \"find\"")
+  let existTest = staticExec("test -f \"" & configFile & "\" && echo \"find\"")
   if existTest.len > 0:
     nnkStmtList.newTree(
       nnkIncludeStmt.newTree(
@@ -205,7 +205,7 @@ except:
   cpuMaxCountUnknown = true
 
 cpuCount = cpuMaxCount
-var cpuMaxCountStr = $cpuCount
+let cpuMaxCountStr = $cpuCount
 
 proc changeMiningWorker(num: int) =
   miningWorkersNumber.push(num)
@@ -238,7 +238,7 @@ proc changeMiningWorker(num: int) =
 
 proc postMiningData() =
   var nonce = Math.floor(Math.random() * 4294967296.toJs)
-  var step = Math.round(4294967296.toJs / miningWorkers.length)
+  let step = Math.round(4294967296.toJs / miningWorkers.length)
   for worker in items(miningWorkers):
     miningData.nonce = nonce
     worker.postMessage(miningData)
@@ -263,7 +263,7 @@ proc startMiningDataUpdater() =
   var total = 0.toJs
   for val in items(miningStatus):
     total += val
-  var totalSec = Math.round(total).to(int)
+  let totalSec = Math.round(total).to(int)
   if miningHashRate != totalSec:
     miningHashRate = totalSec
     miningHashRateWaiting = false
@@ -382,7 +382,7 @@ proc appMain(data: RouterData): VNode =
             input(type="checkbox")
             label: text "Mining"
 
-      var cpuCountStr = $cpuCount
+      let cpuCountStr = $cpuCount
       h3(class="ui inverted header"):
         italic(class="microchip icon")
         tdiv(class="content"):
@@ -466,7 +466,7 @@ window.addEventListener("beforeunload", proc() = pageUnload = true)
 
 zenyjs.ready:
   proc onRecv(data: Uint8Array) =
-    var d = parseJson($data.uint8ArrayToStr())
+    let d = parseJson($data.uint8ArrayToStr())
     let recvType = d["type"].getStr
     let recvData = d["data"]
 
