@@ -8,8 +8,7 @@ var module {.importc, nodecl.}: JsObject
 # https://github.com/gustf/js-levenshtein
 {.emit: staticRead(currentSourcePath().parentDir() / "../../deps/js-levenshtein/index.js").}
 
-var Module = JsObject{}
-Module.levenshtein = module.exports
+var Module = JsObject{levenshtein: module.exports}
 
 proc levenshtein*(a, b: cstring): int = Module.levenshtein(a, b).to(int)
 
