@@ -105,10 +105,8 @@ proc toBytes*(chunk: Chunk): seq[byte] =
     result = chunk.val.uint32.toBytes
 
 proc toBytes*(chunks: Chunks): seq[byte] =
-  var c: seq[byte]
   for chunk in chunks:
-    c.add(chunk.toBytes)
-  c
+    result.add(chunk.toBytes)
 
 proc toBytes*(data: ChunkData): seq[byte] =
   var b = cast[seq[byte]](data)
