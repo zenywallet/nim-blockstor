@@ -240,6 +240,18 @@ proc freeExClient*(pClient: ptr Client) =
           )
       for nid in streamDbInsts.low..streamDbInsts.high:
         sobj.streamId.delMiningScript(nid)
+      withWriteLock msgTableLock:
+        for p in msgTable.items(sb):
+          let msgIdBytes = (addr p.val.key.data).toBytes(p.val.key.size.int)
+          var msgId: MsgId = msgIdBytes.toUint64
+          var val = msgDataTable[msgId.toBytes]
+          if val.isNil: continue
+          var refExists = false
+          for m in msgRevTable.items(msgIdBytes):
+            refExists = true
+            break
+          if not refExists:
+            msgDataTable.del(msgIdBytes)
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     pClient.pStream = nil
