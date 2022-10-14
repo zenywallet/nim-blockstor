@@ -224,6 +224,26 @@ var miningTemplateChannel: ptr Channel[MiningTemplateChannelParam]
 var streamActive* = false
 var curMsgId: int
 
+proc initExClient*(pClient: ptr Client) =
+  pClient.pStream = nil
+
+proc freeExClient*(pClient: ptr Client) =
+  var sobj = cast[ptr StreamObj](pClient.pStream)
+  if not sobj.isNil:
+    if sobj.streamId > 0:
+      let sb = sobj.streamId.toBytes
+      withWriteLock tableLock:
+        clientTable.del(sb)
+        tagTable.del(sb, proc (x: StreamIdToTag): bool =
+          streamTable.del(x.pair)
+          result = true
+          )
+      for nid in streamDbInsts.low..streamDbInsts.high:
+        sobj.streamId.delMiningScript(nid)
+    deoxy.free(sobj.deoxyObj)
+    deallocShared(sobj)
+    pClient.pStream = nil
+
 proc streamWorker(arg: StreamThreadArg) {.thread.} =
   var pendingClient: seq[ptr Client]
 
@@ -323,26 +343,6 @@ proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeP
   globalDbInsts = dbInsts
   globalNetworks = networks
   globalNodes = nodes
-
-proc initExClient*(pClient: ptr Client) =
-  pClient.pStream = nil
-
-proc freeExClient*(pClient: ptr Client) =
-  var sobj = cast[ptr StreamObj](pClient.pStream)
-  if not sobj.isNil:
-    if sobj.streamId > 0:
-      let sb = sobj.streamId.toBytes
-      withWriteLock tableLock:
-        clientTable.del(sb)
-        tagTable.del(sb, proc (x: StreamIdToTag): bool =
-          streamTable.del(x.pair)
-          result = true
-          )
-      for nid in streamDbInsts.low..streamDbInsts.high:
-        sobj.streamId.delMiningScript(nid)
-    deoxy.free(sobj.deoxyObj)
-    deallocShared(sobj)
-    pClient.pStream = nil
 
 proc initWorker*() =
   if decBuf.isNil:
