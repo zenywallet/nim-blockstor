@@ -256,6 +256,12 @@ proc freeExClient*(pClient: ptr Client) =
     deallocShared(sobj)
     pClient.pStream = nil
 
+proc pendingFilter(client: ptr Client): bool =
+  result = client.invokeSendEvent() == false
+  if result and client.isInvalid():
+    result = false
+    client.freeExClient()
+
 proc streamWorker(arg: StreamThreadArg) {.thread.} =
   var pendingClient: seq[ptr Client]
 
@@ -265,7 +271,7 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
       break
 
     if channelData.streamId == 0 and channelData.tag.len == 0:
-      pendingClient.keepItIf(it.invokeSendEvent() == false)
+      pendingClient.keepIf(pendingFilter)
       if pendingClient.len > 0:
         debug "pendingClient ", pendingClient.len
       continue
@@ -284,7 +290,7 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
     template addMsgAndInvoke() {.dirty.} =
       msgDataTable.add(msgId.toBytes, newMsg(channelData.data, channelData.msgType))
       pendingClient = pendingClient.deduplicate()
-      pendingClient.keepItIf(it.invokeSendEvent() == false)
+      pendingClient.keepIf(pendingFilter)
       if pendingClient.len > 0:
         debug "pendingClient ", pendingClient.len
 

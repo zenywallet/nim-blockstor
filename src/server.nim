@@ -268,6 +268,8 @@ proc setUlimit*(rlim: int): bool {.discardable.} =
   if rlp.rlim_cur < rlim: return false
   return true
 
+proc isInvalid*(client: ptr Client): bool = client.fd == osInvalidSocket.int
+
 proc invokeSendEvent*(client: ptr Client, retry: bool = false): bool =
   if retry:
     if not client.invoke:
