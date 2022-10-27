@@ -95,6 +95,10 @@ It takes quite a while, so edit the blockstor configuration file in the meantime
 
 edit src/config.nim
 
+### Install Dependent Packages
+
+    nimble install -d
+
 ### Release Build
 
     nimble ui
