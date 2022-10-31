@@ -19,6 +19,8 @@ Block Explorer API for Wallet Service
     - Careful handling of connection-related errors
     - Only the minimum necessary functions are implemented, so code is short and simple for easy review
 
+    **Note:** The related files for this web server have been copied to [Caprese](https://github.com/zenywallet/caprese) and development continues.
+
 - Encrypted stream communication framework between client and server in WebSocket
     - [Ed25519](https://github.com/orlp/ed25519) [ECDH](https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman) key exchange
     - [Serpent](https://www.cl.cam.ac.uk/~rja14/serpent.html) encryption with [CTR](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Counter_(CTR)) mode
@@ -70,7 +72,7 @@ See [Emscripten](https://emscripten.org/) for installation details. *emsdk_env.s
     cd nim-blockstor
     git submodule update --init
 
-> **Note:** *--recursive* option is unnecessary and should not be added.
+**Note:** *--recursive* option is unnecessary and should not be added.
 
 ### Closure Compiler Setup
 
