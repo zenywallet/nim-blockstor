@@ -60,7 +60,7 @@ body {
 .ui.inverted.toggle.checkbox input:focus:checked ~ label::before {
   background-color: #08cf26 !important;
 }
-.ui.checkbox label {
+.ui.mining.checkbox label {
   font-size: 1.1em;
 }
 .ui.tag.label::after {
@@ -285,7 +285,7 @@ proc onRate(value: int) =
   appInst.redraw()
 
 proc afterScript(data: RouterData) =
-  jq("#mining .checkbox").checkbox()
+  jq("#mining .mining.checkbox").checkbox()
   jq("#mining .rating").rating(JsObject{onRate: onRate})
 
 proc cmdSend(cmd: string) = stream.send(strToUint8Array(cmd.cstring))
@@ -357,10 +357,10 @@ proc appMain(data: RouterData): VNode =
                 miningData = jsNull
                 changeMiningWorker(0)
                 stopMiningDataUpdater()
-              jq(".ui.checkbox").checkbox("set unchecked")
+              jq(".ui.mining.checkbox").checkbox("set unchecked")
             else:
               miningActive = true
-              jq(".ui.checkbox").checkbox("set checked")
+              jq(".ui.mining.checkbox").checkbox("set checked")
               miningAddressValid = checkAddress(activeNid, miningAddress.cstring)
               if miningAddressValid:
                 clearNotify()
@@ -372,13 +372,13 @@ proc appMain(data: RouterData): VNode =
                 Notify.Error.show("invalid address")
 
                 setTimeout(proc() =
-                  jq(".ui.checkbox").checkbox("set unchecked")
+                  jq(".ui.mining.checkbox").checkbox("set unchecked")
                   miningActive = false
                   changeMiningWorker(0)
                   stopMiningDataUpdater()
                   appInst.redraw(), 1000)
 
-          tdiv(class="ui inverted right aligned toggle checkbox"):
+          tdiv(class="ui inverted right aligned toggle mining checkbox"):
             input(type="checkbox")
             label: text "Mining"
 
@@ -533,7 +533,7 @@ zenyjs.ready:
         Notify.Error.show("Server connection failed.", "connect", true)
         when defined(MINING_STOP_WHEN_DISCONNECTED):
           setTimeout(proc() =
-            jq(".ui.checkbox").checkbox("set unchecked")
+            jq(".ui.mining.checkbox").checkbox("set unchecked")
             miningActive = false
             changeMiningWorker(0)
             stopMiningDataUpdater()
