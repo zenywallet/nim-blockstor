@@ -99,6 +99,15 @@ a.ui.label:hover {
 .header .blockheight {
   margin-left: 0.7em;
 }
+.ui.form .fields {
+    -ms-flex-wrap: nowrap !important;
+    flex-wrap: nowrap !important;
+    margin-bottom: 1em !important;
+}
+.ui.form:not(.unstackable) .fields:not(.unstackable)>.field, .ui.form:not(.unstackable) .fields:not(.unstackable)>.fields {
+    width: auto !important;
+    margin: 0 !important;
+}
 </style>
 </head>
 <body>
@@ -183,6 +192,8 @@ var miningActive = false
 var cpuCount: int
 var cpuMaxCount: int
 var cpuMaxCountUnknown: bool = false
+var minerScriptNames = ["miner.js", "miner-simd128.js"]
+var optimizedId: int
 var miningWorkers = [].toJs
 var miningWorkersNumber = [].toJs
 var miningStatus = JsObject{}
@@ -219,7 +230,7 @@ proc changeMiningWorker(num: int) =
       discard jsDelete(miningStatus[id])
       worker.terminate()
     while req.to(int) > miningWorkers.length.to(int):
-      let worker = newWorker("miner.js")
+      let worker = newWorker(minerScriptNames[optimizedId])
       worker.onerror = proc(e: JsObject) = console.dir(e)
       worker.id = miningWorkers.length
       worker.readyFlag = false
@@ -284,8 +295,16 @@ proc onRate(value: int) =
     changeMiningWorker(cpuCount)
   appInst.redraw()
 
+proc onOptimizeChange() =
+  optimizedId = jq("input:radio[name='optimize']:checked").val().to(cstring).parseInt
+  changeMiningWorker(0)
+  miningAddressValid = checkAddress(activeNid, miningAddress.cstring)
+  if miningActive and miningAddressValid:
+    changeMiningWorker(cpuCount)
+
 proc afterScript(data: RouterData) =
   jq("#mining .mining.checkbox").checkbox()
+  jq("#mining .optimize .checkbox").checkbox(JsObject{onChange: onOptimizeChange})
   jq("#mining .rating").rating(JsObject{onRate: onRate})
 
 proc cmdSend(cmd: string) = stream.send(strToUint8Array(cmd.cstring))
@@ -395,6 +414,18 @@ proc appMain(data: RouterData): VNode =
           italic(class="circle icon active")
         for i in 0..<cpuMaxCount - cpuCount:
           italic(class="circle icon")
+
+      tdiv(class="ui inverted optimize form"):
+        tdiv(class="inline fields"):
+          label: text "Optimization"
+          tdiv(class="field"):
+            tdiv(class="ui radio checkbox"):
+              input(type="radio", name="optimize", value="0", checked="checked")
+              label: text "None"
+          tdiv(class="field"):
+            tdiv(class="ui radio checkbox"):
+              input(type="radio", name="optimize", value="1")
+              label: text "SIMD128"
 
       h3(class="ui inverted header"): text "Your Receiving Address"
       tdiv:
