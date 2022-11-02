@@ -2303,7 +2303,6 @@ static void main_loop(void *arg)
                     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                     if (ImGui::CollapsingHeader(node_s.c_str())) {
                         auto status = nodeStatus[std::to_string(node_id)];
-                        node_id++;
                         if (!status.empty()) {
                             if (!status["blkTime"].empty()) {
                                 int64_t tval = status["blkTime"].get<int64_t>();
@@ -2348,6 +2347,7 @@ static void main_loop(void *arg)
                             }
                         }
                     }
+                    node_id++;
                 }
             }
             ImGui::PopFont();
