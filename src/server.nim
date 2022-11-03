@@ -614,6 +614,12 @@ when not declared(webMain):
         var fileAcme = getAcmeChallenge(url)
         if fileAcme.content.len > 0:
           return client.send(fileAcme.content.addHeader(Status200, fileAcme.mime))
+
+      if url == "/reset":
+        return client.send(
+          """<!DOCTYPE html><meta charset="utf-8"><script>localStorage.clear();location.href="/"</script>"""
+          .addHeader(Status200))
+
       return client.send(NotFound.addHeader(Status404))
 
 when not declared(streamMain):
