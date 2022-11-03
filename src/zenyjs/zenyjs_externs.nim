@@ -34,7 +34,8 @@ var fomantic = {
     fireOnInit: 0,
     clearable: 0,
     interactive: 0,
-    onRate: function() {}
+    onRate: function() {},
+    onChange: function() {}
   },
   toast: {
     title: 0,
@@ -73,6 +74,10 @@ var nodejs = {
     },
     on: function() {}
   }
+};
+
+var jq = {
+  val: function() {}
 };
 """
 
