@@ -23,6 +23,11 @@ requires "karax"
 task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
+task openssl, "Build OpenSSL":
+  withDir "deps/openssl":
+    exec "./Configure"
+    exec "make -j$(nproc)"
+
 task boringssl, "Build BoringSSL":
   withDir "deps/boringssl":
     mkDir "build"
@@ -39,9 +44,7 @@ task deps, "Build deps":
       exec "rm sophia/std/ss_zstdfilter.c"
     exec "make -j$(nproc)"
 
-  withDir "deps/openssl":
-    exec "./Configure"
-    exec "make -j$(nproc)"
+  opensslTask()
 
   withDir "deps/libressl":
     if dirExists("openbsd"):
