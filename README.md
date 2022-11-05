@@ -8,7 +8,7 @@ Block Explorer API for Wallet Service
     - Multi-threaded server processing
     - [WebSocket](https://datatracker.ietf.org/doc/html/rfc6455) support
     - [TLS/SSL](https://en.wikipedia.org/wiki/Transport_Layer_Security) support
-    - [OpenSSL](https://www.openssl.org/) or [LibreSSL](https://www.libressl.org/) can be selected depending on the future security situation
+    - [OpenSSL](https://www.openssl.org/), [LibreSSL](https://www.libressl.org/), or [BoringSSL](https://boringssl.googlesource.com/boringssl/) can be selected depending on the future security situation
     - Renew SSL certificates without application restart
     - Support for automatic renewal of [Let's Encrypt](https://letsencrypt.org/) certificates
     - Ability to limit the number of client connections and requests to prevent high server loads
