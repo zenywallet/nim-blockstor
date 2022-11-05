@@ -28,6 +28,15 @@ task openssl, "Build OpenSSL":
     exec "./Configure"
     exec "make -j$(nproc)"
 
+task libressl, "Build LibreSSL":
+  withDir "deps/libressl":
+    if dirExists("openbsd"):
+      exec "rm -rf openbsd"
+    exec "git checkout master"
+    exec "./autogen.sh"
+    exec "./configure"
+    exec "make -j$(nproc)"
+
 task boringssl, "Build BoringSSL":
   withDir "deps/boringssl":
     mkDir "build"
@@ -46,13 +55,7 @@ task deps, "Build deps":
 
   opensslTask()
 
-  withDir "deps/libressl":
-    if dirExists("openbsd"):
-      exec "rm -rf openbsd"
-    exec "git checkout master"
-    exec "./autogen.sh"
-    exec "./configure"
-    exec "make -j$(nproc)"
+  libresslTask()
 
   withDir "deps/secp256k1":
     exec "./autogen.sh"
