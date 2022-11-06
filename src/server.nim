@@ -1246,10 +1246,11 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
 proc http(arg: ThreadArg) {.thread.} =
   var reqStats = newCheckReqs(REQ_LIMIT_HTTP_ACCEPT_PERIOD)
 
-  while active:
+  while true:
     var sockAddress: Sockaddr_in
     var addrLen = sizeof(sockAddress).SockLen
     var clientSock = accept(httpSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
+    if not active: break
     var clientFd = clientSock.int
     var ip = sockAddress.sin_addr.s_addr
     var address = inet_ntoa(sockAddress.sin_addr)
