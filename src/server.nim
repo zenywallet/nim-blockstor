@@ -1165,13 +1165,6 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     var clientSock = accept(serverSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     if not active: break
     var clientFd = clientSock.int
-    when ENABLE_KEEPALIVE:
-      clientSock.setSockOptInt(SOL_SOCKET, SO_KEEPALIVE, 1)
-    when ENABLE_TCP_NODELAY:
-      clientSock.setSockOptInt(Protocol.IPPROTO_TCP.int, TCP_NODELAY, 1)
-    var ip = sockAddress.sin_addr.s_addr
-    var address = inet_ntoa(sockAddress.sin_addr)
-
     if clientFd < 0:
       if errno == EINTR:
         continue
@@ -1180,6 +1173,13 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
           break
       error "error: accept errno=", errno
       abort()
+
+    when ENABLE_KEEPALIVE:
+      clientSock.setSockOptInt(SOL_SOCKET, SO_KEEPALIVE, 1)
+    when ENABLE_TCP_NODELAY:
+      clientSock.setSockOptInt(Protocol.IPPROTO_TCP.int, TCP_NODELAY, 1)
+    var ip = sockAddress.sin_addr.s_addr
+    var address = inet_ntoa(sockAddress.sin_addr)
 
     debug "client ip=", $address, " fd=", clientFd
 
@@ -1252,9 +1252,6 @@ proc http(arg: ThreadArg) {.thread.} =
     var clientSock = accept(httpSock, cast[ptr SockAddr](addr sockAddress), addr addrLen)
     if not active: break
     var clientFd = clientSock.int
-    var ip = sockAddress.sin_addr.s_addr
-    var address = inet_ntoa(sockAddress.sin_addr)
-
     if clientFd < 0:
       if errno == EINTR:
         continue
@@ -1263,6 +1260,9 @@ proc http(arg: ThreadArg) {.thread.} =
           break
       error "error: accept errno=", errno
       abort()
+
+    var ip = sockAddress.sin_addr.s_addr
+    var address = inet_ntoa(sockAddress.sin_addr)
 
     debug "client ip=", $address, " fd=", clientFd
 
