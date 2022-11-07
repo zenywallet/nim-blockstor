@@ -1168,9 +1168,6 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
     if clientFd < 0:
       if errno == EINTR:
         continue
-      elif errno == EINVAL:
-        if not active:
-          break
       error "error: accept errno=", errno
       abort()
 
@@ -1255,9 +1252,6 @@ proc http(arg: ThreadArg) {.thread.} =
     if clientFd < 0:
       if errno == EINTR:
         continue
-      elif errno == EINVAL:
-        if not active:
-          break
       error "error: accept errno=", errno
       abort()
 
