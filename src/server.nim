@@ -854,7 +854,13 @@ proc worker(arg: ThreadArg) {.thread.} =
           if (events and EPOLLOUT) > 0:
             var retFlush = client.sendFlush()
             if retFlush == SendResult.Pending:
-              client.waitEventAgain(evData, clientFd, EPOLLOUT)
+              when ENABLE_SSL:
+                if client.sslErr == SSL_ERROR_WANT_READ:
+                  client.waitEventAgain(evData, clientFd)
+                else:
+                  client.waitEventAgain(evData, clientFd, EPOLLOUT)
+              else:
+                client.waitEventAgain(evData, clientFd, EPOLLOUT)
               break channelBlock
             if retFlush != SendResult.Success or not client.keepAlive:
               client.close()
@@ -870,7 +876,13 @@ proc worker(arg: ThreadArg) {.thread.} =
             var retInvoke = client.invokeSendMainDefault()
 
           if retInvoke == SendResult.Pending:
-            client.waitEventAgain(evData, clientFd, EPOLLOUT)
+            when ENABLE_SSL:
+              if client.sslErr == SSL_ERROR_WANT_READ:
+                client.waitEventAgain(evData, clientFd)
+              else:
+                client.waitEventAgain(evData, clientFd, EPOLLOUT)
+            else:
+              client.waitEventAgain(evData, clientFd, EPOLLOUT)
             break channelBlock
           evData = evData and 0xffffffff'u64 # drop AppId
           if (events and (EPOLLIN or EPOLLRDHUP)) == 0:
@@ -895,7 +907,13 @@ proc worker(arg: ThreadArg) {.thread.} =
               client.close()
               break channelBlock
           of SendResult.Pending:
-            client.waitEventAgain(evData, clientFd, EPOLLOUT)
+            when ENABLE_SSL:
+              if client.sslErr == SSL_ERROR_WANT_READ:
+                client.waitEventAgain(evData, clientFd)
+              else:
+                client.waitEventAgain(evData, clientFd, EPOLLOUT)
+            else:
+              client.waitEventAgain(evData, clientFd, EPOLLOUT)
             break channelBlock
           of SendResult.Invalid:
             client.sendInstant(BadRequest.addHeader(Status400))
@@ -910,7 +928,11 @@ proc worker(arg: ThreadArg) {.thread.} =
           of SendResult.Success:
             discard
           of SendResult.Pending:
-            exEvents = EPOLLOUT
+            when ENABLE_SSL:
+              if client.sslErr != SSL_ERROR_WANT_READ:
+                exEvents = EPOLLOUT
+            else:
+              exEvents = EPOLLOUT
           of SendResult.None, SendResult.Error, SendResult.Invalid:
             client.close()
             break channelBlock
