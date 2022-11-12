@@ -133,10 +133,26 @@ when not USE_BORINGSSL:
 
 when USE_LIBRESSL:
   const SSL_CTRL_OPTIONS* = 32
+  const SSL_CTRL_CLEAR_OPTIONS* = 77
   template SSL_CTX_set_options*(ctx, op: untyped): untyped =
     SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, (op), nil)
+  template SSL_CTX_clear_options*(ctx, op: untyped): untyped =
+    SSL_CTX_ctrl((ctx), SSL_CTRL_CLEAR_OPTIONS, (op), nil)
+  template SSL_CTX_get_options*(ctx: untyped): untyped =
+    SSL_CTX_ctrl((ctx), SSL_CTRL_OPTIONS, 0, nil)
+  template SSL_set_options*(ssl, op: untyped): untyped =
+    SSL_ctrl((ssl), SSL_CTRL_OPTIONS, (op), nil)
+  template SSL_clear_options*(ssl, op: untyped): untyped =
+    SSL_ctrl((ssl), SSL_CTRL_CLEAR_OPTIONS, (op), nil)
+  template SSL_get_options*(ssl: untyped): untyped =
+    SSL_ctrl((ssl), SSL_CTRL_OPTIONS, 0, nil)
 else:
+  proc SSL_CTX_get_options*(ctx: SSL_CTX): clong {.importc.}
+  proc SSL_get_options*(s: SSL): clong {.importc.}
+  proc SSL_CTX_clear_options*(ctx: SSL_CTX, op: clong): clong {.importc, discardable.}
+  proc SSL_clear_options*(s: SSL, op: clong): clong {.importc, discardable.}
   proc SSL_CTX_set_options*(ctx: SSL_CTX, op: clong): clong {.importc, discardable.}
+  proc SSL_set_options*(s: SSL, op: clong): clong {.importc, discardable.}
 
 when USE_BORINGSSL:
   proc SSL_CTX_set_mode*(ctx: SSL_CTX, mode: clong): clong {.importc, discardable.}
