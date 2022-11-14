@@ -3,7 +3,7 @@ Block Explorer API for Wallet Service
 
 ### Features
 
-- Block explorer can handle multiple cores forked from the bitcoin-like core in a single process
+- Block explorer can handle multiple bitcoin-like cores forked from the bitcoin core in a single process
 - Includes the original front-end web server specialized for real-time message exchange
     - Multi-threaded server processing
     - [WebSocket](https://datatracker.ietf.org/doc/html/rfc6455) support
