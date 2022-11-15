@@ -33,7 +33,7 @@ elif declared(server):
     const CERT_FILE = "cert.pem"
     const PRIVKEY_FILE = "privkey.pem"
     const CHAIN_FILE = "fullchain.pem"
-    const SSL_AUTO_RELOAD = false
+    const SSL_AUTO_RELOAD = true
   else:
     const HTTP_PORT = 8080
     const HTTPS_PORT = 8000
