@@ -29,10 +29,11 @@ elif declared(server):
     const DEBUG_LOG = false
 
     const CERT_PATH = "."
-    const CERT_FILE = CERT_PATH / "cert.pem"
-    const PRIVKEY_FILE = CERT_PATH / "privkey.pem"
-    const CHAIN_FILE = CERT_PATH / "fullchain.pem"
-    const SSL_AUTO_RELOAD = true
+    const CERT_SITES = @["localhost"]
+    const CERT_FILE = "cert.pem"
+    const PRIVKEY_FILE = "privkey.pem"
+    const CHAIN_FILE = "fullchain.pem"
+    const SSL_AUTO_RELOAD = false
   else:
     const HTTP_PORT = 8080
     const HTTPS_PORT = 8000
