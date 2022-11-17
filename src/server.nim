@@ -1166,6 +1166,12 @@ when ENABLE_SSL:
     )
   certFilesTable()
 
+  type
+    SiteCtx = object
+      ctx: SSL_CTX
+
+  var siteCtxs: array[CERT_SITES.len, SiteCtx]
+
   when SSL_AUTO_RELOAD:
     import ptlock
 
@@ -1294,14 +1300,12 @@ when ENABLE_SSL:
     SSL_CTX_set_mode(ctx, (SSL_MODE_ENABLE_PARTIAL_WRITE or SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER).clong)
     result = ctx
 
-  var siteCtxs: array[CERT_SITES.len, SSL_CTX]
-
   proc serverNameCallback(ssl: SSL; out_alert: ptr cint; arg: pointer): cint {.cdecl.} =
     try:
       let sitename = $SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
       debug "sitename=", sitename
       let certs = certsTable[sitename]
-      let ctx = siteCtxs[certs.idx]
+      let ctx = siteCtxs[certs.idx].ctx
       if SSL_set_SSL_CTX(ssl, ctx).isNil:
         error "error: SSL_set_SSL_CTX site=", sitename
         return SSL_TLSEXT_ERR_NOACK
@@ -1319,7 +1323,7 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
       initSslFileHash()
     var ctx = newSslCtx(selfSignedCertFallback = true)
     for i, site in CERT_SITES:
-      siteCtxs[i] = newSslCtx(site, selfSignedCertFallback = true)
+      siteCtxs[i].ctx = newSslCtx(site, selfSignedCertFallback = true)
     SSL_CTX_set_tlsext_servername_callback(ctx, serverNameCallback)
 
   var reqStats = newCheckReqs(REQ_LIMIT_HTTPS_ACCEPT_PERIOD)
@@ -1354,8 +1358,8 @@ proc acceptClient(arg: ThreadArg) {.thread.} =
             ctx = newSslCtx()
             oldCtx.SSL_CTX_free()
             for i, site in CERT_SITES:
-              var oldCtx = siteCtxs[i]
-              siteCtxs[i] = newSslCtx(site, selfSignedCertFallback = true)
+              var oldCtx = siteCtxs[i].ctx
+              siteCtxs[i].ctx = newSslCtx(site, selfSignedCertFallback = true)
               oldCtx.SSL_CTX_free()
             debug "SSL ctx updated"
 
