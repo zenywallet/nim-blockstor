@@ -600,6 +600,7 @@ proc close(client: ptr Client) =
   debug "close ", client.fd
   when declared(freeExClient):
     freeExClient(client)
+  client.invoke = false
   client.ip = 0
   when ENABLE_SSL:
     if not client.ssl.isNil:
