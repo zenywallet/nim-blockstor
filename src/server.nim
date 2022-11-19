@@ -1214,6 +1214,8 @@ when ENABLE_SSL:
           setSslFilesWatch()
         else:
           return
+      else:
+        setSslFilesWatch()
       try:
         var changeFlag = false
         for i, site in CERT_SITES:
