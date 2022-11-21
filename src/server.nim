@@ -58,6 +58,7 @@ type
       sslErr: int
     ip: uint32
     invoke: bool
+    whackaMole: bool
 
   Client* = object of ClientBase
     pStream*: pointer
@@ -358,6 +359,7 @@ proc initClient() =
       p[i].ssl = nil
     p[i].ip = 0
     p[i].invoke = false
+    p[i].whackaMole = false
     when declared(initExClient):
       initExClient(addr p[i])
   clients = p
@@ -600,6 +602,7 @@ proc close(client: ptr Client) =
   debug "close ", client.fd
   when declared(freeExClient):
     freeExClient(client)
+  client.whackaMole = false
   client.invoke = false
   client.ip = 0
   when ENABLE_SSL:
@@ -821,6 +824,7 @@ proc worker(arg: ThreadArg) {.thread.} =
       var client = addr clients[idx]
       var clientFd = client.fd
       var clientSock = clientFd.SocketHandle
+      client.whackaMole = false
 
       try:
         when ENABLE_SSL:
@@ -1515,6 +1519,18 @@ proc serverMonitor(arg: ThreadArg) {.thread.} =
             if dur >= initDuration(hours = 1):
               checkSslFileHash()
               prevTime = curTime
+
+      for i in 0..<CLIENT_MAX:
+        if clients[i].fd != osInvalidSocket.int and not clients[i].wsUpgrade:
+          if clients[i].whackaMole:
+            debug "Whack-A-Mole shutdown i=", i
+            let retShutdown = clients[i].fd.SocketHandle.shutdown(SHUT_RD)
+            if retShutdown != 0:
+              error "error: Whack-A-Mole shutdown ret=", retShutdown, " ", getErrnoStr()
+          else:
+            debug "Whack-A-Mole set i=", i
+            clients[i].whackaMole = true
+
     sleep(1000)
     inc(sec)
 
