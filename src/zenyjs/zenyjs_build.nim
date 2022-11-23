@@ -61,4 +61,5 @@ when not KEEP_TMP_FILES:
   discard execCmd "rm zenyjs_externs.js"
   discard execCmd "rm \"" & tmpjs2 & "\""
   discard execCmd "rm \"" & tmpjs & "\""
+  discard execCmd "rm zenyjs.js"
 echo "build done. zenyjs.wasm " & targetjs
