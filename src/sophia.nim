@@ -73,10 +73,10 @@ proc open*(sophia: Sophia, dbpath, dbname: string) =
   checkErr sophia.env.sp_setint("scheduler.threads", 4)
   checkErr sophia.env.sp_setstring("sophia.path", dbpath.cstring, 0)
   checkErr sophia.env.sp_setstring("db", dbname.cstring, 0)
-  checkErr sophia.env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
-  checkErr sophia.env.sp_setint("db." & dbname & ".compaction.gc_period", 0)
+  checkErr sophia.env.sp_setint(cstring("db." & dbname & ".compaction.cache"), 128 * 1024 * 1024)
+  checkErr sophia.env.sp_setint(cstring("db." & dbname & ".compaction.gc_period"), 0)
   checkErr sophia.env.sp_open()
-  sophia.db = sophia.env.sp_getobject("db." & dbname)
+  sophia.db = sophia.env.sp_getobject(cstring("db." & dbname))
   if sophia.db.isNil:
     raise newException(SophiaErr, "db is nil")
   sophia.name = allocShared0(dbname.len + 1)
@@ -97,11 +97,11 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
 
   for dbname in dbnames:
     env.checkErr env.sp_setstring("db", dbname.cstring, 0)
-    env.checkErr env.sp_setint("db." & dbname & ".compaction.cache", 128 * 1024 * 1024)
-    env.checkErr env.sp_setint("db." & dbname & ".compaction.gc_period", 0)
+    env.checkErr env.sp_setint(cstring("db." & dbname & ".compaction.cache"), 128 * 1024 * 1024)
+    env.checkErr env.sp_setint(cstring("db." & dbname & ".compaction.gc_period"), 0)
     var sophia = new Sophia
     sophia.env = env
-    sophia.db = env.sp_getobject("db." & dbname)
+    sophia.db = env.sp_getobject(cstring("db." & dbname))
     if sophia.db.isNil:
       raise newException(SophiaErr, "db is nil")
     sophia.name = allocShared0(dbname.len + 1)
@@ -110,7 +110,7 @@ proc opens*(dbpath: string, dbnames: seq[string]): seq[Sophia] =
   env.checkErr env.sp_open()
 
   for dbname in dbnames:
-    echo "index count ", dbname, "=", env.sp_getint("db." & dbname & ".index.count")
+    echo "index count ", dbname, "=", env.sp_getint(cstring("db." & dbname & ".index.count"))
 
 proc close*(sophia: Sophia) =
   sophia.name.deallocShared()
@@ -124,7 +124,7 @@ proc close*(sophias: seq[Sophia]) =
     checkErr sophia.env.sp_destroy()
 
 proc checkpoint*(sophia: Sophia) =
-  checkErr sophia.env.sp_setint("db." & $cast[cstring](sophia.name) & ".compaction.checkpoint", 0)
+  checkErr sophia.env.sp_setint(cstring("db." & $cast[cstring](sophia.name) & ".compaction.checkpoint"), 0)
   checkErr sophia.env.sp_setint("scheduler.run", 0)
 
 proc backupRun*(sophia: Sophia) =
