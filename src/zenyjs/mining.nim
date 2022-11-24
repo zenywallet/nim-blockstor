@@ -147,8 +147,6 @@ proc convCoin(val: string): string =
     result = (parseFloat(val) / 100000000).formatFloat(ffDecimal, 8)
   result.trimZeros()
 
-proc convCoin(val: cstring): cstring = convCoin($val).cstring
-
 proc convCoin(val: JsonNode): string =
   let kind = val.kind
   if kind == JsonNodeKind.JInt:
