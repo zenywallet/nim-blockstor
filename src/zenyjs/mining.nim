@@ -192,7 +192,6 @@ var miningActive = false
 var cpuCount: int
 var cpuMaxCount: int
 var cpuMaxCountUnknown: bool = false
-var minerScriptNames = ["miner.js", "miner-simd128.js"]
 var optimizedId: int
 var miningWorkers = [].toJs
 var miningWorkersNumber = [].toJs
@@ -205,6 +204,17 @@ var tvalMiningDataUpdater: int
 var connectionError = false
 var pageUnload = false
 var stream: Deoxy
+
+import std/base64
+macro constMinerScriptNames(): untyped =
+  var scriptNames = ["miner.js", "miner-simd128.js"]
+  var bracket = nnkBracket.newTree()
+  for name in scriptNames:
+    var srcBin = encode(staticRead(currentSourcePath().parentDir() / "../../public" / name))
+    bracket.add(newLit(srcBin))
+  newConstStmt(newIdentNode("minerScriptNames"), bracket)
+
+constMinerScriptNames()
 
 try:
   cpuMaxCount = window.navigator.hardwareConcurrency.to(int)
