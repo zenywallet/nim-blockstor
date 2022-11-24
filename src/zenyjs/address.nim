@@ -64,7 +64,7 @@ else:
   when defined(emscripten):
     const EXPORTED_FUNCTIONS* = ["_address_checkAddress"]
 
-  import sequtils, strutils, nimcrypto
+  import strutils, nimcrypto
   import script
   import ../segwit
   import ../opcodes
