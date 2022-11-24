@@ -211,7 +211,7 @@ macro constMinerScriptNames(): untyped =
   var bracket = nnkBracket.newTree()
   for name in scriptNames:
     var srcBin = encode(staticRead(currentSourcePath().parentDir() / "../../public" / name))
-    bracket.add(newLit(srcBin))
+    bracket.add(newLit("data:application/javascript;base64," & srcBin))
   newConstStmt(newIdentNode("minerScriptNames"), bracket)
 
 constMinerScriptNames()
