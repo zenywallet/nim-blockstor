@@ -11,7 +11,7 @@ import strformat
 import times
 import deoxy
 
-let ui {.compileTime.} = true
+let ui {.compileTime, used.} = true
 import os, macros
 macro includeConfig: untyped =
   const configFile = currentSourcePath().parentDir() / ".." / "config.nim"
