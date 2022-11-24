@@ -240,7 +240,7 @@ proc changeMiningWorker(num: int) =
       discard jsDelete(miningStatus[id])
       worker.terminate()
     while req.to(int) > miningWorkers.length.to(int):
-      let worker = newWorker(minerScriptNames[optimizedId])
+      let worker = newWorker(cstring(minerScriptNames[optimizedId]))
       worker.onerror = proc(e: JsObject) = console.dir(e)
       worker.id = miningWorkers.length
       worker.readyFlag = false
