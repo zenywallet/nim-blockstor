@@ -4,6 +4,8 @@ import os, times, posix
 import sequtils, strFormat
 import bytes, blocks, tx, address, script
 import yespower, seed, rpc
+import opcodes
+import utils
 
 const MINER_THREAD_NUM = 4
 const NETWORK_ID = NetworkId.BitZeny_testnet
@@ -31,6 +33,8 @@ type
     header: BlockHeaderObj
     blockId: uint32
     blockHash: BlockHash
+
+const WitnessCommitmentHeader = @[byte 0xaa, 0x21, 0xa9, 0xed]
 
 var minerParams: ptr UncheckedArray[MinerParam]
 var minerDatas: ptr UncheckedArray[MinerData]
@@ -88,6 +92,7 @@ proc main() =
   var statsTimeStart, statsTimeEnd: float
   var statsFind: int
   var updateBlockTemplate = false
+  let witnessReserved = pad(32)
 
   var invokerThread: Thread[void]
   createThread(invokerThread, updateBlockInvoker)
@@ -144,11 +149,32 @@ proc main() =
         var height = blockTmpl["height"].getInt.uint32
         var coinBaseValue = blockTmpl["coinbasevalue"].getBiggestInt.uint64
         var sig = concat(@[byte 3'u8], height.toBytes[0..2])
+        var witnessFlag = false
+        for t in transactions:
+          if t["txid"].getStr != t["hash"].getStr and t["data"].getStr[8..11].Hex.toBytes.toUint16BE == 1'u16:
+            witnessFlag = true
+            break
         var tx = new Tx
         tx.ver = 1'i32
         tx.flags = Flags(0'u8)
         tx.ins = @[TxIn (tx: Hash(pad(32)), n: 0xffffffff'u32, sig: Sig(sig), sequence: 0xffffffff'u32)]
-        tx.outs = @[TxOut (value: coinBaseValue, script: Script(myAddressScript))]
+        if witnessFlag:
+          var witnessCommitmentScript: seq[byte]
+          if blockTmpl.hasKey("default_witness_commitment"):
+            witnessCommitmentScript = blockTmpl["default_witness_commitment"].getStr.Hex.toBytes
+          else:
+            var txHashes: seq[seq[byte]]
+            txHashes.add(witnessReserved)
+            for t in transactions:
+              txHashes.add(t["hash"].getStr.Hex.toHash.toBytes)
+            let witnessRootHash = merkle(txHashes)
+            let witnessCommitmentHash = sha256d((witnessRootHash, witnessReserved).toBytes).toBytes
+            let witnessCommitment = (WitnessCommitmentHeader, witnessCommitmentHash).toBytes
+            witnessCommitmentScript = (OP_RETURN, PushData(witnessCommitment)).toBytes
+          tx.outs = @[TxOut (value: 0'u64, script: Script(witnessCommitmentScript)),
+                    (value: coinBaseValue, script: Script(myAddressScript))]
+        else:
+          tx.outs = @[TxOut (value: coinBaseValue, script: Script(myAddressScript))]
         tx.locktime = 0
         var txid = tx.txid
 
