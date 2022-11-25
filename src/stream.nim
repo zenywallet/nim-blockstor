@@ -16,6 +16,7 @@ import tcp
 import rpc
 import blocks, tx, script
 import mempool
+import opcodes
 
 const DECODE_BUF_SIZE = 1048576
 when not declared(SERVER_LABELS):
@@ -535,6 +536,8 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
         errSendBreak(1)
 
 
+const WitnessCommitmentHeader = @[byte 0xaa, 0x21, 0xa9, 0xed]
+
 proc miningWorker(arg: StreamThreadArg) {.thread.} =
     while streamActive:
       for i in 0..<RPC_NODE_COUNT:
@@ -553,10 +556,13 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
   var curTx: array[RPC_NODE_COUNT, Tx]
   var curTxids: array[RPC_NODE_COUNT, seq[seq[byte]]]
   var curTxdatas: array[RPC_NODE_COUNT, seq[seq[byte]]]
+  var curWitnessFlags: array[RPC_NODE_COUNT, bool]
+  var curWitnessCommitmentScript: array[RPC_NODE_COUNT, seq[byte]]
   var pendingStream: seq[tuple[streamId: StreamId, nodeId: int]]
   var streamBlockHeaders: seq[Table[seq[byte], BlockHeader]]
   for i in 0..<RPC_NODE_COUNT:
     streamBlockHeaders.add(initTable[seq[byte], BlockHeader]())
+  let witnessReserved = pad(32)
 
   while true:
     var channelData = miningTemplateChannel[].recv()
@@ -573,7 +579,11 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
 
       template sendMiningData() {.dirty.} =
         let script = streamId.getMiningScript(nodeId).Script
-        curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
+        if curWitnessFlags[nodeId]:
+          curTx[nodeId].outs = @[TxOut (value: 0'u64, script: Script(curWitnessCommitmentScript[nodeId])),
+                                (value: curCoinBaseValue[nodeId], script: script)]
+        else:
+          curTx[nodeId].outs = @[TxOut (value: curCoinBaseValue[nodeId], script: script)]
         curTxids[nodeId][0] = curTx[nodeId].txid.toBytes
         curHeader[nodeId].merkle = merkle(curTxids[nodeId])
 
@@ -593,6 +603,23 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
         let height = blockTmpl["height"].getInt.uint32
         curCoinBaseValue[nodeId] = blockTmpl["coinbasevalue"].getBiggestInt.uint64
         let sig = concat(@[byte 3'u8], height.toBytes[0..2])
+
+        curWitnessFlags[nodeId] = false
+        for t in transactions:
+          if t["txid"].getStr != t["hash"].getStr and t["data"].getStr[8..11].Hex.toBytes.toUint16BE == 1'u16:
+            curWitnessFlags[nodeId] = true
+            if blockTmpl.hasKey("default_witness_commitment"):
+              curWitnessCommitmentScript[nodeId] = blockTmpl["default_witness_commitment"].getStr.Hex.toBytes
+            else:
+              var txHashes: seq[seq[byte]]
+              txHashes.add(witnessReserved)
+              for t2 in transactions:
+                txHashes.add(t2["hash"].getStr.Hex.toHash.toBytes)
+              let witnessRootHash = merkle(txHashes)
+              let witnessCommitmentHash = sha256d((witnessRootHash, witnessReserved).toBytes).toBytes
+              let witnessCommitment = (WitnessCommitmentHeader, witnessCommitmentHash).toBytes
+              curWitnessCommitmentScript[nodeId] = (OP_RETURN, PushData(witnessCommitment)).toBytes
+            break
 
         var header = new BlockHeader
         header.ver = blockTmpl["version"].getInt.int32
