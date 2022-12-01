@@ -1205,6 +1205,7 @@ when ENABLE_SSL:
     var sslFileUpdateLock: RWLock
     var sslFileHash: ptr UncheckedArray[SslFileHash]
     var inoty: FileHandle
+    var inotyWatchFlag: bool
 
     proc setSslFilesWatch() =
       if inoty == -1:
@@ -1218,6 +1219,8 @@ when ENABLE_SSL:
           siteCtxs[i].watchdog = inotify_add_watch(inoty, cstring(sitePath), IN_CLOSE_WRITE)
           if siteCtxs[i].watchdog == -1:
             error "error: inotify_add_watch err=", errno, " ", sitePath
+          else:
+            inotyWatchFlag = true
 
     proc setSslFileHash(init: bool = false) =
       if sslFileHash.isNil:
@@ -1571,6 +1574,9 @@ proc serverMonitor(arg: ThreadArg) {.thread.} =
 proc fileWatcher(arg: ThreadArg) {.thread.} =
   var evs = newSeq[byte](sizeof(InotifyEvent) * 512)
   while active:
+    if not inotyWatchFlag:
+      sleep(1000)
+      continue
     let n = read(inoty, evs[0].addr, evs.len)
     if n <= 0: break
     var updated = false
