@@ -100,13 +100,13 @@ a.ui.label:hover {
   margin-left: 0.7em;
 }
 .ui.form .fields {
-    -ms-flex-wrap: nowrap !important;
-    flex-wrap: nowrap !important;
-    margin-bottom: 1em !important;
+  -ms-flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important;
+  margin-bottom: 1em !important;
 }
 .ui.form:not(.unstackable) .fields:not(.unstackable)>.field, .ui.form:not(.unstackable) .fields:not(.unstackable)>.fields {
-    width: auto !important;
-    margin: 0 !important;
+  width: auto !important;
+  margin: 0 !important;
 }
 </style>
 </head>
