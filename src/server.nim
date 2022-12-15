@@ -276,7 +276,7 @@ when ENABLE_SSL and SSL_AUTO_RELOAD:
   var fileWatcherThread: Thread[WrapperThreadArg]
 var mainThread: Thread[WrapperThreadArg]
 
-proc setUlimit*(rlim: int): bool {.discardable.} =
+proc setRlimitOpenFiles*(rlim: int): bool {.discardable.} =
   var rlp: RLimit
   var ret = getrlimit(RLIMIT_NOFILE, rlp)
   if ret != 0: return false
@@ -1686,5 +1686,5 @@ when isMainModule:
 
   signal(SIGPIPE, SIG_IGN)
 
-  setUlimit(ULIMIT_SIZE)
+  setRlimitOpenFiles(ULIMIT_SIZE)
   start()

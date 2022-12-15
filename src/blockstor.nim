@@ -24,7 +24,7 @@ when (compiles do: include config):
 else:
   include config_default
 
-setUlimit(ULIMIT_SIZE)
+setRlimitOpenFiles(ULIMIT_SIZE)
 
 var dbnames: seq[string]
 for node in nodes:
