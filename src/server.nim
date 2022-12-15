@@ -297,6 +297,20 @@ proc setRlimitOpenFiles*(rlim: int): bool {.discardable.} =
   if rlp.rlim_cur < rlim: return false
   return true
 
+proc setMaxRlimitOpenFiles*(): bool {.discardable.} =
+  var rlp: RLimit
+  var ret = getrlimit(RLIMIT_NOFILE, rlp)
+  if ret != 0: return false
+  debug "RLIMIT_NOFILE prev=", rlp
+  rlp.rlim_cur = rlp.rlim_max
+  ret = setrlimit(RLIMIT_NOFILE, rlp)
+  if ret != 0: return false
+  ret = getrlimit(RLIMIT_NOFILE, rlp)
+  if ret != 0: return false
+  debug "RLIMIT_NOFILE new=", rlp
+  if rlp.rlim_cur < rlp.rlim_max: return false
+  return true
+
 proc isInvalid*(client: ptr Client): bool = client.fd == osInvalidSocket.int
 
 proc invokeSendEvent*(client: ptr Client, retry: bool = false): bool =
