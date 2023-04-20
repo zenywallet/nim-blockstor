@@ -272,8 +272,9 @@ var dispatcherThread: Thread[WrapperThreadArg]
 var acceptThread: Thread[WrapperThreadArg]
 var httpThread: Thread[WrapperThreadArg]
 var monitorThread: Thread[WrapperThreadArg]
-when ENABLE_SSL and SSL_AUTO_RELOAD:
-  var fileWatcherThread: Thread[WrapperThreadArg]
+when ENABLE_SSL:
+  when SSL_AUTO_RELOAD:
+    var fileWatcherThread: Thread[WrapperThreadArg]
 var mainThread: Thread[WrapperThreadArg]
 
 proc setRlimitOpenFiles*(rlim: int): bool {.discardable.} =
@@ -1208,89 +1209,90 @@ when ENABLE_SSL:
 
   var siteCtxs: array[CERT_SITES.len, SiteCtx]
 
-  when SSL_AUTO_RELOAD:
-    import std/inotify
-    import ptlock
+  when ENABLE_SSL:
+    when SSL_AUTO_RELOAD:
+      import std/inotify
+      import ptlock
 
-    type
-      SslFileHash* = object
-        cert: array[32, byte]
-        priv: array[32, byte]
-        chain: array[32, byte]
+      type
+        SslFileHash* = object
+          cert: array[32, byte]
+          priv: array[32, byte]
+          chain: array[32, byte]
 
-    var sslFileChanged = false
-    var sslFileUpdateLock: RWLock
-    var sslFileHash: ptr UncheckedArray[SslFileHash]
-    var inoty: FileHandle
-    var inotyWatchFlag: bool
+      var sslFileChanged = false
+      var sslFileUpdateLock: RWLock
+      var sslFileHash: ptr UncheckedArray[SslFileHash]
+      var inoty: FileHandle
+      var inotyWatchFlag: bool
 
-    proc setSslFilesWatch() =
-      if inoty == -1:
-        inoty = inotify_init()
+      proc setSslFilesWatch() =
         if inoty == -1:
-          error "error: inotify_init err=", errno
-          return
-      for i, site in CERT_SITES:
-        if siteCtxs[i].watchdog == -1:
-          let sitePath = CERT_PATH / site
-          siteCtxs[i].watchdog = inotify_add_watch(inoty, cstring(sitePath), IN_CLOSE_WRITE)
+          inoty = inotify_init()
+          if inoty == -1:
+            error "error: inotify_init err=", errno
+            return
+        for i, site in CERT_SITES:
           if siteCtxs[i].watchdog == -1:
-            error "error: inotify_add_watch err=", errno, " ", sitePath
+            let sitePath = CERT_PATH / site
+            siteCtxs[i].watchdog = inotify_add_watch(inoty, cstring(sitePath), IN_CLOSE_WRITE)
+            if siteCtxs[i].watchdog == -1:
+              error "error: inotify_add_watch err=", errno, " ", sitePath
+            else:
+              inotyWatchFlag = true
+
+      proc setSslFileHash(init: bool = false) =
+        if sslFileHash.isNil:
+          if init:
+            rwlockInit(sslFileUpdateLock)
+            sslFileHash = cast[ptr UncheckedArray[SslFileHash]](allocShared0(sizeof(SslFileHash) * CERT_SITES.len))
+            inoty = -1
+            for i in 0..<CERT_SITES.len:
+              siteCtxs[i].watchdog = -1
+            setSslFilesWatch()
           else:
-            inotyWatchFlag = true
-
-    proc setSslFileHash(init: bool = false) =
-      if sslFileHash.isNil:
-        if init:
-          rwlockInit(sslFileUpdateLock)
-          sslFileHash = cast[ptr UncheckedArray[SslFileHash]](allocShared0(sizeof(SslFileHash) * CERT_SITES.len))
-          inoty = -1
-          for i in 0..<CERT_SITES.len:
-            siteCtxs[i].watchdog = -1
-          setSslFilesWatch()
+            return
         else:
-          return
-      else:
-        setSslFilesWatch()
+          setSslFilesWatch()
 
-      var changeFlag = false
-      for i, site in CERT_SITES:
-        try:
-          let certs = certsTable[site]
-          let cert = sha256.digest(readFile(certs.cert)).data
-          let priv = sha256.digest(readFile(certs.privkey)).data
-          let chain = sha256.digest(readFile(certs.fullchain)).data
-          if init == false:
-            if sslFileHash[i].cert != cert or
-              sslFileHash[i].priv != priv or
-              sslFileHash[i].chain != chain:
-              changeFlag = true
-              debug "SSL file changed"
-          copyMem(addr sslFileHash[i].cert[0], unsafeAddr cert[0], 32)
-          copyMem(addr sslFileHash[i].priv[0], unsafeAddr priv[0], 32)
-          copyMem(addr sslFileHash[i].chain[0], unsafeAddr chain[0], 32)
-        except:
-          let e = getCurrentException()
-          error "setSslFileHash ", e.name, ": ", e.msg
-      if changeFlag:
-        withWriteLock sslFileUpdateLock:
-          sslFileChanged = true
+        var changeFlag = false
+        for i, site in CERT_SITES:
+          try:
+            let certs = certsTable[site]
+            let cert = sha256.digest(readFile(certs.cert)).data
+            let priv = sha256.digest(readFile(certs.privkey)).data
+            let chain = sha256.digest(readFile(certs.fullchain)).data
+            if init == false:
+              if sslFileHash[i].cert != cert or
+                sslFileHash[i].priv != priv or
+                sslFileHash[i].chain != chain:
+                changeFlag = true
+                debug "SSL file changed"
+            copyMem(addr sslFileHash[i].cert[0], unsafeAddr cert[0], 32)
+            copyMem(addr sslFileHash[i].priv[0], unsafeAddr priv[0], 32)
+            copyMem(addr sslFileHash[i].chain[0], unsafeAddr chain[0], 32)
+          except:
+            let e = getCurrentException()
+            error "setSslFileHash ", e.name, ": ", e.msg
+        if changeFlag:
+          withWriteLock sslFileUpdateLock:
+            sslFileChanged = true
 
-    proc initSslFileHash() {.inline.} = setSslFileHash(true)
+      proc initSslFileHash() {.inline.} = setSslFileHash(true)
 
-    proc freeSslFileHash() =
-      if inoty != -1:
-        for i in 0..<CERT_SITES.len:
-          if siteCtxs[i].watchdog != -1:
-            discard inoty.inotify_rm_watch(siteCtxs[i].watchdog)
-        discard inoty.close()
-      if not sslFileHash.isNil:
-        var p = sslFileHash
-        sslFileHash = nil
-        deallocShared(p)
-      rwlockDestroy(sslFileUpdateLock)
+      proc freeSslFileHash() =
+        if inoty != -1:
+          for i in 0..<CERT_SITES.len:
+            if siteCtxs[i].watchdog != -1:
+              discard inoty.inotify_rm_watch(siteCtxs[i].watchdog)
+          discard inoty.close()
+        if not sslFileHash.isNil:
+          var p = sslFileHash
+          sslFileHash = nil
+          deallocShared(p)
+        rwlockDestroy(sslFileUpdateLock)
 
-    proc checkSslFileHash() {.inline.} = setSslFileHash()
+      proc checkSslFileHash() {.inline.} = setSslFileHash()
 
   proc selfSignedCertificate(ctx: SSL_CTX) =
     var x509: X509 = X509_new()
@@ -1589,30 +1591,31 @@ proc serverMonitor(arg: ThreadArg) {.thread.} =
     when SSL_AUTO_RELOAD:
       freeSslFileHash()
 
-when ENABLE_SSL and SSL_AUTO_RELOAD:
-  proc fileWatcher(arg: ThreadArg) {.thread.} =
-    var evs = newSeq[byte](sizeof(InotifyEvent) * 512)
-    while active:
-      if not inotyWatchFlag:
-        sleep(1000)
-        continue
-      let n = read(inoty, evs[0].addr, evs.len)
-      if n <= 0: break
-      var updated = false
-      withWriteLock sslFileUpdateLock:
-        for e in inotify_events(evs[0].addr, n):
-          if e[].len > 0:
-            debug "file updated name=", $cast[cstring](addr e[].name)
-            for i in 0..<CERT_SITES.len:
-              if siteCtxs[i].watchdog == e[].wd:
-                siteCtxs[i].updated = true
-                if $cast[cstring](addr e[].name) == CHAIN_FILE:
-                  # certbot writes fullchain file last, your script must also copy fullchain file last
-                  updated = true
-                break
-        if updated:
-          sleep(3000)
-          sslFileChanged = true
+when ENABLE_SSL:
+  when SSL_AUTO_RELOAD:
+    proc fileWatcher(arg: ThreadArg) {.thread.} =
+      var evs = newSeq[byte](sizeof(InotifyEvent) * 512)
+      while active:
+        if not inotyWatchFlag:
+          sleep(1000)
+          continue
+        let n = read(inoty, evs[0].addr, evs.len)
+        if n <= 0: break
+        var updated = false
+        withWriteLock sslFileUpdateLock:
+          for e in inotify_events(evs[0].addr, n):
+            if e[].len > 0:
+              debug "file updated name=", $cast[cstring](addr e[].name)
+              for i in 0..<CERT_SITES.len:
+                if siteCtxs[i].watchdog == e[].wd:
+                  siteCtxs[i].updated = true
+                  if $cast[cstring](addr e[].name) == CHAIN_FILE:
+                    # certbot writes fullchain file last, your script must also copy fullchain file last
+                    updated = true
+                  break
+          if updated:
+            sleep(3000)
+            sslFileChanged = true
 
 proc createServer(port: Port): SocketHandle =
   var sock = createNativeSocket()
@@ -1663,9 +1666,12 @@ proc main(arg: ThreadArg) {.thread.} =
     createThread(acceptThread, threadWrapper, (acceptClient, ThreadArg(type: ThreadArgType.Void)))
     createThread(httpThread, threadWrapper, (http, ThreadArg(type: ThreadArgType.Void)))
     createThread(monitorThread, threadWrapper, (serverMonitor, ThreadArg(type: ThreadArgType.Void)))
-    when ENABLE_SSL and SSL_AUTO_RELOAD:
-      createThread(fileWatcherThread, threadWrapper, (fileWatcher, ThreadArg(type: ThreadArgType.Void)))
-      joinThreads(fileWatcherThread, monitorThread, httpThread, acceptThread, dispatcherThread)
+    when ENABLE_SSL:
+      when SSL_AUTO_RELOAD:
+        createThread(fileWatcherThread, threadWrapper, (fileWatcher, ThreadArg(type: ThreadArgType.Void)))
+        joinThreads(fileWatcherThread, monitorThread, httpThread, acceptThread, dispatcherThread)
+      else:
+        joinThreads(monitorThread, httpThread, acceptThread, dispatcherThread)
     else:
       joinThreads(monitorThread, httpThread, acceptThread, dispatcherThread)
 
