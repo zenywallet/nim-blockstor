@@ -860,7 +860,7 @@ proc worker(arg: ThreadArg) {.thread.} =
 
           if appId == 4:
             while true:
-              let retSslAccept = SSL_Accept(client.ssl)
+              let retSslAccept = SSL_accept(client.ssl)
               if retSslAccept < 0:
                 var ev: EpollEvent
                 client.sslErr = SSL_get_error(client.ssl, retSslAccept)
