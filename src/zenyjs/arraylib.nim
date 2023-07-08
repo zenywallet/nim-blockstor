@@ -134,7 +134,7 @@ else:
     let newLen = x.len + y.len
     if x.cap < newLen:
       x.cap = nextCap(newLen)
-      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+      x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
     copyMem(addr x.data[x.len], addr y.data[0], sizeof(T) * y.len)
     x.len = newLen
 
@@ -142,7 +142,7 @@ else:
     let newLen = x.len + 1
     if x.cap < newLen:
       x.cap = nextCap(newLen)
-      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+      x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
     copyMem(addr x.data[x.len], unsafeAddr y, sizeof(T))
     x.len = newLen
 
@@ -150,7 +150,7 @@ else:
     let newLen = x.len + y.len
     if x.cap < newLen:
       x.cap = nextCap(newLen)
-      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+      x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
     copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
     x.len = newLen
 
@@ -158,7 +158,7 @@ else:
     let newLen = x.len + y.len
     if x.cap < newLen:
       x.cap = nextCap(newLen)
-      x.data = cast[ptr UncheckedArray[T]](reallocShared(x.data, sizeof(T) * x.cap))
+      x.data = cast[ptr UncheckedArray[T]](reallocShared0(x.data, sizeof(T) * x.len, sizeof(T) * x.cap))
     copyMem(addr x.data[x.len], unsafeAddr y[0], sizeof(T) * y.len)
     x.len = newLen
 
