@@ -642,7 +642,6 @@ proc close(client: ptr Client) =
   if not client.recvBuf.isNil:
     deallocShared(cast[pointer](client.recvBuf))
     client.recvBuf = nil
-  clisent.sendBufSize = 0
   if not client.sendBuf.isNil:
     deallocShared(cast[pointer](client.sendBuf))
     client.sendBuf = nil
