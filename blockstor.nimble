@@ -44,7 +44,7 @@ task boringssl, "Build BoringSSL":
     exec "cmake .."
     exec "make -j$(nproc)"
 
-task deps, "Build deps":
+task depsAll, "Build deps":
   exec "nim c -r src/sophia_patch.nim"
   withDir "deps/sophia":
     if fileExists("sophia/std/ss_lz4filter.c"):

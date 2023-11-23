@@ -87,7 +87,7 @@ An alternative is to install [google-closure-compiler](https://www.npmjs.com/pac
 
 ### Build Dependencies
 
-    nimble deps
+    nimble depsAll
 
 It takes quite a while, so edit the blockstor configuration file in the meantime.
 
