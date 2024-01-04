@@ -90,7 +90,7 @@ type
     NodeId
 
   StreamThreadArg* = object
-    case type*: StreamThreadArgType
+    case argType*: StreamThreadArgType
     of StreamThreadArgType.Void:
       discard
     of StreamThreadArgType.NodeId:
@@ -111,7 +111,7 @@ proc newTag*(tag: seq[byte], pair: KVPair[StreamId] = nil,
 
 proc `$`*(val: StreamIdToTag): string =
   let tag = (addr val.tag).toBytes(val.size.int)
-  result = "(type: " & $val.tagType & ", tag: " & $tag & ")"
+  result = "(argType: " & $val.tagType & ", tag: " & $tag & ")"
 
 proc freeVal[T](val: T) =
   when T is StreamIdToTag:
@@ -719,17 +719,17 @@ proc initStream*() =
   curMsgId = 1
   miningTemplateChannel = cast[ptr Channel[MiningTemplateChannelParam]](allocShared0(sizeof(Channel[MiningTemplateChannelParam])))
   miningTemplateChannel[].open()
-  createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
-  createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
+  createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
+  createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
 
   var threadId = 0
   for i in 0..<RPC_NODE_COUNT:
     for j in 0..<RPC_WORKER_NUM:
       createThread(rpcWorkerThreads[threadId], streamThreadWrapper,
-                  (rpcWorker, StreamThreadArg(type: StreamThreadArgType.NodeId, threadId: threadId, nodeId: i)))
+                  (rpcWorker, StreamThreadArg(argType: StreamThreadArgType.NodeId, threadId: threadId, nodeId: i)))
       inc(threadId)
-  createThread(miningTemplateWorkerThread, streamThreadWrapper, (miningTemplateWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
-  createThread(miningWorkerThread, streamThreadWrapper, (miningWorker, StreamThreadArg(type: StreamThreadArgType.Void)))
+  createThread(miningTemplateWorkerThread, streamThreadWrapper, (miningTemplateWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
+  createThread(miningWorkerThread, streamThreadWrapper, (miningWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
 
 proc freeStream*() =
   streamActive = false
