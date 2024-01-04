@@ -125,7 +125,7 @@ type
     WorkerParams
 
   ThreadArg* = object
-    case type*: ThreadArgType
+    case argType*: ThreadArgType
     of ThreadArgType.Void:
       discard
     of ThreadArgType.WorkerParams:
@@ -1661,15 +1661,15 @@ proc main(arg: ThreadArg) {.thread.} =
     workerChannel[].open()
     for i in 0..<WORKER_THREAD_NUM:
       createThread(workerThreads[i], threadWrapper,
-                  (worker, ThreadArg(type: ThreadArgType.WorkerParams, workerParams: (i, tcp_rmem))))
+                  (worker, ThreadArg(argType: ThreadArgType.WorkerParams, workerParams: (i, tcp_rmem))))
 
-    createThread(dispatcherThread, threadWrapper, (dispatcher, ThreadArg(type: ThreadArgType.Void)))
-    createThread(acceptThread, threadWrapper, (acceptClient, ThreadArg(type: ThreadArgType.Void)))
-    createThread(httpThread, threadWrapper, (http, ThreadArg(type: ThreadArgType.Void)))
-    createThread(monitorThread, threadWrapper, (serverMonitor, ThreadArg(type: ThreadArgType.Void)))
+    createThread(dispatcherThread, threadWrapper, (dispatcher, ThreadArg(argType: ThreadArgType.Void)))
+    createThread(acceptThread, threadWrapper, (acceptClient, ThreadArg(argType: ThreadArgType.Void)))
+    createThread(httpThread, threadWrapper, (http, ThreadArg(argType: ThreadArgType.Void)))
+    createThread(monitorThread, threadWrapper, (serverMonitor, ThreadArg(argType: ThreadArgType.Void)))
     when ENABLE_SSL:
       when SSL_AUTO_RELOAD:
-        createThread(fileWatcherThread, threadWrapper, (fileWatcher, ThreadArg(type: ThreadArgType.Void)))
+        createThread(fileWatcherThread, threadWrapper, (fileWatcher, ThreadArg(argType: ThreadArgType.Void)))
         joinThreads(fileWatcherThread, monitorThread, httpThread, acceptThread, dispatcherThread)
       else:
         joinThreads(monitorThread, httpThread, acceptThread, dispatcherThread)
@@ -1696,7 +1696,7 @@ proc main(arg: ThreadArg) {.thread.} =
     else:
       break
 
-proc start*() = threadWrapper((main, ThreadArg(type: ThreadArgType.Void)))
+proc start*() = threadWrapper((main, ThreadArg(argType: ThreadArgType.Void)))
 
 proc stop*() {.inline.} =
   if not abortFlag:
