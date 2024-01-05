@@ -2,7 +2,7 @@
 
 include seed_native
 
-proc cryptSeed*(buf: ptr UncheckedArray[byte], size: int): int {.importc: "crypt_seed".}
+proc cryptSeed*(buf: ptr UncheckedArray[byte], size: int): int {.importc: "crypt_seed", cdecl.}
 
 when not defined(js):
   proc cryptSeed*(buf: openArray[byte]): int {.inline.} =
