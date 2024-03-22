@@ -228,7 +228,7 @@ var curMsgId: int
 proc initExClient*(pClient: ptr Client) =
   pClient.pStream = nil
 
-proc freeExClient*(pClient: ptr Client) =
+proc freeExClient*(pClient: ptr Client) {.gcsafe.} =
   var sobj = cast[ptr StreamObj](pClient.pStream)
   if not sobj.isNil:
     if sobj.streamId > 0:
