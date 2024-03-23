@@ -339,7 +339,8 @@ proc invokeWorker(arg: StreamThreadArg) {.thread.} =
     inc(cnt)
     if cnt >= 5:
       cnt = 0
-      streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
+      echo "invokeWorker disabled"
+      #streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
 
 proc streamSend*(tag: seq[byte], json: JsonNode) =
   streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
