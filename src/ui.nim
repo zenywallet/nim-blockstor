@@ -23,6 +23,11 @@ const preloadPath = srcPath / "../preload_tmp"
   " -I" & jsonPath / "include" & " -DCIMGUI_DEFINE_ENUMS_AND_STRUCTS".}
 {.passL: "--preload-file " & preloadPath & "@/ --extern-pre-js " & srcPath / "ui_loader.js".}
 
+static:
+  writeFile(srcPath / "ui.h", """
+static const char* NetworkIds[] = {"BitZeny_mainnet", "BitZeny_testnet"};
+""")
+
 {.compile: srcPath / "ui.cpp".}
 {.compile: imguiPath / "imgui.cpp".}
 {.compile: imguiPath / "imgui_demo.cpp".}

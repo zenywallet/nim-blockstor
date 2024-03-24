@@ -8,4 +8,5 @@ data*/
 deps/
 public/
 src/config.nim
+src/ui.h
 closure-compiler-*.jar

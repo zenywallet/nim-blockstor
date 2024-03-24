@@ -14,6 +14,7 @@
 #include <ctime>
 #include <iomanip>
 #include "../deps/zbar/include/zbar.h"
+#include "ui.h"
 
 using json = nlohmann::json;
 using namespace zbar;
@@ -27,8 +28,6 @@ ImFont* iconFont = NULL;
 #define TI_FILES "\xee\x9a\xa3"
 #define TI_CLIPBOARD "\xee\x9a\xb4"
 #define TI_ERASER "\xee\x9a\xa5"
-
-static const char* NetworkIds[] = {"BitZeny_mainnet", "BitZeny_testnet"};
 
 json noraList;
 json nodeStatus;
