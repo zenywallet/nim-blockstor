@@ -1,5 +1,5 @@
 when defined(emscripten):
-  proc crypt_seed*(seed: pointer, size: int): int {.exportc.} =
+  proc crypt_seed*(seed: pointer, size: cint): cint {.exportc.} =
     {.emit:"""
 #include <emscripten.h>
 
