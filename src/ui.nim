@@ -75,7 +75,7 @@ proc unsecureSend*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): 
     return EM_ASM_INT({
       var d = new Uint8Array(Module.HEAPU8.buffer, $1, $2).slice();
       return deoxy.wsSend($0, d);
-    }, `stream`, data, size);
+    }, `stream`, `data`, `size`);
   """.}
 
 proc send*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): bool {.discardable, exportc.} =
