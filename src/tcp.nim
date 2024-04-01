@@ -1,8 +1,8 @@
 # Copyright (c) 2020 zenywallet
 
-import net, nativesockets, posix
-import strutils, sequtils
-import times, os, re, json, terminal
+import std/[net, nativesockets, posix]
+import std/[strutils, sequtils]
+import std/[times, os, re, json, terminal]
 import bytes, reader, utils, blocks
 import address
 
