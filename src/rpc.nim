@@ -148,7 +148,7 @@ when USE_CURL:
     discard curl.easy_setopt(OPT_URL, rpcConfig.rpcUrl.cstring)
     discard curl.easy_setopt(OPT_POST, 1)
     discard curl.easy_setopt(OPT_USERPWD, rpcConfig.rpcUserPass.cstring)
-    discard curl.easy_setopt(OPT_POSTFIELDS, postData)
+    discard curl.easy_setopt(OPT_POSTFIELDS, postData.cstring)
     discard curl.easy_setopt(OPT_WRITEDATA, outbuf)
     discard curl.easy_setopt(OPT_WRITEFUNCTION, writeCallback)
     when ADD_POST_HEADER:
