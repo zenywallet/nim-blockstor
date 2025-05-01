@@ -127,6 +127,7 @@ task webminer, "Build web miner":
   exec "nim js -d:release -d:nodejs -o:src/web_miner_externs.js src/web_miner_externs.nim"
   exec "nim c -d:release -d:emscripten -o:public/miner.js_tmp --gc:orc src/web_miner.nim"
   exec "nim c -d:release -d:emscripten -d:ENABLE_SIMD128 -o:public/miner-simd128.js_tmp --gc:orc src/web_miner.nim"
+  exec "nim c -r src/web_miner_patch.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
   closure_compiler="google-closure-compiler"
