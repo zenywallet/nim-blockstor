@@ -156,29 +156,29 @@ else:
     else:
       var chunks = script
     if chunks.len == 5:
-      if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
-        chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_HASH160 and
-        chunks[2].type == ChunkType.Data and chunks[2].data.len == 20 and
-        chunks[3].type == ChunkType.Code and chunks[3].op == Opcode.OP_EQUALVERIFY and
-        chunks[4].type == ChunkType.Code and chunks[4].op == Opcode.OP_CHECKSIG:
+      if chunks[0].chunkType == ChunkType.Code and chunks[0].op == Opcode.OP_DUP and
+        chunks[1].chunkType == ChunkType.Code and chunks[1].op == Opcode.OP_HASH160 and
+        chunks[2].chunkType == ChunkType.Data and chunks[2].data.len == 20 and
+        chunks[3].chunkType == ChunkType.Code and chunks[3].op == Opcode.OP_EQUALVERIFY and
+        chunks[4].chunkType == ChunkType.Code and chunks[4].op == Opcode.OP_CHECKSIG:
 
         return (Hash160(chunks[2].data), AddressType.P2PKH)
 
     elif chunks.len == 3:
-      if chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_HASH160 and
-        chunks[1].type == ChunkType.Data and chunks[1].data.len == 20 and
-        chunks[2].type == ChunkType.Code and chunks[2].op == Opcode.OP_EQUAL:
+      if chunks[0].chunkType == ChunkType.Code and chunks[0].op == Opcode.OP_HASH160 and
+        chunks[1].chunkType == ChunkType.Data and chunks[1].data.len == 20 and
+        chunks[2].chunkType == ChunkType.Code and chunks[2].op == Opcode.OP_EQUAL:
 
         return (Hash160(chunks[1].data), AddressType.P2SH)
 
     elif chunks.len == 2:
-      if chunks[0].type == ChunkType.Data and chunks[0].data.len == 33 and
-        chunks[1].type == ChunkType.Code and chunks[1].op == Opcode.OP_CHECKSIG:
+      if chunks[0].chunkType == ChunkType.Data and chunks[0].data.len == 33 and
+        chunks[1].chunkType == ChunkType.Code and chunks[1].op == Opcode.OP_CHECKSIG:
 
         return (ripemd160hash(chunks[0].data), AddressType.P2PKH)
 
-      elif chunks[0].type == ChunkType.Code and chunks[0].op == Opcode.OP_0 and
-        chunks[1].type == ChunkType.Data:
+      elif chunks[0].chunkType == ChunkType.Code and chunks[0].op == Opcode.OP_0 and
+        chunks[1].chunkType == ChunkType.Data:
 
         if chunks[1].data.len == 20:
           return (Hash160(chunks[1].data), AddressType.P2WPKH)
@@ -207,7 +207,7 @@ else:
     else:
       var chunks = script
     for chunk in chunks:
-      if chunk.type == ChunkType.Data:
+      if chunk.chunkType == ChunkType.Data:
         if chunk.data.len == 33:
           result.add(network.p2pkh_address(ripemd160hash(chunk.data)))
         elif chunk.data.len == 20:
