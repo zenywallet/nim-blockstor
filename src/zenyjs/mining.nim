@@ -201,7 +201,7 @@ var miningPendingFinds = [].toJs
 var tvalMiningDataUpdater: int
 var connectionError = false
 var pageUnload = false
-var stream: Deoxy
+var stream = new Deoxy
 
 import std/base64
 macro constMinerScriptNames(): untyped =

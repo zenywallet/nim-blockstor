@@ -38,13 +38,13 @@ when defined(js):
     DeoxyMod.cipherProcess = Module.cwrap("cipher_process", NumVar, [NumVar, NumVar, NumVar, NumVar, NumVar])
     DeoxyMod.cipherEncrypt = Module.cwrap("cipher_encrypt", NumVar, [NumVar, NumVar, NumVar, NumVar, NumVar])
 
-  proc rawSend*(deoxy: var Deoxy, data: Uint8Array): bool {.discardable.} =
+  proc rawSend*(deoxy: ref Deoxy, data: Uint8Array): bool {.discardable.} =
     if not deoxy.ws.isNil and deoxy.ws.readyState == WebSocket.OPEN:
       deoxy.ws.send(data)
       return true
     return false
 
-  proc send*(deoxy: var Deoxy, data: Uint8Array): bool {.discardable.} =
+  proc send*(deoxy: ref Deoxy, data: Uint8Array): bool {.discardable.} =
     if not deoxy.ready: return false
     var size = data.length.to(cint)
     var p = Module.malloc(size)
@@ -63,7 +63,7 @@ when defined(js):
     Module.free(pOutBuf)
     Module.free(p)
 
-  proc connect*(deoxy: var Deoxy, url, protocols: cstring; onOpen: proc();
+  proc connect*(deoxy: ref Deoxy, url, protocols: cstring; onOpen: proc();
                 onReady: proc(); onRecv: proc(data: Uint8Array); onClose: proc()) =
     deoxy.ws = newWebSocket(url, protocols)
     deoxy.ws.binaryType = "arraybuffer".cstring
@@ -125,13 +125,13 @@ when defined(js):
       Module.free(pOutBuf)
       Module.free(p)
 
-  proc close*(deoxy: var Deoxy) =
+  proc close*(deoxy: ref Deoxy) =
     if not deoxy.ws.isNil:
       deoxy.reconnectCount = 0
       deoxy.ws.close()
       deoxy.ws = jsNull
 
-  template ready*(deoxy: var Deoxy, body: untyped) =
+  template ready*(deoxy: ref Deoxy, body: untyped) =
     block ready:
       proc bodyMain() {.async, discardable.} =
         while not deoxy.ready:
