@@ -5,6 +5,7 @@ import os
 import strformat
 import strutils
 import re
+import regex
 
 const KEEP_TMP_FILES = defined(KEEP_TMP_FILES)
 
@@ -42,6 +43,13 @@ for line in lines(f):
     f2.writeLine(line)
 f2.close()
 f.close()
+
+var s = readFile(tmpjs2)
+s = s.replace(re2"""class\s+ExitStatus\s*\{\s*name\s*=\s*"ExitStatus"\s*;\s*constructor\s*\(\s*status\s*\)\s*\{""",
+    """class ExitStatus {
+  constructor(status) {
+    this.name = "ExitStatus";""")
+writeFile(tmpjs2, s)
 
 discard execCmd "nim c -r zenyjs_externs.nim " & tmpjs2 & " > zenyjs_externs.js"
 discard execCmd fmt"""
