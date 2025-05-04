@@ -2,10 +2,11 @@
 
 when defined(js):
   import macros, os
+  import std/strutils
   const srcDir = currentSourcePath().parentDir()
   const zenyjsFilePath = srcDir / "zenyjs.js"
   macro loadZenyJS(): untyped =
-    var zenyjsScript = readFile(zenyjsFilePath)
+    var zenyjsScript = readFile(zenyjsFilePath).replace("`", "``")
     result = nnkStmtList.newTree(
       nnkAsmStmt.newTree(
         newEmptyNode(),
