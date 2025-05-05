@@ -146,7 +146,7 @@ proc send*(sock: SocketHandle, data: seq[byte]): bool =
 var abort = false
 
 proc start*(node: Node, params: NodeParams, startHeight: int, startBlkHash: BlockHash,
-            cb: proc(height: int, hash: BlockHash, blk: Block): bool) =
+            cb: proc(height: int, hash: BlockHash, blk: Block): bool {.gcsafe.}) =
   var height = startHeight
   var blockHashes: seq[BlockHash]
   var reqHashes: seq[BlockHash]

@@ -624,7 +624,7 @@ proc nodeWorker(params: WorkerParams) {.thread.} =
     var lastBlockCheckerThread: Thread[WrapperParams]
     createThread(lastBlockCheckerThread, threadWrapper, (lastBlockChecker, params))
 
-    proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool =
+    proc cb(tcpHeight: int, hash: BlockHash, blk: Block): bool {.gcsafe.} =
       dbInst.writeBlock(tcpHeight, hash, blk, nextSeqId)
       height = tcpHeight
       blkHash = hash
