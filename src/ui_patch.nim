@@ -70,6 +70,10 @@ proc patch(file: string) =
         this.chunks=[];
       }""")
 
+  s = s.replace("""var FS = {""",
+    """var errno = 0;
+var FS = {""")
+
   writeFile(file, s)
 
 
