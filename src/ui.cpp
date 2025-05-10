@@ -83,7 +83,7 @@ extern "C" bool streamSend(const char* data, int size);
 
 extern "C" void streamRecv(char* data, int size) {
     EM_ASM({
-        var d = new Uint8Array(Module.HEAPU8.buffer, $0, $1).slice();
+        var d = new Uint8Array(HEAPU8.buffer, $0, $1).slice();
     }, data, size);
 
     std::string s(data, size);

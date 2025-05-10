@@ -73,7 +73,7 @@ template error(x: varargs[string, `$`]) {.used.} = echo join(x)
 proc unsecureSend*(stream: Stream, data: ptr UncheckedArray[byte], size: cint): bool {.discardable.} =
   {.emit: """
     return EM_ASM_INT({
-      var d = new Uint8Array(Module.HEAPU8.buffer, $1, $2).slice();
+      var d = new Uint8Array(HEAPU8.buffer, $1, $2).slice();
       return deoxy.wsSend($0, d);
     }, `stream`, `data`, `size`);
   """.}

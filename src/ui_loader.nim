@@ -19,6 +19,7 @@ var WebSocket* {.importc, nodecl.}: WebSocketObj
 var Uint8Array* {.importc, nodecl.}: Uint8ArrayObj
 var Uint32Array* {.importc, nodecl.}: Uint32ArrayObj
 var arguments* {.importc, nodecl.}: JsObject
+var HEAPU8 {.importc, nodecl.}: JsObject
 
 converter objToJs*(obj: DocumentObj | ConsoleObj | WindowObj | JsonObj |
                   WebSocketObj | Uint8ArrayObj | Uint32ArrayObj): JsObject = obj.toJs
@@ -91,7 +92,7 @@ deoxyMod = JsObject{
       var d = strToUint8Array(JSON.stringify(data).to(cstring))
       var size = d.length.to(cint)
       var p = Module_malloc(size)
-      Module.HEAPU8.set(d, p)
+      HEAPU8.set(d, p)
       result = deoxy.send(stream, p, size).to(bool)
       Module_free(p)
 
@@ -109,7 +110,7 @@ deoxyMod = JsObject{
         var data = newUint8Array(evt.data)
         var size = data.length.to(cint)
         var p = Module_malloc(size)
-        Module.HEAPU8.set(data, p)
+        HEAPU8.set(data, p)
         deoxy.onMessage(stream, p, size)
         Module_free(p)
 
