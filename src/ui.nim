@@ -34,7 +34,7 @@ static const char* NetworkIds[] = {"BitZeny_mainnet", "BitZeny_testnet"};
 {.compile: imguiPath / "imgui_draw.cpp".}
 {.compile: imguiPath / "imgui_tables.cpp".}
 {.compile: imguiPath / "imgui_widgets.cpp".}
-{.compile: imguiPath / "backends/imgui_impl_sdl.cpp".}
+{.compile: imguiPath / "backends/imgui_impl_sdl2.cpp".}
 {.compile: imguiPath / "backends/imgui_impl_opengl3.cpp".}
 
 {.emit: """
