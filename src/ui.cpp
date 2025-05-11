@@ -2158,7 +2158,7 @@ static void main_loop(void *arg)
     }
 
     ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL2_NewFrame(g_Window);
+    ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
     if(show_demo_window) {
