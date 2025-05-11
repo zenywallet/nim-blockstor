@@ -1869,7 +1869,7 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
                 }
             }
 
-            ImGui::Image((void*)image_texture, ImVec2(640, 480));
+            ImGui::Image((ImTextureID)(intptr_t)image_texture, ImVec2(640, 480));
             free(videodata);
 
             char qr_str[512 * 8];
