@@ -8,7 +8,7 @@ export json
 when not USE_CURL:
   import nativesockets, posix
   import bytes
-  import re
+  import regex
   import base64
 
 type
@@ -124,9 +124,10 @@ when not USE_CURL:
 proc setRpcConfig*(rpcConfig: RpcConfig) =
   defaultRpcConfig = rpcConfig
   when not USE_CURL:
-    if rpcConfig.rpcUrl =~ re"\w+://([\w\._-]+):(\d+)/?":
-      rpcHostname = matches[0]
-      rpcPort = matches[1].parseInt.Port
+    var m = RegexMatch2()
+    if match(rpcConfig.rpcUrl, re2"\w+://([\w\._-]+):(\d+)/?", m):
+      rpcHostname = rpcConfig.rpcUrl[m.group(0)]
+      rpcPort = rpcConfig.rpcUrl[m.group(1)].parseInt.Port
     rpcAuthorization = base64.encode(rpcConfig.rpcUserPass)
     rpcRecvBuf = newSeq[byte](tcp_rmem)
 

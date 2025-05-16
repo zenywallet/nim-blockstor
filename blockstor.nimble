@@ -17,6 +17,7 @@ requires "libcurl"
 requires "zip"
 requires "templates"
 requires "karax"
+requires "regex"
 
 
 
