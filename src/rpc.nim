@@ -124,7 +124,7 @@ when not USE_CURL:
 proc setRpcConfig*(rpcConfig: RpcConfig) =
   defaultRpcConfig = rpcConfig
   when not USE_CURL:
-    if rpcConfig.rpcUrl =~ re"\w+://([\w\._-]+):(\d+)":
+    if rpcConfig.rpcUrl =~ re"\w+://([\w\._-]+):(\d+)/?":
       rpcHostname = matches[0]
       rpcPort = matches[1].parseInt.Port
     rpcAuthorization = base64.encode(rpcConfig.rpcUserPass)
