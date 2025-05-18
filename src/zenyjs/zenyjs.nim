@@ -98,7 +98,7 @@ elif defined(emscripten):
   {.passL: "-s EXPORT_NAME=" & ZENYJS_MODULE_NAME.}
 
   const DEFAULT_EXPORTED_FUNCTIONS = ["_malloc", "_free"]
-  const DEFAULT_EXPORTED_RUNTIME_METHODS = ["ccall", "cwrap", "UTF8ToString"]
+  const DEFAULT_EXPORTED_RUNTIME_METHODS = ["ccall", "cwrap", "UTF8ToString", "stackSave", "stackAlloc", "stackRestore"]
 
   import macros
   macro collectExportedFunctions*(): untyped =
