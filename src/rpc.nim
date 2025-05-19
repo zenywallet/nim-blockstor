@@ -236,7 +236,7 @@ else:
     var headerSize = 0
 
     var nfds = sock.cint + 1.cint
-    var tv = Timeval(tv_sec: 1.Time, tv_usec: 0.Suseconds)
+    var tv = Timeval(tv_sec: 3.Time, tv_usec: 0.Suseconds)
     var reading {.noinit.}: TFdSet
     var readfds {.noinit.}: TFdSet
     FD_ZERO(reading)
@@ -248,7 +248,7 @@ else:
         var retSel = select(nfds, addr readfds, nil, nil, addr tv)
         if retSel == 0:
           inc(waitCount)
-          if waitCount >= 30:
+          if waitCount >= 10:
             return (E_OPERATION_TIMEOUTED, "")
           continue
         break
