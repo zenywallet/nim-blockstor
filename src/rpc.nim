@@ -210,12 +210,12 @@ else:
       aiList = getAddrInfo(rpcHostname, rpcPort, Domain.AF_INET)
     except:
       sock.close()
-      return (E_COULDNT_RESOLVE_HOST, cast[string](nil))
+      return (E_COULDNT_RESOLVE_HOST, "")
 
     let retConnect = sock.connect(aiList.ai_addr, aiList.ai_addrlen.SockLen)
     freeaddrinfo(aiList)
     if retConnect != 0:
-      return (E_COULDNT_CONNECT, cast[string](nil))
+      return (E_COULDNT_CONNECT, "")
 
     var data = "POST / HTTP/1.1\c\L" &
       "Authorization: Basic " & rpcAuthorization & "\c\L" &
@@ -244,7 +244,7 @@ else:
         if retSel == 0:
           inc(waitCount)
           if waitCount >= 30:
-            return (E_OPERATION_TIMEOUTED, cast[string](nil))
+            return (E_OPERATION_TIMEOUTED, "")
           continue
         break
 
@@ -256,9 +256,9 @@ else:
         elif recvLen < 0:
           if errno == EINTR:
             continue
-          return (E_RECV_ERROR, cast[string](nil))
+          return (E_RECV_ERROR, "")
         else:
-          return (E_RECV_ERROR, cast[string](nil))
+          return (E_RECV_ERROR, "")
 
       (code, contentLength, headerSize) = parseHeader(buf)
       if code != 200 and code != 0:
