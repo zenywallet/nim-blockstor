@@ -235,12 +235,17 @@ else:
     var contentLength = 0
     var headerSize = 0
 
+    var nfds = sock.cint + 1.cint
+    var tv = Timeval(tv_sec: 1.Time, tv_usec: 0.Suseconds)
+    var reading {.noinit.}: TFdSet
+    var readfds {.noinit.}: TFdSet
+    FD_ZERO(reading)
+    FD_SET(sock, reading)
     while true:
       var waitCount = 0
       while true:
-        var readFds: seq[SocketHandle]
-        readFds.add(sock)
-        var retSel = selectRead(readFds, 1000)
+        copyMem(addr readfds, addr reading, sizeof(TFdSet))
+        var retSel = select(nfds, addr readfds, nil, nil, addr tv)
         if retSel == 0:
           inc(waitCount)
           if waitCount >= 30:
