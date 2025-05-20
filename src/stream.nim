@@ -370,8 +370,8 @@ proc initWorker*() =
     decBufSize = DECODE_BUF_SIZE
 
   {.cast(gcsafe).}:
-    deepCopy(streamDbInsts, globalDbInsts)
-    deepCopy(networks, globalNetworks)
+    streamDbInsts = globalDbInsts
+    networks = globalNetworks
 
 proc freeWorker*() =
   if not decBuf.isNil:
@@ -398,8 +398,8 @@ proc aggregate(txaddrvals: seq[TxAddrVal]): seq[TxAddrVal] =
 
 proc rpcWorker(arg: StreamThreadArg) {.thread.} =
   {.cast(gcsafe).}:
-    deepCopy(streamDbInsts, globalDbInsts)
-    deepCopy(networks, globalNetworks)
+    streamDbInsts = globalDbInsts
+    networks = globalNetworks
     node = globalNodes[arg.nodeId]
   var network = networks[arg.nodeId]
 
