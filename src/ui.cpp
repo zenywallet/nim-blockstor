@@ -2526,7 +2526,7 @@ extern "C" int guimain()
         uiError("Failed to initialize WebGL context");
         return -1;
     }
-    SDL_GL_SetSwapInterval(1);
+    //SDL_GL_SetSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
