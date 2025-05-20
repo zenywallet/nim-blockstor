@@ -2569,6 +2569,12 @@ extern "C" int guimain()
         document.execCommand('paste');  // workaround first take
         deoxy.clipboard = clipboard;
 
+        document.addEventListener("paste", function(e) {
+          if(e.clipboardData) {
+            clipboard.value = e.clipboardData.getData("text");
+          }
+        });
+
         var camDevice = (function() {
           var cam_ids = [];
           var sel_cam = null;
