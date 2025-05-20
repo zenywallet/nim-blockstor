@@ -2463,7 +2463,7 @@ static void main_loop(void *arg)
     main_called = false;
 }
 
-static const char* GetClipboardTextFn_Impl(void* user_data)
+static const char* GetClipboardTextFn_Impl(ImGuiContext*)
 {
     static std::string cliptext;
 
@@ -2489,7 +2489,7 @@ static const char* GetClipboardTextFn_Impl(void* user_data)
     return NULL;
 }
 
-static void SetClipboardTextFn_Impl(void* user_data, const char* text)
+static void SetClipboardTextFn_Impl(ImGuiContext*, const char* text)
 {
     EM_ASM({
         var clipboard = deoxy.clipboard;
@@ -2549,8 +2549,10 @@ extern "C" int guimain()
     mainFont = io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
     iconFont = io.Fonts->AddFontFromFileTTF("themify.ttf", 16.0f, &icons_config, icons_ranges);
     monoFont = io.Fonts->AddFontFromFileTTF("ShareTechMono-Regular.ttf", 20.0f);
-    io.GetClipboardTextFn = GetClipboardTextFn_Impl;
-    io.SetClipboardTextFn = SetClipboardTextFn_Impl;
+
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Platform_GetClipboardTextFn = GetClipboardTextFn_Impl;
+    platform_io.Platform_SetClipboardTextFn = SetClipboardTextFn_Impl;
 
     EM_ASM({
         var clipboard = document.getElementById('clipboard');
