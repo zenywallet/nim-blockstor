@@ -60,10 +60,12 @@ type
     invoke: bool
     whackaMole: bool
 
-  Client* = object of ClientBase
+  ClientObj* = object of ClientBase
     pStream*: pointer
 
-  ClientArray = array[CLIENT_MAX, Client]
+  Client* = ptr ClientObj
+
+  ClientObjArray = array[CLIENT_MAX, ClientObj]
 
   StatusCode* = enum
     Status100 = "100 Continue"
@@ -178,13 +180,13 @@ proc toWebSocketOpCode(opcode: int8): WebSocketOpCode =
 proc reallocClientBuf(buf: ptr UncheckedArray[byte], size: int): ptr UncheckedArray[byte] =
   result = cast[ptr UncheckedArray[byte]](reallocShared(buf, size))
 
-proc addSendBuf(client: ptr Client, data: seq[byte] | string) =
+proc addSendBuf(client: Client, data: seq[byte] | string) =
   var nextSize = client.sendBufSize + data.len
   client.sendBuf = reallocClientBuf(client.sendBuf, nextSize)
   copyMem(addr client.sendBuf[client.sendBufSize], unsafeAddr data[0], data.len)
   client.sendBufSize = nextSize
 
-proc send*(client: ptr Client, data: seq[byte] | string): SendResult =
+proc send*(client: Client, data: seq[byte] | string): SendResult =
   if not client.sendBuf.isNil:
     client.addSendBuf(data)
     return SendResult.Pending
@@ -236,7 +238,7 @@ proc send*(client: ptr Client, data: seq[byte] | string): SendResult =
     else:
       return SendResult.None
 
-proc wsServerSend*(client: ptr Client, data: seq[byte] | string,
+proc wsServerSend*(client: Client, data: seq[byte] | string,
                           opcode: WebSocketOpCode = WebSocketOpCode.Binary): SendResult =
   var frame: seq[byte]
   var dataLen = data.len
@@ -254,7 +256,7 @@ var restartFlag = false
 var abortFlag = false
 var serverSock: SocketHandle = osInvalidSocket
 var httpSock: SocketHandle = osInvalidSocket
-var clients: ptr ClientArray = nil
+var clients: ptr ClientObjArray = nil
 var clIdx = 0
 var events: array[EPOLL_EVENTS_SIZE, EpollEvent]
 var epfd: cint = -1
@@ -312,9 +314,9 @@ proc setMaxRlimitOpenFiles*(): bool {.discardable.} =
   if rlp.rlim_cur < rlp.rlim_max: return false
   return true
 
-proc isInvalid*(client: ptr Client): bool = client.fd == osInvalidSocket.int
+proc isInvalid*(client: Client): bool = client.fd == osInvalidSocket.int
 
-proc invokeSendEvent*(client: ptr Client, retry: bool = false): bool =
+proc invokeSendEvent*(client: Client, retry: bool = false): bool =
   if retry:
     if not client.invoke:
       return true
@@ -369,7 +371,7 @@ when not isMainModule:
   include stream
 
 proc initClient() =
-  var p = cast[ptr ClientArray](allocShared0(sizeof(ClientArray)))
+  var p = cast[ptr ClientObjArray](allocShared0(sizeof(ClientObjArray)))
   for i in 0..<CLIENT_MAX:
     p[i].idx = i
     p[i].fd = osInvalidSocket.int
@@ -494,7 +496,7 @@ when ENABLE_SSL:
         continue
       break
 
-proc sendInstant*(client: ptr Client, data: string) {.inline.} =
+proc sendInstant*(client: Client, data: string) {.inline.} =
   when ENABLE_SSL:
     if not client.ssl.isNil:
       client.ssl.sendInstant(data)
@@ -505,7 +507,7 @@ proc sendInstant*(client: ptr Client, data: string) {.inline.} =
 
 
 
-proc sendFlush(client: ptr Client): SendResult =
+proc sendFlush(client: Client): SendResult =
   if client.sendBuf.isNil:
     return SendResult.None
 
@@ -605,7 +607,7 @@ proc getFrame(data: ptr UncheckedArray[byte],
   else:
     return (true, fin, opcode, payload, payloadLen, nil, 0)
 
-proc waitEventAgain(client: ptr Client, evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0) =
+proc waitEventAgain(client: Client, evData: uint64, fd: int | SocketHandle, exEvents: uint32 = 0) =
   var ev: EpollEvent
   if client.invoke:
     ev.events = EPOLLIN or EPOLLRDHUP or EPOLLOUT
@@ -624,7 +626,7 @@ proc waitEventAgain(client: ptr Client, evData: uint64, fd: int | SocketHandle, 
       error "error: epoll_ctl ret=", ret, " errno=", errno
       abort()
 
-proc close(client: ptr Client) =
+proc close(client: Client) =
   debug "close ", client.fd
   when declared(freeExClient):
     freeExClient(client)
@@ -652,7 +654,7 @@ proc close(client: ptr Client) =
   client.fd = osInvalidSocket.int
 
 when not declared(webMain):
-  proc webMainDefault(client: ptr Client, url: string, headers: Headers): SendResult =
+  proc webMainDefault(client: Client, url: string, headers: Headers): SendResult =
     debug "web url=", url, " headers=", headers
     when DYNAMIC_FILES:
       var retFile = getDynamicFile(url)
@@ -686,7 +688,7 @@ when not declared(webMain):
       return client.send(NotFound.addHeader(Status404))
 
 when not declared(streamMain):
-  proc streamMainDefault(client: ptr Client, opcode: WebSocketOpCode,
+  proc streamMainDefault(client: Client, opcode: WebSocketOpCode,
                         data: ptr UncheckedArray[byte], size: int): SendResult =
     debug "ws opcode=", opcode, " size=", size
     case opcode
@@ -701,10 +703,10 @@ when not declared(streamMain):
       result = SendResult.None
 
 when not declared(invokeSendMain):
-  proc invokeSendMainDefault(client: ptr Client): SendResult =
+  proc invokeSendMainDefault(client: Client): SendResult =
     result = SendResult.None
 
-proc workerMain(client: ptr Client, buf: ptr UncheckedArray[byte], size: int, appId: int): SendResult =
+proc workerMain(client: Client, buf: ptr UncheckedArray[byte], size: int, appId: int): SendResult =
   var i = 0
   var cur = 0
   var first = true
@@ -816,7 +818,7 @@ proc worker(arg: ThreadArg) {.thread.} =
     initWorker()
   var recvBuf = newSeq[byte](arg.workerParams.bufLen)
 
-  proc reserveRecvBuf(client: ptr Client, size: int) =
+  proc reserveRecvBuf(client: Client, size: int) =
     if client.recvBuf.isNil:
       client.recvBuf = cast[ptr UncheckedArray[byte]](allocShared0(sizeof(byte) * (size + arg.workerParams.bufLen)))
       client.recvBufSize = size + arg.workerParams.bufLen
@@ -828,7 +830,7 @@ proc worker(arg: ThreadArg) {.thread.} =
       client.recvBuf = reallocClientBuf(client.recvBuf, nextSize)
       client.recvBufSize = nextSize
 
-  proc addRecvBuf(client: ptr Client, data: ptr UncheckedArray[byte], size: int) =
+  proc addRecvBuf(client: Client, data: ptr UncheckedArray[byte], size: int) =
     client.reserveRecvBuf(size)
     copyMem(addr client.recvBuf[client.recvCurSize], addr data[0], size)
     client.recvCurSize = client.recvCurSize + size

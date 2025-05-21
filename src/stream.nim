@@ -123,7 +123,7 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-var clientTable: KVHandle[ptr Client] # streamId - client
+var clientTable: KVHandle[Client] # streamId - client
 var streamTable: KVHandle[StreamId] # tags - streamId
 var tagTable: KVHandle[StreamIdToTag] # streamId - tags
 var tableLock: RWLock
@@ -156,11 +156,11 @@ proc delTag*(streamId: StreamId, tag: seq[byte]) =
         streamTable.del(x.pair)
       )
 
-proc setTag*(client: ptr Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
+proc setTag*(client: Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   var sobj = cast[ptr StreamObj](client.pStream)
   sobj.streamId.setTag(tag, tagType)
 
-proc delTag*(client: ptr Client, tag: seq[byte]) =
+proc delTag*(client: Client, tag: seq[byte]) =
   var sobj = cast[ptr StreamObj](client.pStream)
   sobj.streamId.delTag(tag)
 
@@ -225,10 +225,10 @@ var miningTemplateChannel: ptr Channel[MiningTemplateChannelParam]
 var streamActive* = false
 var curMsgId: int
 
-proc initExClient*(pClient: ptr Client) =
+proc initExClient*(pClient: Client) =
   pClient.pStream = nil
 
-proc freeExClient*(pClient: ptr Client) {.gcsafe.} =
+proc freeExClient*(pClient: Client) {.gcsafe.} =
   var sobj = cast[ptr StreamObj](pClient.pStream)
   if not sobj.isNil:
     if sobj.streamId > 0:
@@ -257,14 +257,14 @@ proc freeExClient*(pClient: ptr Client) {.gcsafe.} =
     deallocShared(sobj)
     pClient.pStream = nil
 
-proc pendingFilter(client: ptr Client): bool =
+proc pendingFilter(client: Client): bool =
   result = client.invokeSendEvent() == false
   if result and client.isInvalid():
     result = false
     client.freeExClient()
 
 proc streamWorker(arg: StreamThreadArg) {.thread.} =
-  var pendingClient: seq[ptr Client]
+  var pendingClient: seq[Client]
 
   while true:
     var channelData = streamWorkerChannel[].recv()
@@ -306,7 +306,7 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
     else:
       var addNew = false
       if channelData.msgType == MsgDataType.DirectOnce:
-        var tagDelClients: seq[ptr Client]
+        var tagDelClients: seq[Client]
         for s in streamTable.items(channelData.tag):
           var client = clientTable[s.val.toBytes]
           if not client.isNil:
@@ -763,7 +763,7 @@ proc freeStream*() =
     miningAddrTable.clear()
   rwlockDestroy(miningAddrTableLock)
 
-proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendResult] =
+proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResult] =
   client.freeExClient()
   var sobj = cast[ptr StreamObj](allocShared0(sizeof(StreamObj)))
   var kpSeed: Ed25519Seed
@@ -795,7 +795,7 @@ proc streamConnect*(client: ptr Client): tuple[sendFlag: bool, sendResult: SendR
 
   result = (true, sendRet)
 
-proc sendCmd(client: ptr Client, data: seq[byte]): SendResult =
+proc sendCmd(client: Client, data: seq[byte]): SendResult =
   let sobj = cast[ptr StreamObj](client.pStream)
   var outdata = newSeq[byte](LZ4_COMPRESSBOUND(data.len))
   let outsize: uint = outdata.len.uint
@@ -805,11 +805,11 @@ proc sendCmd(client: ptr Client, data: seq[byte]): SendResult =
     return client.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
   result = SendResult.None
 
-proc sendCmd(client: ptr Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
+proc sendCmd(client: Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
 
-proc sendCmd(client: ptr Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
+proc sendCmd(client: Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
-proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
+proc parseCmd(client: Client, json: JsonNode): SendResult =
   result = SendResult.None
   echo json.pretty
 
@@ -1104,7 +1104,7 @@ proc parseCmd(client: ptr Client, json: JsonNode): SendResult =
       let streamId = sobj.streamId
       miningTemplateChannel[].send((streamId, nid, %*{"header": reqData["header"].getStr}, MsgDataType.MiningFind))
 
-proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
+proc streamMain(client: Client, opcode: WebSocketOpCode,
                 data: ptr UncheckedArray[byte], size: int): SendResult =
   echo "ws opcode=", opcode, " size=", size
   case opcode
@@ -1145,7 +1145,7 @@ proc streamMain(client: ptr Client, opcode: WebSocketOpCode,
   else: # WebSocketOpcode.Close
     result = SendResult.None
 
-proc invokeSendMain(client: ptr Client): SendResult =
+proc invokeSendMain(client: Client): SendResult =
   result = SendResult.None
   let sobj = cast[ptr StreamObj](client.pStream)
   let sb = sobj.streamId.toBytes
