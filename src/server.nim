@@ -314,8 +314,6 @@ proc setMaxRlimitOpenFiles*(): bool {.discardable.} =
   if rlp.rlim_cur < rlp.rlim_max: return false
   return true
 
-proc isInvalid*(client: Client): bool = client.fd == osInvalidSocket.int
-
 proc invokeSendEvent*(client: Client, retry: bool = false): bool =
   if retry:
     if not client.invoke:

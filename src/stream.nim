@@ -257,6 +257,8 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
     deallocShared(sobj)
     pClient.pStream = nil
 
+proc isInvalid*(client: Client): bool = client.fd == osInvalidSocket.int
+
 proc pendingFilter(client: Client): bool =
   result = client.invokeSendEvent() == false
   if result and client.isInvalid():
