@@ -18,6 +18,7 @@ requires "zip"
 requires "templates"
 requires "karax"
 requires "regex"
+requires "caprese"
 
 
 

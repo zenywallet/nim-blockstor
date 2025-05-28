@@ -1,5 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
+import std/sequtils # keepIf
+import std/strutils # endsWith
 import deoxy
 import ed25519
 import seed
@@ -9,7 +11,7 @@ import db, sophia
 import address
 import bytes
 import uthash
-import ptlock
+#import ptlock
 import monitor
 import utils
 import tcp
