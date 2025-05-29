@@ -19,8 +19,16 @@ var externs = {
   stackAlloc: function() {},
   stackRestore: function() {},
   UTF8ToString: function() {},
+  HEAP8: {},
   HEAPU8: {},
+  HEAP16: {},
+  HEAPU16: {},
+  HEAP32: {},
   HEAPU32: {},
+  HEAPF32: {},
+  HEAP64: {},
+  HEAPU64: {},
+  HEAPF64: {},
   buffer: 0
 };
 
