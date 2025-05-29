@@ -255,9 +255,10 @@ proc changeMiningWorker(num: int) =
           this.readyFlag = true
       miningWorkers.push(worker)
 
+let number0x100000000 = (0x7fffffff.toJs + 1.toJs) * 2.toJs
 proc postMiningData() =
-  var nonce = Math.floor(Math.random() * ((0x7fffffff.toJs + 1.toJs) * 2.toJs))
-  let step = Math.round(((0x7fffffff.toJs + 1.toJs) * 2.toJs) / miningWorkers.length)
+  var nonce = Math.floor(Math.random() * number0x100000000)
+  let step = Math.round(number0x100000000 / miningWorkers.length)
   for worker in items(miningWorkers):
     miningData.nonce = nonce
     worker.postMessage(miningData)
