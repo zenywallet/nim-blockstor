@@ -90,7 +90,7 @@ var jq = {
 """
 
 import os
-import nre
+import regex
 import tables
 import strutils
 
@@ -100,17 +100,16 @@ var resList = initOrderedTable[string, string]()
 let targetJs = paramStr(1)
 var d = readFile(targetJs)
 
-for s in d.findIter(re""": "[a-zA-Z_][\w]*""""):
-  var t = s.match.strip(chars = {' ', ':', '"'})
+for s in d.findAll(re2""": "[a-zA-Z_][\w]*""""):
+  var t = d[s.boundaries].strip(chars = {' ', ':', '"'})
   list[t] = t
 
-for s in d.findIter(re"[a-zA-Z_][\w]*: "):
-  var t = s.match.strip(chars = {' ', ':'})
+for s in d.findAll(re2"[a-zA-Z_][\w]*: "):
+  var t = d[s.boundaries].strip(chars = {' ', ':'})
   list[t] = t
 
-for s in d.findIter(re"\.[a-zA-Z_][\w]*"):
-  #echo s.match
-  var t = s.match.strip(chars = {'.'})
+for s in d.findAll(re2"\.[a-zA-Z_][\w]*"):
+  var t = d[s.boundaries].strip(chars = {'.'})
   if list.hasKey(t):
     resList[t] = t
 
