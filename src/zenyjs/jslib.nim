@@ -16,12 +16,14 @@ type
   Uint32ArrayObj* = JsObject
   NumberObj* = JsObject
   ArrayObj* = JsObject
+  DataViewObj* = JsObject
 
   WebSocket* = ref object of WebSocketObj
   Uint8Array* = ref object of Uint8ArrayObj
   Uint32Array* = ref object of Uint32ArrayObj
   Number* = ref object of NumberObj
   Array* = ref object of ArrayObj
+  DataView* = ref object of DataViewObj
 
   JslibError* = object of CatchableError
 
@@ -68,6 +70,9 @@ proc newTextDecoder*(): JsObject {.importcpp: "new TextDecoder()".}
 proc newNumber*(val: JsObject): Number {.importcpp: "new Number(#)".}
 proc newWorker*(url: cstring): JsObject {.importcpp: "new Worker(#)".}
 proc newWorker*(url: cstring, options: JsObject): JsObject {.importcpp: "new Worker(#, #)".}
+proc newDataView*(buffer: JsObject): DataView {.importcpp: "new DataView(#)".}
+proc newDataView*(buffer: JsObject, byteOffset: int): DataView {.importcpp: "new DataView(#, #)".}
+proc newDataView*(buffer: JsObject, byteOffset: int, byteLength: int): DataView {.importcpp: "new DataView(#, #, #)".}
 
 proc modCall*(module: JsObject, name: cstring, para1: JsObject): JsObject {.importcpp: "#[#](#)", discardable.}
 
