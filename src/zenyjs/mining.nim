@@ -257,7 +257,14 @@ proc changeMiningWorker(num: int) =
 
 let number0x100000000 = (0x7fffffff.toJs + 1.toJs) * 2.toJs
 proc postMiningData() =
-  var nonce = Math.floor(Math.random() * number0x100000000)
+  var nonce =
+    if not window.crypto.isNil and not window.crypto.getRandomValues.isNil:
+      let seedData = newUint8Array(4)
+      window.crypto.getRandomValues(seedData)
+      let dataView = newDataView(seedData.buffer)
+      dataView.getUint32(0, false)
+    else:
+      Math.floor(Math.random() * number0x100000000)
   let step = Math.round(number0x100000000 / miningWorkers.length)
   for worker in items(miningWorkers):
     miningData.nonce = nonce
