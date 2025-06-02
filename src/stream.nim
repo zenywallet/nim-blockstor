@@ -346,6 +346,20 @@ proc invokeWorker(arg: StreamThreadArg) {.thread.} =
       echo "invokeWorker disabled"
       #streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
 
+proc sendCmd(client: Client, data: seq[byte]): SendResult =
+  let sobj = cast[ptr StreamObj](client.pStream)
+  var outdata = newSeq[byte](LZ4_COMPRESSBOUND(data.len))
+  let outsize: uint = outdata.len.uint
+  let encLen = sobj.deoxyObj.enc(cast[ptr UncheckedArray[byte]](unsafeAddr data[0]), cast[uint](data.len),
+                            cast[ptr UncheckedArray[byte]](addr outdata[0]), outsize)
+  if encLen > 0:
+    return client.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
+  result = SendResult.None
+
+proc sendCmd(client: Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
+
+proc sendCmd(client: Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
+
 proc streamSend*(tag: seq[byte], json: JsonNode) =
   streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
 
@@ -798,20 +812,6 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
   var sendRet = client.wsServerSend(pubseed, WebSocketOpcode.Binary)
 
   result = (true, sendRet)
-
-proc sendCmd(client: Client, data: seq[byte]): SendResult =
-  let sobj = cast[ptr StreamObj](client.pStream)
-  var outdata = newSeq[byte](LZ4_COMPRESSBOUND(data.len))
-  let outsize: uint = outdata.len.uint
-  let encLen = sobj.deoxyObj.enc(cast[ptr UncheckedArray[byte]](unsafeAddr data[0]), cast[uint](data.len),
-                            cast[ptr UncheckedArray[byte]](addr outdata[0]), outsize)
-  if encLen > 0:
-    return client.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
-  result = SendResult.None
-
-proc sendCmd(client: Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
-
-proc sendCmd(client: Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
 proc parseCmd(client: Client, json: JsonNode): SendResult =
   result = SendResult.None
