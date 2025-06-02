@@ -344,7 +344,7 @@ proc invokeWorker(arg: StreamThreadArg) {.thread.} =
     if cnt >= 5:
       cnt = 0
       echo "invokeWorker disabled"
-      #streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
+      #streamWorkerChannel[].send((0.StreamId, @[], @[], MsgDataType.Direct))
 
 proc sendCmd(client: Client, data: seq[byte]): SendResult =
   let sobj = cast[ptr StreamObj](client.pStream)
@@ -540,7 +540,7 @@ proc rpcWorker(arg: StreamThreadArg) {.thread.} =
 
         elif channelData.msgType == MsgDataType.BlockTmpl:
           var retTmpl = getBlockTemplate.send(blockTemplateParam)
-          miningTemplateChannel[].send((0'u64, arg.nodeId, retTmpl["result"], MsgDataType.BlockTmpl))
+          miningTemplateChannel[].send((0.StreamId, arg.nodeId, retTmpl["result"], MsgDataType.BlockTmpl))
 
         elif channelData.msgType == MsgDataType.SendMiningBlock:
           var data = json["data"]
@@ -561,7 +561,7 @@ proc miningWorker(arg: StreamThreadArg) {.thread.} =
     while streamActive:
       for i in 0..<RPC_NODE_COUNT:
         if streamTable.itemExists(("mining", i.uint16).toBytes):
-          rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.BlockTmpl))
+          rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.BlockTmpl))
       sleep(3000)
 
 proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
@@ -754,9 +754,9 @@ proc freeStream*() =
   streamActive = false
   for i in 0..<RPC_NODE_COUNT:
     for j in 0..<RPC_WORKER_NUM:
-      rpcWorkerChannels[i][].send((0'u64, newJNull(), MsgDataType.Direct))
-  streamWorkerChannel[].send((0'u64, @[], @[], MsgDataType.Direct))
-  miningTemplateChannel[].send((0'u64, 0, newJNull(), MsgDataType.Direct))
+      rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.Direct))
+  streamWorkerChannel[].send((0.StreamId, @[], @[], MsgDataType.Direct))
+  miningTemplateChannel[].send((0.StreamId, 0, newJNull(), MsgDataType.Direct))
   joinThreads(miningWorkerThread, miningTemplateWorkerThread, invokeWorkerThread, streamWorkerThread)
   miningTemplateChannel[].close()
   miningTemplateChannel.deallocShared()
