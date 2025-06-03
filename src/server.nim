@@ -1716,6 +1716,7 @@ when isMainModule:
 ]#
 
 import caprese
+import caprese/server_types
 
 const ENABLE_SSL = defined(ENABLE_SSL)
 
@@ -1728,6 +1729,7 @@ type
   ClientExt {.clientExt.} = object
     pStream: pointer
     fd: int
+    streamId: ClientId
 
 caprese.base:
   type
@@ -1743,6 +1745,7 @@ server(ssl = true, ip = "0.0.0.0", port = HTTPS_PORT):
 
     stream "/ws":
       onOpen:
+        client.streamId = client.markPending()
         discard client.streamConnect()
 
       var retStream = client.streamMain(opcode, data, size)

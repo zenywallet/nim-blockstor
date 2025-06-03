@@ -34,7 +34,7 @@ type
     Negotiate
     Ready
 
-  StreamId = uint64
+  StreamId = ClientId
 
   StreamObj = object
     deoxyObj: ptr DeoxyEncrypt
@@ -138,6 +138,7 @@ var msgTableLock: RWLock
 var miningAddrTable: KVHandle[MiningScript]
 var miningAddrTableLock: RWLock
 
+#[
 proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   let sb = streamId.toBytes
   withWriteLock tableLock:
@@ -157,14 +158,13 @@ proc delTag*(streamId: StreamId, tag: seq[byte]) =
       if result:
         streamTable.del(x.pair)
       )
+]#
 
 proc setTag*(client: Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
-  var sobj = cast[ptr StreamObj](client.pStream)
-  sobj.streamId.setTag(tag, tagType)
+  client.streamId.setTag(tag.toArray.Tag)
 
 proc delTag*(client: Client, tag: seq[byte]) =
-  var sobj = cast[ptr StreamObj](client.pStream)
-  sobj.streamId.delTag(tag)
+  client.streamId.delTag(tag.toArray.Tag)
 
 proc newMsg*(msg: seq[byte], msgType: MsgDataType = MsgDataType.Direct): MsgData =
   let p = cast[MsgData](allocShared0(sizeof(MsgDataObj) + msg.len))
@@ -361,19 +361,38 @@ proc sendCmd(client: Client, s: string): SendResult {.inline.} = client.sendCmd(
 proc sendCmd(client: Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
 proc streamSend*(tag: seq[byte], json: JsonNode) =
-  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
+  var tag = tag.toArray.Tag
+  var data = $json
+  for cid in tag.getClientIds():
+    var c = getClient(cid)
+    discard c.sendCmd(data)
+  #streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
 
 proc streamSend*(tag: string, json: JsonNode) =
-  streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes, MsgDataType.Direct))
+  var tag = tag.toBytes.toArray.Tag
+  var data = $json
+  for cid in tag.getClientIds():
+    var c = getClient(cid)
+    discard c.sendCmd(data)
+  #streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes, MsgDataType.Direct))
 
 proc streamSend*(streamId: StreamId, json: JsonNode, msgType: MsgDataType = MsgDataType.Direct) =
-  streamWorkerChannel[].send((streamId, @[], ($json).toBytes, msgType))
+  var c = getClient(streamId)
+  discard c.sendCmd(json)
+  #streamWorkerChannel[].send((streamId, @[], ($json).toBytes, msgType))
 
 proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = MsgDataType.Direct) =
-  streamWorkerChannel[].send((streamId, @[], data, msgType))
+  var c = getClient(streamId)
+  discard c.sendCmd(data)
+  #streamWorkerChannel[].send((streamId, @[], data, msgType))
 
 proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
-  streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.DirectOnce))
+  var tag = tag.toArray.Tag
+  var data = $json
+  for cid in tag.getClientIds():
+    var c = getClient(cid)
+    discard c.sendCmd(data)
+  #streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.DirectOnce))
 
 proc streamTagExists*(tag: seq[byte]): bool = streamTable.itemExists(tag)
 
@@ -560,8 +579,10 @@ const WitnessCommitmentHeader = @[byte 0xaa, 0x21, 0xa9, 0xed]
 proc miningWorker(arg: StreamThreadArg) {.thread.} =
     while streamActive:
       for i in 0..<RPC_NODE_COUNT:
-        if streamTable.itemExists(("mining", i.uint16).toBytes):
+        #if streamTable.itemExists(("mining", i.uint16).toBytes):
+        for cid in getClientIds(("mining", i.uint16).toBytes.toArray.Tag):
           rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.BlockTmpl))
+          break
       sleep(3000)
 
 proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
@@ -665,8 +686,10 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
           curTxdatas[nodeId].add(t["data"].getStr.Hex.toBytes)
 
         streamBlockHeaders[nodeId].clear()
-        for s in streamTable.items(("mining", nodeId.uint16).toBytes):
-          var client = clientTable[s.val.toBytes]
+        #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
+        #  var client = clientTable[s.val.toBytes]
+        for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
+          var client = getClient(cid)
           if not client.isNil:
             let streamId = cast[ptr StreamObj](client.pStream).streamId
             sendMiningData()
@@ -674,8 +697,10 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
         if curTime[nodeId] != prevCurTime[nodeId]:
           prevCurTime[nodeId] = curTime[nodeId]
           curHeader[nodeId].time = curTime[nodeId]
-          for s in streamTable.items(("mining", nodeId.uint16).toBytes):
-            var client = clientTable[s.val.toBytes]
+          #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
+          #  var client = clientTable[s.val.toBytes]
+          for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
+            var client = getClient(cid)
             if not client.isNil:
               let streamId = cast[ptr StreamObj](client.pStream).streamId
               let sb = streamId.toBytes
@@ -802,7 +827,8 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
     if atomicCompareExchangeN(addr curStreamId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
       break
 
-  sobj.streamId = curId.StreamId
+  #sobj.streamId = curId.StreamId
+  sobj.streamId = client.streamId
   client.pStream = sobj
 
   withWriteLock tableLock:
