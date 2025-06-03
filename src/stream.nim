@@ -213,7 +213,6 @@ var globalNodes: seq[NodeParams]
 var node {.threadvar.}: NodeParams
 var curStreamId: int
 var streamWorkerThread: Thread[WrapperStreamThreadArg]
-var invokeWorkerThread: Thread[WrapperStreamThreadArg]
 var miningWorkerThread: Thread[WrapperStreamThreadArg]
 var miningTemplateWorkerThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
@@ -335,15 +334,6 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
       if addNew:
         addMsgAndInvoke()
   ]#
-
-proc invokeWorker(arg: StreamThreadArg) {.thread.} =
-  var cnt = 0
-  while streamActive:
-    sleep(200)
-    inc(cnt)
-    if cnt >= 5:
-      cnt = 0
-      echo "invokeWorker disabled"
 
 proc sendCmd(client: Client, data: seq[byte]): SendResult =
   let sobj = cast[ptr StreamObj](client.pStream)
@@ -756,7 +746,6 @@ proc initStream*() =
   miningTemplateChannel = cast[ptr Channel[MiningTemplateChannelParam]](allocShared0(sizeof(Channel[MiningTemplateChannelParam])))
   miningTemplateChannel[].open()
   createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
-  createThread(invokeWorkerThread, streamThreadWrapper, (invokeWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
 
   var threadId = 0
   for i in 0..<RPC_NODE_COUNT:
@@ -773,7 +762,7 @@ proc freeStream*() =
     for j in 0..<RPC_WORKER_NUM:
       rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.Direct))
   miningTemplateChannel[].send((0.StreamId, 0, newJNull(), MsgDataType.Direct))
-  joinThreads(miningWorkerThread, miningTemplateWorkerThread, invokeWorkerThread, streamWorkerThread)
+  joinThreads(miningWorkerThread, miningTemplateWorkerThread, streamWorkerThread)
   miningTemplateChannel[].close()
   miningTemplateChannel.deallocShared()
   for i in 0..<RPC_NODE_COUNT:
