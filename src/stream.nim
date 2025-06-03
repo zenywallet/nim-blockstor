@@ -211,7 +211,6 @@ var globalNetworks: seq[Network]
 var networks {.threadvar.}: seq[Network]
 var globalNodes: seq[NodeParams]
 var node {.threadvar.}: NodeParams
-var curStreamId: int
 var miningWorkerThread: Thread[WrapperStreamThreadArg]
 var miningTemplateWorkerThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
@@ -665,7 +664,6 @@ proc initStream*() =
   rwlockInit(tableLock)
   rwlockInit(msgTableLock)
   rwlockInit(miningAddrTableLock)
-  curStreamId = 1
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i] = cast[ptr Channel[RpcWorkerChannelParam]](allocShared0(sizeof(Channel[RpcWorkerChannelParam])))
     rpcWorkerChannels[i][].open()
@@ -724,15 +722,6 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
     raise newException(StreamError, "seed failed")
   sobj.deoxyObj = deoxy.create()
   sobj.stage = StreamStage.Negotiate
-
-  var curId: int = curStreamId
-  while true:
-    if curId >= int.high:
-      raise newException(ServerNeedRestartError, "Unbelievable! We've reached int64 limit")
-    if atomicCompareExchangeN(addr curStreamId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
-      break
-
-  #sobj.streamId = curId.StreamId
   sobj.streamId = client.streamId
   client.pStream = sobj
 
