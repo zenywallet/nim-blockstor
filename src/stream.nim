@@ -125,7 +125,6 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-var clientTable: KVHandle[Client] # streamId - client
 var streamTable: KVHandle[StreamId] # tags - streamId
 var tagTable: KVHandle[StreamIdToTag] # streamId - tags
 var tableLock: RWLock
@@ -231,7 +230,6 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
     if sobj.streamId > 0:
       let sb = sobj.streamId.toBytes
       withWriteLock tableLock:
-        clientTable.del(sb)
         tagTable.del(sb, proc (x: StreamIdToTag): bool =
           streamTable.del(x.pair)
           result = true
@@ -598,7 +596,6 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
 
         streamBlockHeaders[nodeId].clear()
         #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
-        #  var client = clientTable[s.val.toBytes]
         for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
           var client = getClient(cid)
           if not client.isNil:
@@ -609,7 +606,6 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
           prevCurTime[nodeId] = curTime[nodeId]
           curHeader[nodeId].time = curTime[nodeId]
           #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
-          #  var client = clientTable[s.val.toBytes]
           for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
             var client = getClient(cid)
             if not client.isNil:
@@ -696,7 +692,6 @@ proc freeStream*() =
   withWriteLock tableLock:
     tagTable.clear()
     streamTable.clear()
-    clientTable.clear()
   rwlockDestroy(tableLock)
 
   withWriteLock msgTableLock:
@@ -724,9 +719,6 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
   sobj.stage = StreamStage.Negotiate
   sobj.streamId = client.streamId
   client.pStream = sobj
-
-  withWriteLock tableLock:
-    clientTable[sobj.streamId.toBytes] = client
 
   var pubseed = (pub, sobj.seed).toBytes
   var sendRet = client.wsServerSend(pubseed, WebSocketOpcode.Binary)
