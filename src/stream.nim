@@ -218,10 +218,8 @@ var miningWorkerThread: Thread[WrapperStreamThreadArg]
 var miningTemplateWorkerThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
 type
-  StreamWorkerChannelParam = tuple[streamId: StreamId, tag: seq[byte], data: seq[byte], msgType: MsgDataType]
   RpcWorkerChannelParam = tuple[streamId: StreamId, data: JsonNode, msgType: MsgDataType]
   MiningTemplateChannelParam = tuple[streamId: StreamId, nodeId: int, data: JsonNode, msgType: MsgDataType]
-var streamWorkerChannel: ptr Channel[StreamWorkerChannelParam]
 var rpcWorkerChannels: array[RPC_NODE_COUNT, ptr Channel[RpcWorkerChannelParam]]
 var miningTemplateChannel: ptr Channel[MiningTemplateChannelParam]
 var streamActive* = false
@@ -270,6 +268,7 @@ proc pendingFilter(client: Client): bool =
 proc streamWorker(arg: StreamThreadArg) {.thread.} =
   var pendingClient: seq[Client]
 
+  #[
   while true:
     var channelData = streamWorkerChannel[].recv()
     if not streamActive:
@@ -335,6 +334,7 @@ proc streamWorker(arg: StreamThreadArg) {.thread.} =
             addNew = true
       if addNew:
         addMsgAndInvoke()
+  ]#
 
 proc invokeWorker(arg: StreamThreadArg) {.thread.} =
   var cnt = 0
@@ -344,7 +344,6 @@ proc invokeWorker(arg: StreamThreadArg) {.thread.} =
     if cnt >= 5:
       cnt = 0
       echo "invokeWorker disabled"
-      #streamWorkerChannel[].send((0.StreamId, @[], @[], MsgDataType.Direct))
 
 proc sendCmd(client: Client, data: seq[byte]): SendResult =
   let sobj = cast[ptr StreamObj](client.pStream)
@@ -366,7 +365,6 @@ proc streamSend*(tag: seq[byte], json: JsonNode) =
   for cid in tag.getClientIds():
     var c = getClient(cid)
     discard c.sendCmd(data)
-  #streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.Direct))
 
 proc streamSend*(tag: string, json: JsonNode) =
   var tag = tag.toBytes.toArray.Tag
@@ -374,17 +372,14 @@ proc streamSend*(tag: string, json: JsonNode) =
   for cid in tag.getClientIds():
     var c = getClient(cid)
     discard c.sendCmd(data)
-  #streamWorkerChannel[].send((0.StreamId, tag.toBytes, ($json).toBytes, MsgDataType.Direct))
 
 proc streamSend*(streamId: StreamId, json: JsonNode, msgType: MsgDataType = MsgDataType.Direct) =
   var c = getClient(streamId)
   discard c.sendCmd(json)
-  #streamWorkerChannel[].send((streamId, @[], ($json).toBytes, msgType))
 
 proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = MsgDataType.Direct) =
   var c = getClient(streamId)
   discard c.sendCmd(data)
-  #streamWorkerChannel[].send((streamId, @[], data, msgType))
 
 proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
   var tag = tag.toArray.Tag
@@ -392,7 +387,6 @@ proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
   for cid in tag.getClientIds():
     var c = getClient(cid)
     discard c.sendCmd(data)
-  #streamWorkerChannel[].send((0.StreamId, tag, ($json).toBytes, MsgDataType.DirectOnce))
 
 proc streamTagExists*(tag: seq[byte]): bool = streamTable.itemExists(tag)
 
@@ -754,8 +748,6 @@ proc initStream*() =
   rwlockInit(msgTableLock)
   rwlockInit(miningAddrTableLock)
   curStreamId = 1
-  streamWorkerChannel = cast[ptr Channel[StreamWorkerChannelParam]](allocShared0(sizeof(Channel[StreamWorkerChannelParam])))
-  streamWorkerChannel[].open()
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i] = cast[ptr Channel[RpcWorkerChannelParam]](allocShared0(sizeof(Channel[RpcWorkerChannelParam])))
     rpcWorkerChannels[i][].open()
@@ -780,7 +772,6 @@ proc freeStream*() =
   for i in 0..<RPC_NODE_COUNT:
     for j in 0..<RPC_WORKER_NUM:
       rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.Direct))
-  streamWorkerChannel[].send((0.StreamId, @[], @[], MsgDataType.Direct))
   miningTemplateChannel[].send((0.StreamId, 0, newJNull(), MsgDataType.Direct))
   joinThreads(miningWorkerThread, miningTemplateWorkerThread, invokeWorkerThread, streamWorkerThread)
   miningTemplateChannel[].close()
@@ -788,8 +779,6 @@ proc freeStream*() =
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i][].close()
     rpcWorkerChannels[i].deallocShared()
-  streamWorkerChannel[].close()
-  streamWorkerChannel.deallocShared()
   withWriteLock tableLock:
     tagTable.clear()
     streamTable.clear()
