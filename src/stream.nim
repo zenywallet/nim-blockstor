@@ -212,7 +212,6 @@ var networks {.threadvar.}: seq[Network]
 var globalNodes: seq[NodeParams]
 var node {.threadvar.}: NodeParams
 var curStreamId: int
-var streamWorkerThread: Thread[WrapperStreamThreadArg]
 var miningWorkerThread: Thread[WrapperStreamThreadArg]
 var miningTemplateWorkerThread: Thread[WrapperStreamThreadArg]
 var rpcWorkerThreads: array[RPC_WORKER_TOTAL, Thread[WrapperStreamThreadArg]]
@@ -263,77 +262,6 @@ proc pendingFilter(client: Client): bool =
   if result and client.isInvalid():
     result = false
     client.freeExClient()
-
-proc streamWorker(arg: StreamThreadArg) {.thread.} =
-  var pendingClient: seq[Client]
-
-  #[
-  while true:
-    var channelData = streamWorkerChannel[].recv()
-    if not streamActive:
-      break
-
-    if channelData.streamId == 0 and channelData.tag.len == 0:
-      pendingClient.keepIf(pendingFilter)
-      if pendingClient.len > 0:
-        debug "pendingClient ", pendingClient.len
-      continue
-
-    var msgId: MsgId = 0
-
-    template getMsgId() {.dirty.} =
-      var curId: int = curMsgId
-      while true:
-        if curId >= int.high:
-          raise newException(ServerNeedRestartError, "Unbelievable! We've reached int64 limit")
-        if atomicCompareExchangeN(addr curMsgId, addr curId, curId + 1, false, ATOMIC_RELAXED, ATOMIC_RELAXED):
-          break
-      msgId = curId.uint64
-
-    template addMsgAndInvoke() {.dirty.} =
-      msgDataTable.add(msgId.toBytes, newMsg(channelData.data, channelData.msgType))
-      pendingClient = pendingClient.deduplicate()
-      pendingClient.keepIf(pendingFilter)
-      if pendingClient.len > 0:
-        debug "pendingClient ", pendingClient.len
-
-    if channelData.streamId > 0:
-      var client = clientTable[channelData.streamId.toBytes]
-      if not client.isNil:
-        getMsgId()
-        withWriteLock msgTableLock:
-          setMsg(channelData.streamId, msgId)
-        pendingClient.add(client)
-        addMsgAndInvoke()
-    else:
-      var addNew = false
-      if channelData.msgType == MsgDataType.DirectOnce:
-        var tagDelClients: seq[Client]
-        for s in streamTable.items(channelData.tag):
-          var client = clientTable[s.val.toBytes]
-          if not client.isNil:
-            var sobj = cast[ptr StreamObj](client.pStream)
-            if msgId == 0: getMsgId()
-            withWriteLock msgTableLock:
-              setMsg(sobj.streamId, msgId)
-            pendingClient.add(client)
-            addNew = true
-            tagDelClients.add(client)
-        for client in tagDelClients:
-          client.delTag(channelData.tag)
-      else:
-        for s in streamTable.items(channelData.tag):
-          var client = clientTable[s.val.toBytes]
-          if not client.isNil:
-            var sobj = cast[ptr StreamObj](client.pStream)
-            if msgId == 0: getMsgId()
-            withWriteLock msgTableLock:
-              setMsg(sobj.streamId, msgId)
-            pendingClient.add(client)
-            addNew = true
-      if addNew:
-        addMsgAndInvoke()
-  ]#
 
 proc sendCmd(client: Client, data: seq[byte]): SendResult =
   let sobj = cast[ptr StreamObj](client.pStream)
@@ -745,7 +673,6 @@ proc initStream*() =
   curMsgId = 1
   miningTemplateChannel = cast[ptr Channel[MiningTemplateChannelParam]](allocShared0(sizeof(Channel[MiningTemplateChannelParam])))
   miningTemplateChannel[].open()
-  createThread(streamWorkerThread, streamThreadWrapper, (streamWorker, StreamThreadArg(argType: StreamThreadArgType.Void)))
 
   var threadId = 0
   for i in 0..<RPC_NODE_COUNT:
@@ -762,7 +689,7 @@ proc freeStream*() =
     for j in 0..<RPC_WORKER_NUM:
       rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.Direct))
   miningTemplateChannel[].send((0.StreamId, 0, newJNull(), MsgDataType.Direct))
-  joinThreads(miningWorkerThread, miningTemplateWorkerThread, streamWorkerThread)
+  joinThreads(miningWorkerThread, miningTemplateWorkerThread)
   miningTemplateChannel[].close()
   miningTemplateChannel.deallocShared()
   for i in 0..<RPC_NODE_COUNT:
