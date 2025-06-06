@@ -10,6 +10,7 @@ when not USE_CURL:
   import bytes
   import regex
   import base64
+  import std/epoll
 
 type
   CoreCommand* = enum
@@ -116,6 +117,7 @@ when not USE_CURL:
   var rpcPort {.threadvar.}: Port
   var rpcAuthorization {.threadvar.}: string
   var rpcRecvBuf {.threadvar.}: seq[byte]
+  var epfd {.threadvar.}: cint
 
   var rcvbufSock = createNativeSocket()
   var tcp_rmem = rcvbufSock.getSockOptInt(SOL_SOCKET, SO_RCVBUF)
@@ -130,6 +132,9 @@ proc setRpcConfig*(rpcConfig: RpcConfig) =
       rpcPort = rpcConfig.rpcUrl[m.group(1)].parseInt.Port
     rpcAuthorization = base64.encode(rpcConfig.rpcUserPass)
     rpcRecvBuf = newSeq[byte](tcp_rmem)
+    epfd = epoll_create1(O_CLOEXEC)
+    if epfd < 0:
+      raise newException(RpcError, "error: epfd=" & $epfd & " errno=" & $errno)
 
 when USE_CURL:
   proc writeCallback(buffer: cstring, size: int, nitems: int, outstream: pointer): int =
@@ -236,24 +241,26 @@ else:
     var code = 0
     var contentLength = 0
     var headerSize = 0
+    var events: array[1, EpollEvent]
+    var ev: EpollEvent
+    ev.events = EPOLLIN or EPOLLRDHUP or EPOLLET
+    let retCtl = epoll_ctl(epfd, EPOLL_CTL_ADD, cast[cint](sock), addr ev)
+    if retCtl < 0:
+      raise newException(RpcError, "error: epoll_ctl ADD ret=" & $retCtl & " errno=" & $errno)
 
-    var nfds = sock.cint + 1.cint
-    var tv = Timeval(tv_sec: 3.Time, tv_usec: 0.Suseconds)
-    var reading {.noinit.}: TFdSet
-    var readfds {.noinit.}: TFdSet
-    FD_ZERO(reading)
-    FD_SET(sock, reading)
     while true:
       var waitCount = 0
       while true:
-        copyMem(addr readfds, addr reading, sizeof(TFdSet))
-        var retSel = select(nfds, addr readfds, nil, nil, addr tv)
-        if retSel == 0:
+        var nfd = epoll_wait(epfd, cast[ptr EpollEvent](addr events), 1.cint, 3000.cint)
+        if nfd > 0:
+          break
+        elif nfd == 0:
           inc(waitCount)
           if waitCount >= 10:
             return (E_OPERATION_TIMEOUTED, "")
           continue
-        break
+        else:
+          raise newException(RpcError, "error: epoll_wait ret=" & $nfd & " errno=" & $errno)
 
       while true:
         var recvLen = sock.recv(addr rpcRecvBuf[0], rpcRecvBuf.len, 0'i32)
