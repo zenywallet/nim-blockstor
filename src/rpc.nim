@@ -1,6 +1,6 @@
 # Copyright (c) 2020 zenywallet
 
-const USE_CURL = true
+const USE_CURL = false
 
 import libcurl, strutils, json, locks
 export json
