@@ -268,8 +268,9 @@ else:
           return (E_RECV_ERROR, "")
 
       (code, contentLength, headerSize) = parseHeader(buf)
-      if code != 200 and code != 0:
-        return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
+      when declared(RPC_HTTP_STATUS_CODE_CHECK):
+        if code != 200 and code != 0:
+          return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
       let totalSize = contentLength + headerSize
       if totalSize == buf.len:
         return (E_OK, buf[headerSize..^1].toString())
