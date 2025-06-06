@@ -203,13 +203,15 @@ else:
 
   proc httpPost(rpcConfig: RpcConfig, postData: string): tuple[code: Code, data: string] =
     var sock = createNativeSocket()
+    defer:
+      sock.close()
+
     sock.setSockOptInt(Protocol.IPPROTO_TCP.int, TCP_NODELAY, 1)
 
     var aiList: ptr AddrInfo
     try:
       aiList = getAddrInfo(rpcHostname, rpcPort, Domain.AF_INET)
     except:
-      sock.close()
       return (E_COULDNT_RESOLVE_HOST, "")
 
     let retConnect = sock.connect(aiList.ai_addr, aiList.ai_addrlen.SockLen)
