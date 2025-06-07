@@ -303,7 +303,11 @@ proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
     var c = getClient(cid)
     discard c.sendCmd(data)
 
-proc streamTagExists*(tag: seq[byte]): bool = streamTable.itemExists(tag)
+proc streamTagExists*(tag: seq[byte]): bool =
+  var tag = tag.toArray.Tag
+  for _ in tag.getClientIds():
+    return true
+  return false
 
 proc setStreamParams*(dbInsts: DbInsts, networks: seq[Network], nodes: seq[NodeParams]) =
   globalDbInsts = dbInsts
