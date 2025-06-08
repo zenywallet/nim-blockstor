@@ -483,6 +483,7 @@ template updateLastHeight(id: int) {.dirty.} =
 proc doAbort() =
   abort = true
   tcp.stop()
+  server.stop()
 
 proc threadWrapper(wrapperParams: WrapperParams | WrapperMultiParams) {.thread.} =
   try:
@@ -715,7 +716,6 @@ proc startWorker() =
   monitorEnable = false
   monitorThread.joinThread()
   deallocShared(lastBlockChekcerParam)
-  server.stop()
   deallocShared(monitorInfos)
   dbInsts.close()
   echo "db closed"
