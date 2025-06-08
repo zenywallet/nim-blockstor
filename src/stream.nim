@@ -125,7 +125,6 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-var streamTable: KVHandle[StreamId] # tags - streamId
 var tagTable: KVHandle[StreamIdToTag] # streamId - tags
 var tableLock: RWLock
 
@@ -146,7 +145,6 @@ proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamId
       if tval == tag:
         return
 
-    let pair = streamTable.addRet(tag, streamId)
     tagTable.add(sb, newTag(tag, pair, tagType))
 
 proc delTag*(streamId: StreamId, tag: seq[byte]) =
@@ -154,8 +152,6 @@ proc delTag*(streamId: StreamId, tag: seq[byte]) =
     tagTable.del(streamId.toBytes, proc (x: StreamIdToTag): bool =
       let tval = (addr x.tag).toBytes(x.size.int)
       result = tval == tag
-      if result:
-        streamTable.del(x.pair)
       )
 ]#
 
@@ -231,7 +227,6 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
       let sb = sobj.streamId.toBytes
       withWriteLock tableLock:
         tagTable.del(sb, proc (x: StreamIdToTag): bool =
-          streamTable.del(x.pair)
           result = true
           )
       for nid in streamDbInsts.low..streamDbInsts.high:
@@ -492,7 +487,6 @@ const WitnessCommitmentHeader = @[byte 0xaa, 0x21, 0xa9, 0xed]
 proc miningWorker(arg: StreamThreadArg) {.thread.} =
     while streamActive:
       for i in 0..<RPC_NODE_COUNT:
-        #if streamTable.itemExists(("mining", i.uint16).toBytes):
         for cid in getClientIds(("mining", i.uint16).toBytes.toArray.Tag):
           rpcWorkerChannels[i][].send((0.StreamId, newJNull(), MsgDataType.BlockTmpl))
           break
@@ -599,7 +593,6 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
           curTxdatas[nodeId].add(t["data"].getStr.Hex.toBytes)
 
         streamBlockHeaders[nodeId].clear()
-        #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
         for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
           var client = getClient(cid)
           if not client.isNil:
@@ -609,7 +602,6 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
         if curTime[nodeId] != prevCurTime[nodeId]:
           prevCurTime[nodeId] = curTime[nodeId]
           curHeader[nodeId].time = curTime[nodeId]
-          #for s in streamTable.items(("mining", nodeId.uint16).toBytes):
           for cid in getClientIds(("mining", nodeId.uint16).toBytes.toArray.Tag):
             var client = getClient(cid)
             if not client.isNil:
@@ -695,7 +687,6 @@ proc freeStream*() =
     rpcWorkerChannels[i].deallocShared()
   withWriteLock tableLock:
     tagTable.clear()
-    streamTable.clear()
   rwlockDestroy(tableLock)
 
   withWriteLock msgTableLock:
