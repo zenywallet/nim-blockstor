@@ -125,9 +125,6 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-var tagTable: KVHandle[StreamIdToTag] # streamId - tags
-var tableLock: RWLock
-
 var msgRevTable: KVHandle[StreamId] # msgId - streamId
 var msgTable: KVHandle[KVPair[StreamId]] # streamId - pair(key: msgId, val: streamId)
 var msgDataTable: KVHandle[MsgData] # msgId - message
@@ -135,25 +132,6 @@ var msgTableLock: RWLock
 
 var miningAddrTable: KVHandle[MiningScript]
 var miningAddrTableLock: RWLock
-
-#[
-proc setTag*(streamId: StreamId, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
-  let sb = streamId.toBytes
-  withWriteLock tableLock:
-    for t in tagTable.items(sb):
-      let tval = (addr t.val.tag).toBytes(t.val.size.int)
-      if tval == tag:
-        return
-
-    tagTable.add(sb, newTag(tag, pair, tagType))
-
-proc delTag*(streamId: StreamId, tag: seq[byte]) =
-  withWriteLock tableLock:
-    tagTable.del(streamId.toBytes, proc (x: StreamIdToTag): bool =
-      let tval = (addr x.tag).toBytes(x.size.int)
-      result = tval == tag
-      )
-]#
 
 proc setTag*(client: Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.Unknown) =
   client.streamId.setTag(tag.toArray.Tag)
@@ -225,10 +203,6 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
   if not sobj.isNil:
     if sobj.streamId > 0:
       let sb = sobj.streamId.toBytes
-      withWriteLock tableLock:
-        tagTable.del(sb, proc (x: StreamIdToTag): bool =
-          result = true
-          )
       for nid in streamDbInsts.low..streamDbInsts.high:
         sobj.streamId.delMiningScript(nid)
       withWriteLock msgTableLock:
@@ -653,7 +627,6 @@ proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
     abort()
 
 proc initStream*() =
-  rwlockInit(tableLock)
   rwlockInit(msgTableLock)
   rwlockInit(miningAddrTableLock)
   for i in 0..<RPC_NODE_COUNT:
@@ -685,9 +658,6 @@ proc freeStream*() =
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i][].close()
     rpcWorkerChannels[i].deallocShared()
-  withWriteLock tableLock:
-    tagTable.clear()
-  rwlockDestroy(tableLock)
 
   withWriteLock msgTableLock:
     msgDataTable.clear()
