@@ -24,8 +24,6 @@ when (compiles do: include config):
 else:
   include config_default
 
-setMaxRlimitOpenFiles()
-
 var dbnames: seq[string]
 for node in nodes:
   dbnames.add($node.networkId)
