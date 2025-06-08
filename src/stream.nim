@@ -125,11 +125,6 @@ proc freeVal[T](val: T) =
 
 loadUthashModules()
 
-var msgRevTable: KVHandle[StreamId] # msgId - streamId
-var msgTable: KVHandle[KVPair[StreamId]] # streamId - pair(key: msgId, val: streamId)
-var msgDataTable: KVHandle[MsgData] # msgId - message
-var msgTableLock: RWLock
-
 var miningAddrTable: KVHandle[MiningScript]
 var miningAddrTableLock: RWLock
 
@@ -138,25 +133,6 @@ proc setTag*(client: Client, tag: seq[byte], tagType: StreamIdTag = StreamIdTag.
 
 proc delTag*(client: Client, tag: seq[byte]) =
   client.streamId.delTag(tag.toArray.Tag)
-
-proc newMsg*(msg: seq[byte], msgType: MsgDataType = MsgDataType.Direct): MsgData =
-  let p = cast[MsgData](allocShared0(sizeof(MsgDataObj) + msg.len))
-  p.msgType = msgType
-  p.size = msg.len.cint
-  copyMem(addr p.data, unsafeAddr msg[0], msg.len)
-  result = p
-
-proc setMsg*(streamId: StreamId, msgId: MsgId) =
-  let pair = msgRevTable.addRet(msgId.toBytes, streamId)
-  msgTable.add(streamId.toBytes, pair)
-
-proc delMsg*(streamId: StreamId, msgId: MsgId) =
-  msgTable.del(streamId.toBytes, proc(pair: KVPair[StreamId]): bool =
-    let hkey = (addr pair.key.data).toBytes(pair.key.size.int)
-    result = hkey.toUint64 == msgId.uint64
-    if result:
-      msgRevTable.del(pair)
-    )
 
 proc setMiningScript(streamId: StreamId, nid: int, script: seq[byte]) =
   let p = cast[MiningScript](allocShared0(sizeof(MiningScriptObj) + script.len))
@@ -205,18 +181,6 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
       let sb = sobj.streamId.toBytes
       for nid in streamDbInsts.low..streamDbInsts.high:
         sobj.streamId.delMiningScript(nid)
-      withWriteLock msgTableLock:
-        for p in msgTable.items(sb):
-          let msgIdBytes = (addr p.val.key.data).toBytes(p.val.key.size.int)
-          var msgId: MsgId = msgIdBytes.toUint64
-          var val = msgDataTable[msgId.toBytes]
-          if val.isNil: continue
-          var refExists = false
-          for m in msgRevTable.items(msgIdBytes):
-            refExists = true
-            break
-          if not refExists:
-            msgDataTable.del(msgIdBytes)
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     pClient.pStream = nil
@@ -627,7 +591,6 @@ proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
     abort()
 
 proc initStream*() =
-  rwlockInit(msgTableLock)
   rwlockInit(miningAddrTableLock)
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i] = cast[ptr Channel[RpcWorkerChannelParam]](allocShared0(sizeof(Channel[RpcWorkerChannelParam])))
@@ -658,12 +621,6 @@ proc freeStream*() =
   for i in 0..<RPC_NODE_COUNT:
     rpcWorkerChannels[i][].close()
     rpcWorkerChannels[i].deallocShared()
-
-  withWriteLock msgTableLock:
-    msgDataTable.clear()
-    msgRevTable.clear()
-    msgTable.clear()
-  rwlockDestroy(msgTableLock)
 
   withWriteLock miningAddrTableLock:
     miningAddrTable.clear()
@@ -1025,35 +982,3 @@ proc streamMain(client: Client, opcode: WebSocketOpCode,
 
   else: # WebSocketOpcode.Close
     result = SendResult.None
-
-proc invokeSendMain(client: Client): SendResult =
-  result = SendResult.None
-  let sobj = cast[ptr StreamObj](client.pStream)
-  let sb = sobj.streamId.toBytes
-  withWriteLock msgTableLock:
-    for p in msgTable.items(sb):
-      let hkey = (addr p.val.key.data).toBytes(p.val.key.size.int)
-      var msgId: MsgId = hkey.toUint64
-      var val = msgDataTable[msgId.toBytes]
-      if val.isNil:
-        debug "msg not found msgId=", msgId
-        continue
-      let msgType = val.msgType
-      let data = (addr val.data).toBytes(val.size.int)
-      if data.len > 0:
-        if msgType == MsgDataType.Direct:
-          result = client.sendCmd(data)
-        elif msgType == MsgDataType.DirectOnce:
-          result = client.sendCmd(data)
-        elif msgType == MsgDataType.Rawtx:
-          result = client.sendCmd(data)
-        delMsg(sobj.streamId, msgId)
-        var refExists = false
-        var mb = msgId.toBytes
-        for m in msgRevTable.items(mb):
-          refExists = true
-          break
-        if not refExists:
-          msgDataTable.del(mb)
-        if result == SendResult.Pending:
-          break
