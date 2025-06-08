@@ -480,10 +480,19 @@ template updateLastHeight(id: int) {.dirty.} =
     raise newException(BlockstorError, "get block count")
   lastBlockChekcerParam[id].lastHeight = retBlockCount["result"].getInt
 
+proc atomic_compare_exchange_n(p: ptr uint64, expected: ptr uint64, desired: uint64, weak: bool,
+                              success_memmodel: int, failure_memmodel: int): bool
+                              {.importc: "__atomic_compare_exchange_n", nodecl, discardable.}
+
+var doAbortUint64Flag = 0'u64
+
 proc doAbort() =
-  abort = true
-  tcp.stop()
-  server.stop()
+  var expected = 0'u64
+  if atomic_compare_exchange_n(cast[ptr uint64](addr doAbortUint64Flag),
+                              cast[ptr uint64](addr expected), 1'u64, false, 0, 0):
+    abort = true
+    tcp.stop()
+    server.stop()
 
 proc threadWrapper(wrapperParams: WrapperParams | WrapperMultiParams) {.thread.} =
   try:
