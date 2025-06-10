@@ -25,15 +25,6 @@ requires "caprese"
 task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
-task libressl, "Build LibreSSL":
-  withDir "deps/libressl":
-    if dirExists("openbsd"):
-      exec "rm -rf openbsd"
-    exec "git checkout master"
-    exec "./autogen.sh"
-    exec "./configure"
-    exec "make -j$(nproc)"
-
 task boringssl, "Build BoringSSL":
   withDir "deps/boringssl":
     mkDir "build"
@@ -49,8 +40,6 @@ task depsAll, "Build deps":
     if fileExists("sophia/std/ss_zstdfilter.c"):
       exec "rm sophia/std/ss_zstdfilter.c"
     exec "make -j$(nproc)"
-
-  libresslTask()
 
   withDir "deps/secp256k1":
     exec "./autogen.sh"
