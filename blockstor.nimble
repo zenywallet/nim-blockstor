@@ -25,13 +25,6 @@ requires "caprese"
 task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
-task boringssl, "Build BoringSSL":
-  withDir "deps/boringssl":
-    mkDir "build"
-    cd "build"
-    exec "cmake .."
-    exec "make -j$(nproc)"
-
 task depsAll, "Build deps":
   exec "nim c -r src/sophia_patch.nim"
   withDir "deps/sophia":
