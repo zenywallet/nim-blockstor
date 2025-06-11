@@ -401,6 +401,7 @@ static void HelpMarker(const char* desc)
 static void ShowBip44Window(bool* p_open, int wid)
 {
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     json& param = winBip44["windows"][std::to_string(wid)];
 
     std::string title(std::string("BIP44 - " + std::to_string(wid) + "##" + std::to_string(wid)).c_str());
@@ -491,7 +492,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                     ImGui::PopItemWidth();
                     ImGui::PopFont();
                     if (ImGui::Button(std::string(TI_FILES " Copy##sbtn").c_str())) {
-                        io.SetClipboardTextFn(NULL, seed_str);
+                        platform_io.Platform_SetClipboardTextFn(NULL, seed_str);
                     }
                     ImGui::SameLine();
                     ImGui::Text("Paste ctrl+v");
@@ -527,7 +528,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                 ImGui::PopItemWidth();
                 ImGui::PopFont();
                 if (ImGui::Button(std::string(TI_FILES " Copy##s58btn").c_str())) {
-                    io.SetClipboardTextFn(NULL, base58char);
+                    platform_io.Platform_SetClipboardTextFn(NULL, base58char);
                 }
                 ImGui::SameLine();
                 ImGui::Text("Paste ctrl+v");
@@ -592,7 +593,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                 ImGui::Text(xprv.c_str());
                 ImGui::PopFont();
                 if (seed_valid && xprv.length() > 0 && ImGui::Button(std::string(TI_FILES " Copy##mprv").c_str())) {
-                    io.SetClipboardTextFn(NULL, xprv.c_str());
+                    platform_io.Platform_SetClipboardTextFn(NULL, xprv.c_str());
                 }
                 ImGui::TreePop();
                 ImGui::Separator();
@@ -603,7 +604,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                 ImGui::Text(xpub.c_str());
                 ImGui::PopFont();
                 if (seed_valid && xpub.length() > 0 && ImGui::Button(std::string(TI_FILES " Copy##mpub").c_str())) {
-                    io.SetClipboardTextFn(NULL, xpub.c_str());
+                    platform_io.Platform_SetClipboardTextFn(NULL, xpub.c_str());
                 }
                 ImGui::TreePop();
                 ImGui::Separator();
@@ -705,7 +706,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                 ImGui::Text(bip44xprv.c_str());
                 ImGui::PopFont();
                 if (seed_valid && bip44xprv.length() > 0 && ImGui::Button(std::string(TI_FILES " Copy##m44prv").c_str())) {
-                    io.SetClipboardTextFn(NULL, bip44xprv.c_str());
+                    platform_io.Platform_SetClipboardTextFn(NULL, bip44xprv.c_str());
                 }
                 ImGui::TreePop();
                 ImGui::Separator();
@@ -716,7 +717,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                 ImGui::Text(bip44xpub.c_str());
                 ImGui::PopFont();
                 if (seed_valid && bip44xpub.length() > 0 && ImGui::Button(std::string(TI_FILES " Copy##m44pub").c_str())) {
-                    io.SetClipboardTextFn(NULL, bip44xpub.c_str());
+                    platform_io.Platform_SetClipboardTextFn(NULL, bip44xpub.c_str());
                 }
                 ImGui::TreePop();
                 ImGui::Separator();
@@ -775,7 +776,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                             ImGui::Text((path_base + std::to_string(start) + ": " + address).c_str()); ImGui::SameLine();
                             ImGui::PushFont(mainFont);
                             if (ImGui::Button((std::string(TI_FILES "##0-") + std::to_string(start)).c_str())) {
-                                io.SetClipboardTextFn(NULL, address.c_str());
+                                platform_io.Platform_SetClipboardTextFn(NULL, address.c_str());
                             }
                             ImGui::PopFont();
                             start++;
@@ -813,7 +814,7 @@ static void ShowBip44Window(bool* p_open, int wid)
                             ImGui::Text((path_base + std::to_string(start) + ": " + address).c_str());; ImGui::SameLine();
                             ImGui::PushFont(mainFont);
                             if (ImGui::Button((std::string(TI_FILES "##1-") + std::to_string(start)).c_str())) {
-                                io.SetClipboardTextFn(NULL, address.c_str());
+                                platform_io.Platform_SetClipboardTextFn(NULL, address.c_str());
                             }
                             ImGui::PopFont();
                             start++;
