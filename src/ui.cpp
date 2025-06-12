@@ -2547,9 +2547,9 @@ extern "C" int guimain()
     static const ImWchar icons_ranges[] = { 0xe600, 0xe75f, 0 };
     ImFontConfig icons_config;
     icons_config.MergeMode = true;
-    mainFont = io.Fonts->AddFontFromFileTTF("Play-Regular.ttf", 20.0f);
+    mainFont = io.Fonts->AddFontFromFileTTF("spleen-32x64.otf", 20.0f);
     iconFont = io.Fonts->AddFontFromFileTTF("themify.ttf", 16.0f, &icons_config, icons_ranges);
-    monoFont = io.Fonts->AddFontFromFileTTF("ShareTechMono-Regular.ttf", 20.0f);
+    monoFont = io.Fonts->AddFontFromFileTTF("spleen-32x64.otf", 20.0f);
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Platform_GetClipboardTextFn = GetClipboardTextFn_Impl;

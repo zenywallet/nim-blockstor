@@ -59,8 +59,7 @@ task ui, "Build ui":
   if dirExists("preload_tmp"):
     exec "rm -rf preload_tmp"
   exec "mkdir preload_tmp"
-  exec "cp deps/fonts/Play/Play-Regular.ttf preload_tmp/"
-  exec "cp deps/fonts/Share_Tech_Mono/ShareTechMono-Regular.ttf preload_tmp/"
+  exec "cp deps/fonts/spleen-2.1.0/spleen-32x64.otf preload_tmp/"
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
@@ -86,8 +85,7 @@ task uidebug, "Build ui for debug":
   if dirExists("preload_tmp"):
     exec "rm -rf preload_tmp"
   exec "mkdir preload_tmp"
-  exec "cp deps/fonts/Play/Play-Regular.ttf preload_tmp/"
-  exec "cp deps/fonts/Share_Tech_Mono/ShareTechMono-Regular.ttf preload_tmp/"
+  exec "cp deps/fonts/spleen-2.1.0/spleen-32x64.otf preload_tmp/"
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
