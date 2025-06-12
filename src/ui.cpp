@@ -470,7 +470,7 @@ static void ShowBip44Window(bool* p_open, int wid)
 
         ImGui::SetNextItemOpen(true, ImGuiCond_Once);
         if (ImGui::CollapsingHeader("Master Seed")) {
-            static float seedBitWidth[3] = {622.0, 1236.0, 2462.0};
+            static float seedBitWidth[3] = {650.0, 1290.0, 2570.0};
             ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::TreeNode("Seed hex")) {
                 char seed_str[257];
@@ -626,7 +626,7 @@ static void ShowBip44Window(bool* p_open, int wid)
             int pla = la;
             ImGui::AlignTextToFramePadding();
             ImGui::Text("m /"); ImGui::SameLine();
-            ImGui::PushItemWidth(120);
+            ImGui::PushItemWidth(140);
             if (ImGui::InputInt("purpose'", &lp)) {
                 if (lp < 0) lp = 0;
                 if (lp > 65535) lp = 65535;
@@ -634,7 +634,7 @@ static void ShowBip44Window(bool* p_open, int wid)
             ImGui::SameLine();
             ImGui::PopItemWidth();
             ImGui::Text("/"); ImGui::SameLine();
-            ImGui::PushItemWidth(120);
+            ImGui::PushItemWidth(140);
             if (ImGui::InputInt("coin_type'", &lc)) {
                 if (lc < 0) lc = 0;
                 if (lc > 65535) lc = 65535;
@@ -642,7 +642,7 @@ static void ShowBip44Window(bool* p_open, int wid)
             ImGui::SameLine();
             ImGui::PopItemWidth();
             ImGui::Text("/"); ImGui::SameLine();
-            ImGui::PushItemWidth(120);
+            ImGui::PushItemWidth(140);
             if (ImGui::InputInt("account' / change / address_index", &la)) {
                 if (la < 0) la = 0;
                 if (la > 65535) la = 65535;
@@ -729,7 +729,7 @@ static void ShowBip44Window(bool* p_open, int wid)
             ImGuiComboFlags comb_flags = 0;
             const bool items_testnet[] = {false, true};
             const char* combo_preview_value = NetworkIds[network_idx];
-            ImGui::PushItemWidth(300);
+            ImGui::PushItemWidth(350);
             if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
                 for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                     const bool is_selected = (network_idx == n);
@@ -858,6 +858,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
     } else {
         title = "Address - " + wid_s + "##ta" + wid_s;
     }
+    ImGui::SetNextWindowSize(ImVec2(820, 700), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(title.c_str(), p_open)) {
         std::string header;
         std::string amount;
@@ -885,7 +886,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
             ImGui::PopFont();
             ImGuiComboFlags comb_flags = 0;
             const char* combo_value = NetworkIds[network_idx];
-            ImGui::PushItemWidth(300);
+            ImGui::PushItemWidth(350);
             if (ImGui::BeginCombo(("Network##na" + wid_s).c_str(), combo_value, comb_flags)) {
                 for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                     const bool is_selected = (network_idx == n);
@@ -1374,7 +1375,7 @@ static void ShowTxWindow(bool* p_open, int wid)
     } else {
         title = "Transaction - " + wid_s + "##tx" + wid_s;
     }
-    ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(1167, 700), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(title.c_str(), p_open)) {
         std::string header;
         if (hash.length() > 0) {
@@ -1388,7 +1389,7 @@ static void ShowTxWindow(bool* p_open, int wid)
             param["txopen"] = true;
             ImGuiComboFlags comb_flags = 0;
             const char* combo_preview_value = NetworkIds[network_idx];
-            ImGui::PushItemWidth(300);
+            ImGui::PushItemWidth(350);
             if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
                 for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                     const bool is_selected = (network_idx == n);
@@ -1420,7 +1421,7 @@ static void ShowTxWindow(bool* p_open, int wid)
 
             char tx_hash[134];
             copyString(hash, tx_hash, sizeof(tx_hash));
-            ImGui::PushItemWidth(700.0f);
+            ImGui::PushItemWidth(820.0f);
             if (ImGui::InputText(("Transaction ID (txid)##txid" + wid_s).c_str(), tx_hash, IM_ARRAYSIZE(tx_hash))) {
                 std::string tx_str = std::string(tx_hash);
                 hash = tx_str;
@@ -1533,7 +1534,7 @@ static void ShowBlockWindow(bool* p_open, int wid)
     int height = param["height"].get<int>();
     int max_height = nodeStatus[network_idx_s]["height"].get<int>();
     std::string title = "Block - " + wid_s + "##blk" + wid_s;
-    ImGui::SetNextWindowSize(ImVec2(1000, 700), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(1167, 700), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(title.c_str(), p_open)) {
         if (height > max_height) {
             height = max_height;
@@ -1544,7 +1545,7 @@ static void ShowBlockWindow(bool* p_open, int wid)
         ImGuiComboFlags comb_flags = 0;
         const char* combo_preview_value = NetworkIds[network_idx];
         ImGui::PushFont(monoFont);
-        ImGui::PushItemWidth(300);
+        ImGui::PushItemWidth(350);
         if (ImGui::BeginCombo("Network", combo_preview_value, comb_flags)) {
             for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                 const bool is_selected = (network_idx == n);
@@ -1708,7 +1709,7 @@ static void ShowTotpWindow(bool* p_open)
     static uint64_t epochTime;
     static float delta = 0;
 
-    ImGui::SetNextWindowSize(ImVec2(700, 220), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(820, 220), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("TOTP", p_open)) {
         bool update = false;
         if (ImGui::SliderInt("Digits", &digit, 1, 8)) {
@@ -1775,7 +1776,7 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
         return;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(700, 760), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(820, 760), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("QR Reader", p_open)) {
         if (ImGui::Button("Change Camera")) {
             EM_ASM({ deoxy.next(); });
@@ -1964,11 +1965,11 @@ static void ShowMiningWindow(bool* p_open)
     bool valid = param["valid"].get<bool>();
     int network_idx = param["nid"].get<int>();
 
-    ImGui::SetNextWindowSize(ImVec2(700, 220), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(820, 220), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Mining", p_open)) {
         ImGuiComboFlags comb_flags = 0;
         const char* combo_value = NetworkIds[network_idx];
-        ImGui::PushItemWidth(300);
+        ImGui::PushItemWidth(350);
         if (ImGui::BeginCombo("Network##m", combo_value, comb_flags)) {
             for (int n = 0; n < IM_ARRAYSIZE(NetworkIds); n++) {
                 const bool is_selected = (network_idx == n);
@@ -1987,7 +1988,7 @@ static void ShowMiningWindow(bool* p_open)
 
         char address_str[257];
         copyString(address, address_str, sizeof(address_str));
-        ImGui::PushItemWidth(466.0f);
+        ImGui::PushItemWidth(544.0f);
         ImGui::PushFont(monoFont);
         if (ImGui::InputText("Address##m", address_str, IM_ARRAYSIZE(address_str))) {
             address = std::string(address_str);
@@ -2199,6 +2200,7 @@ static void main_loop(void *arg)
     ImVec2 toolPos;
     ImVec2 toolSize;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(370, 520), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Tools", nullptr)) {
         if (ImGui::Checkbox("Nora Servers", &show_nora_servers_window)) {
             winTools["nora_chk"] = show_nora_servers_window;
@@ -2293,7 +2295,7 @@ static void main_loop(void *arg)
 
     if (show_nora_servers_window) {
         ImGui::SetNextWindowPos(ImVec2(toolPos.x + toolSize.x, toolPos.y), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(700, 350), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(820, 350), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Nora Servers", &show_nora_servers_window)) {
             ImGui::PushFont(monoFont);
             if (noraList.size() > 0) {
