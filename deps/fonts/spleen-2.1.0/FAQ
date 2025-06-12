@@ -1,0 +1,40 @@
+
+                                                   ::::::::::::::::::::
+                                                   :::              :::
+              _____       _______ __. ________ ________ ________.   :::
+             _)  _//__ __/ __   /   |.\  __  /.\  __  /.\  _.   |   :::
+            .\____   /.\   )/  /    ||   )/   |   )/   |   \|   |   :::
+            |   )/    |     __/|     \   _____|   _____|    |   |_  :::
+            |____     |_____|  |_____/____\\  |____\\  |    |____/  :::
+        - -- -- \_____| -H7--------------------------- `----' ----- ::: - -
+                                                   :::              :::
+                                                   ::::::::::::::::::::
+
+Spleen F.A.Q.
+
+1) Could you add bold variants of the fonts?
+
+	I'm generally not a fan of bold characters for monospaced fonts,
+	and it is not possible to have bold characters for the 5x8, 6x12
+	and 8x16 variants because most characters would overlap with each
+	other.
+
+	Moreover, there was no bold support in text mode on IBM PC, and
+	framebuffer consoles on Linux, OpenBSD, and NetBSD do not support
+	bold characters either.
+
+	Color highlighting should be preferred instead.
+
+
+
+2) How are wsfont header files (for OpenBSD and NetBSD) generated?
+
+	The files are manually generated in two steps:
+
+	- Exporting the BDF files to PSF using the gbdfed editor, selecting
+	  only characters from the first page (Basic Latin and Latin-1
+	  Supplement Unicode blocks).
+
+	- Running the output through psf2bsd(1) from the psftools package.
+	  The files are then edited to add empty glyphes for the C1 Controls
+	  characters in the 0x80 through 0x9F range.
