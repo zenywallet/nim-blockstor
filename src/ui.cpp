@@ -997,7 +997,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                         ImGui::TableSetupScrollFreeze(0, 1);
                         ImGui::TableSetupColumn("id", ImGuiTableColumnFlags_WidthFixed, 11 * 10.0f);
                         ImGui::TableSetupColumn("txid", ImGuiTableColumnFlags_WidthFixed, 65 * 10.0f);
-                        ImGui::TableSetupColumn("n", ImGuiTableColumnFlags_WidthFixed, 4 * 10.0f);
+                        ImGui::TableSetupColumn("n", ImGuiTableColumnFlags_WidthFixed, 6 * 10.0f);
                         ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch, 30 * 10.0f);
                         ImGui::TableHeadersRow();
 
