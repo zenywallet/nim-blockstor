@@ -2200,7 +2200,7 @@ static void main_loop(void *arg)
     ImVec2 toolPos;
     ImVec2 toolSize;
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(370, 520), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(260, 520), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Tools", nullptr)) {
         if (ImGui::Checkbox("Nora Servers", &show_nora_servers_window)) {
             winTools["nora_chk"] = show_nora_servers_window;
@@ -2214,6 +2214,7 @@ static void main_loop(void *arg)
             winAddress["wid"] = wid;
             winAddress["windows"][std::to_string(wid)] = R"({"nid": 0, "prev_nid": 0, "address": "", "prev_address": "", "address_hex": "", "valid": false, "addr1": "", "addr3": "", "addr4": "", "addropen": true, "update": false})"_json;
         }
+        ImGui::SameLine();
         if (ImGui::Button("Transaction")) {
             if (winTx["wid"].empty()) {
                 winTx = R"({"wid": 0, "windows": {}, "del": [], "samewin": false})"_json;
@@ -2233,6 +2234,7 @@ static void main_loop(void *arg)
                 winBlock["windows"][std::to_string(wid)]["height"] = nodeStatus["0"]["height"];
             }
         }
+        ImGui::SameLine();
         if (ImGui::Button("BIP44")) {
             if (winBip44["wid"].empty()) {
                 winBip44 = R"({"wid": 0, "windows": {}, "del": []})"_json;
@@ -2241,52 +2243,70 @@ static void main_loop(void *arg)
             winBip44["wid"] = wid;
             winBip44["windows"][std::to_string(wid)] = R"({"nid": 0, "testnet": false, "prev_testnet": false, "seed": "", "prev_seed": "", "xprv": "", "xpub": "", "animate": false, "progress": 0, "b44p": 44, "b44c": 123, "b44a": 0, "bip44update": false, "bip44_0": [], "bip44_1": [], "bip44xprv": "", "bip44xpub": "", "bip44_idx0": 0, "bip44_idx1": 0, "seedbit": 1, "seedvalid": false, "seederr": false})"_json;
         }
-        if (ImGui::Checkbox("Mining", &show_mining_window)) {
-            if (winMining.empty()) {
-                winMining = R"({"nid": 0, "address": "", "address_hex": "", "valid": false, "mining_chk": false})"_json;
+        ImGui::Separator();
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Extra apps")) {
+            if (ImGui::Checkbox("Mining", &show_mining_window)) {
+                if (winMining.empty()) {
+                    winMining = R"({"nid": 0, "address": "", "address_hex": "", "valid": false, "mining_chk": false})"_json;
+                }
+                winMining["mining_chk"] = show_mining_window;
+                MarkSettingsDirty();
             }
-            winMining["mining_chk"] = show_mining_window;
-            MarkSettingsDirty();
-        }
-        if (ImGui::Checkbox("TOTP", &show_totp_window)) {
-            winTotp["totp_chk"] = show_totp_window;
-            MarkSettingsDirty();
-        }
-        if (ImGui::Checkbox("QR Reader", &show_qrreader_window)) {
-            winQrreader["qrreader_chk"] = show_qrreader_window;
-            MarkSettingsDirty();
-        }
-        ImGui::Separator();
-        if (ImGui::Button("Save window")) {
-            dirtySettingsFlag = true;
-        }
-        if (ImGui::Button("Reset window")) {
-            db_clear();
-            EM_ASM({
-                location.reload();
-            });
+            if (ImGui::Checkbox("TOTP", &show_totp_window)) {
+                winTotp["totp_chk"] = show_totp_window;
+                MarkSettingsDirty();
+            }
+            if (ImGui::Checkbox("QR Reader", &show_qrreader_window)) {
+                winQrreader["qrreader_chk"] = show_qrreader_window;
+                MarkSettingsDirty();
+            }
+            ImGui::TreePop();
         }
         ImGui::Separator();
-        if (ImGui::Checkbox("Connection status", &show_connect_status_overlay)) {
-            winTools["connect_chk"] = show_connect_status_overlay;
-            MarkSettingsDirty();
-        }
-        if (ImGui::Checkbox("Frame rate", &show_framerate_overlay)) {
-            winTools["frate_chk"] = show_framerate_overlay;
-            MarkSettingsDirty();
-        }
-        if (ImGui::Checkbox("Addresses in the same window", &show_same_address_window)) {
-            winAddress["samewin"] = show_same_address_window;
-            MarkSettingsDirty();
-        }
-        if (ImGui::Checkbox("Transactions in the same window", &show_same_transaction_window)) {
-            winTx["samewin"] = show_same_transaction_window;
-            MarkSettingsDirty();
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Window positions")) {
+            if (ImGui::Button("Save")) {
+                dirtySettingsFlag = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset")) {
+                db_clear();
+                EM_ASM({
+                    location.reload();
+                });
+            }
+            ImGui::TreePop();
         }
         ImGui::Separator();
-        if (ImGui::Checkbox("ImGui Demo", &show_demo_window)) {
-            winTools["demo_chk"] = show_demo_window;
-            MarkSettingsDirty();
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Combine windows")) {
+            if (ImGui::Checkbox("Address", &show_same_address_window)) {
+                winAddress["samewin"] = show_same_address_window;
+                MarkSettingsDirty();
+            }
+            if (ImGui::Checkbox("Transaction", &show_same_transaction_window)) {
+                winTx["samewin"] = show_same_transaction_window;
+                MarkSettingsDirty();
+            }
+            ImGui::TreePop();
+        }
+        ImGui::Separator();
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Test")) {
+            if (ImGui::Checkbox("Connection status", &show_connect_status_overlay)) {
+                winTools["connect_chk"] = show_connect_status_overlay;
+                MarkSettingsDirty();
+            }
+            if (ImGui::Checkbox("Frame rate", &show_framerate_overlay)) {
+                winTools["frate_chk"] = show_framerate_overlay;
+                MarkSettingsDirty();
+            }
+            if (ImGui::Checkbox("ImGui Demo", &show_demo_window)) {
+                winTools["demo_chk"] = show_demo_window;
+                MarkSettingsDirty();
+            }
+            ImGui::TreePop();
         }
         toolSize = ImGui::GetWindowSize();
         toolPos = ImGui::GetWindowPos();
