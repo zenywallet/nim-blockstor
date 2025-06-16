@@ -2071,7 +2071,7 @@ static void main_loop(void *arg)
 
     static bool show_demo_window = false;
     static bool show_connect_status_overlay = true;
-    static bool show_framerate_overlay = true;
+    static bool show_framerate_overlay = false;
     static bool show_nora_servers_window = false;
     static bool show_same_address_window = false;
     static bool show_same_transaction_window = false;
