@@ -2563,11 +2563,13 @@ extern "C" int guimain()
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     static const ImWchar icons_ranges[] = { 0xe600, 0xe75f, 0 };
-    ImFontConfig icons_config;
-    icons_config.MergeMode = true;
+    ImFontConfig font_config;
+    font_config.MergeMode = true;
     mainFont = io.Fonts->AddFontFromFileTTF("spleen-32x64.otf", 20.0f);
-    iconFont = io.Fonts->AddFontFromFileTTF("themify.ttf", 16.0f, &icons_config, icons_ranges);
-    monoFont = io.Fonts->AddFontFromFileTTF("spleen-32x64.otf", 20.0f);
+    io.Fonts->AddFontFromFileTTF("Corporate-Logo-Medium-ver3.otf", 20.0f, &font_config, io.Fonts->GetGlyphRangesJapanese());
+    io.Fonts->AddFontFromFileTTF("themify.ttf", 16.0f, &font_config, icons_ranges);
+    iconFont = mainFont;
+    monoFont = mainFont;
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
     platform_io.Platform_GetClipboardTextFn = GetClipboardTextFn_Impl;

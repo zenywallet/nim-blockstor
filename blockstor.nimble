@@ -61,6 +61,7 @@ task ui, "Build ui":
   exec "mkdir preload_tmp"
   exec "cp deps/fonts/spleen-2.1.0/spleen-32x64.otf preload_tmp/"
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
+  exec "cp deps/fonts/Corporate-Logo-Medium-ver3/Corporate-Logo-Medium-ver3.otf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:orc src/ui.nim"
