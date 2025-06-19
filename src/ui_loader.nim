@@ -81,6 +81,9 @@ deoxyMod = JsObject{
     proc Module_malloc(size: int): JsObject = Module_call(Module, "_malloc".cstring, size.toJs)
     proc Module_free(p: JsObject) = Module_call(Module, "_free".cstring, p)
 
+    deoxy.malloc = Module_malloc
+    deoxy.free = Module_free
+
     deoxy.wsSend = proc(stream: Stream, data: Uint8ArrayObj): bool =
       var ws = deoxy.streams[stream]
       if not ws.isNil and ws.readyState == WebSocket.OPEN:

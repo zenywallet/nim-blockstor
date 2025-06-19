@@ -1799,8 +1799,8 @@ static void ShowQrreaderWindow(bool* p_open, bool reset = false)
                     imagedata.set(rect8);
                     imagedata.set(image.data, rect8.length);
                     imagedata.set(grayData, rect8.length + image.width * image.height * 4);
-                    var buf = deoxy.alloc(imagedata.length);
-                    buf.set(imagedata);
+                    var buf = deoxy.malloc(imagedata.length);
+                    HEAPU8.set(imagedata, buf);
                     return buf;
                 } else{
                     return 0;
