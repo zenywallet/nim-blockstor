@@ -889,6 +889,7 @@ static void ShowAddressWindow(bool* p_open, int wid)
                     if (ImGui::Selectable(NetworkIds[n], is_selected)) {
                         network_idx = n;
                         param["nid"] = network_idx;
+                        nid_s = std::to_string(network_idx);
                         if (streamActive) {
                             update = true;
                         } else {
