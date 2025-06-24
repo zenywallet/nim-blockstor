@@ -30,15 +30,6 @@ body {
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
-#overlap {
-  z-index: 100;
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  color: white;
-  pointer-events: none;
-  font-size: 1em;
-}
 #status {
   z-index: 100;
   position: absolute;
@@ -49,7 +40,6 @@ body {
   font-size: 0.8em;
 }
 </style>
-<div id="overlap">blockstor - a block explorer for wallet</div>
 <canvas id="canvas"></canvas>
 <div id="status"></div>
 <script async src="ui.js"></script>
