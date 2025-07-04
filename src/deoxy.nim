@@ -40,7 +40,7 @@ proc create*(): ptr DeoxyEncrypt {.exportc: "deoxy_create".} =
     let p = cast[ptr UncheckedArray[byte]](allocShared0(sizeof(DeoxyEncrypt) + DICT_SIZE * 2))
     result = cast[ptr DeoxyEncrypt](p)
     result.streamComp = LZ4_createStream()
-    if result.streamComp.isnil:
+    if result.streamComp.isNil:
       raise newException(DeoxyError, "create stream failed")
     result.encDict = cast[ptr UncheckedArray[byte]](addr p[sizeof(DeoxyEncrypt)])
     result.decDict = cast[ptr UncheckedArray[byte]](addr p[sizeof(DeoxyEncrypt) + DICT_SIZE])
