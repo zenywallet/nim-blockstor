@@ -232,7 +232,8 @@ proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = Msg
 proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
   var tag = tag.toArray.Tag
   var data = $json
-  for cid in tag.purgeClientIds():
+  var cids = tag.purgeClientIds()
+  for cid in cids:
     var c = getClient(cid)
     discard c.sendCmd(data)
 
