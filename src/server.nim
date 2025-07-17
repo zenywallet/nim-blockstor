@@ -43,6 +43,10 @@ server(ssl = true, ip = "0.0.0.0", port = HTTPS_PORT):
     get "/reset":
       """<!DOCTYPE html><meta charset="utf-8"><script>localStorage.clear();location.href="/"</script>""".addHeader().send()
 
+    acme(path = "public"):
+      echo "acme ", reqUrl, " ", mime
+      echo content
+
     send("Not Found".addHeader(Status404))
 
 server(ip = "0.0.0.0", port = HTTP_PORT):
