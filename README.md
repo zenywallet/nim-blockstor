@@ -125,6 +125,7 @@ Check that the capabilities are added
     nimble uidebug
     nimble build -d:release -d:DYNAMIC_FILES
     nimble build -d:release -d:DB_ROCKSDB
+    nimble build -d:release --opt:speed -d:DB_ROCKSDB -d:ENABLE_SSL --verbose
 
     cd src/zenyjs
     nim c -r zenyjs_build.nim
