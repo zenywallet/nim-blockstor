@@ -175,6 +175,7 @@ proc initExClient*(client: Client) =
   client.pStream = nil
 
 proc freeExClient*(client: Client) {.gcsafe.} =
+  acquire(client.lock)
   var sobj = cast[ptr StreamObj](client.pStream)
   if not sobj.isNil:
     if sobj.streamId > 0:
@@ -184,6 +185,7 @@ proc freeExClient*(client: Client) {.gcsafe.} =
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
     client.pStream = nil
+  release(client.lock)
 
 proc isInvalid*(client: Client): bool = client.fd == osInvalidSocket.int
 
@@ -203,39 +205,52 @@ proc sendCmd(client: Client, data: seq[byte]): SendResult =
     return client.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
   result = SendResult.None
 
+proc sendCmd(clientId: ClientId, data: seq[byte]): SendResult =
+  var client = getClient(clientId)
+  if not client.isNil:
+    acquire(client.lock)
+    let sobj = cast[ptr StreamObj](client.pStream)
+    if sobj.isNil:
+      release(client.lock)
+      return SendResult.None
+    var outdata = newSeq[byte](LZ4_COMPRESSBOUND(data.len))
+    let outsize: uint = outdata.len.uint
+    let encLen = sobj.deoxyObj.enc(cast[ptr UncheckedArray[byte]](unsafeAddr data[0]), cast[uint](data.len),
+                              cast[ptr UncheckedArray[byte]](addr outdata[0]), outsize)
+    release(client.lock)
+    if encLen > 0:
+      return clientId.wsServerSend(outdata[0..<encLen], WebSocketOpcode.Binary)
+  result = SendResult.None
+
 proc sendCmd(client: Client, s: string): SendResult {.inline.} = client.sendCmd(s.toBytes)
 
 proc sendCmd(client: Client, json: JsonNode): SendResult {.inline.} = client.sendCmd(($json).toBytes)
 
 proc streamSend*(tag: seq[byte], json: JsonNode) =
   var tag = tag.toArray.Tag
-  var data = $json
+  var data = ($json).toBytes
   for cid in tag.getClientIds():
-    var c = getClient(cid)
-    discard c.sendCmd(data)
+    discard cid.sendCmd(data)
 
 proc streamSend*(tag: string, json: JsonNode) =
   var tag = tag.toBytes.toArray.Tag
-  var data = $json
+  var data = ($json).toBytes
   for cid in tag.getClientIds():
-    var c = getClient(cid)
-    discard c.sendCmd(data)
+    discard cid.sendCmd(data)
 
 proc streamSend*(streamId: StreamId, json: JsonNode, msgType: MsgDataType = MsgDataType.Direct) =
-  var c = getClient(streamId)
-  discard c.sendCmd(json)
+  var data = ($json).toBytes
+  discard streamId.sendCmd(data)
 
 proc streamSend*(streamId: StreamId, data: seq[byte], msgType: MsgDataType = MsgDataType.Direct) =
-  var c = getClient(streamId)
-  discard c.sendCmd(data)
+  discard streamId.sendCmd(data)
 
 proc streamSendOnce*(tag: seq[byte], json: JsonNode) =
   var tag = tag.toArray.Tag
-  var data = $json
+  var data = ($json).toBytes
   var cids = tag.purgeClientIds()
   for cid in cids:
-    var c = getClient(cid)
-    discard c.sendCmd(data)
+    discard cid.sendCmd(data)
 
 proc streamTagExists*(tag: seq[byte]): bool =
   var tag = tag.toArray.Tag
@@ -641,7 +656,9 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
   sobj.deoxyObj = deoxy.create()
   sobj.stage = StreamStage.Negotiate
   sobj.streamId = client.streamId
+  acquire(client.lock)
   client.pStream = sobj
+  release(client.lock)
 
   var pubseed = (pub, sobj.seed).toBytes
   var sendRet = client.wsServerSend(pubseed, WebSocketOpcode.Binary)
