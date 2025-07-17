@@ -171,11 +171,11 @@ var miningTemplateChannel: ptr Channel[MiningTemplateChannelParam]
 var streamActive* = false
 var curMsgId: int
 
-proc initExClient*(pClient: Client) =
-  pClient.pStream = nil
+proc initExClient*(client: Client) =
+  client.pStream = nil
 
-proc freeExClient*(pClient: Client) {.gcsafe.} =
-  var sobj = cast[ptr StreamObj](pClient.pStream)
+proc freeExClient*(client: Client) {.gcsafe.} =
+  var sobj = cast[ptr StreamObj](client.pStream)
   if not sobj.isNil:
     if sobj.streamId > 0:
       let sb = sobj.streamId.toBytes
@@ -183,7 +183,7 @@ proc freeExClient*(pClient: Client) {.gcsafe.} =
         sobj.streamId.delMiningScript(nid)
     deoxy.free(sobj.deoxyObj)
     deallocShared(sobj)
-    pClient.pStream = nil
+    client.pStream = nil
 
 proc isInvalid*(client: Client): bool = client.fd == osInvalidSocket.int
 
