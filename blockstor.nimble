@@ -56,6 +56,12 @@ task depsAll, "Build deps":
     exec "DEBUG_LEVEL=0 make liblz4.a -j$(nproc)"
     exec "CPLUS_INCLUDE_PATH=./lz4-1.9.4/lib ROCKSDB_DISABLE_ZLIB=1 ROCKSDB_DISABLE_BZIP=1 ROCKSDB_DISABLE_SNAPPY=1 ROCKSDB_DISABLE_ZSTD=1 make static_lib -j$(nproc)"
 
+task rocksdb, "Build rocksdb":
+  withDir "deps/rocksdb":
+    exec "make clean"
+    exec "DEBUG_LEVEL=0 make liblz4.a -j$(nproc)"
+    exec "CPLUS_INCLUDE_PATH=./lz4-1.9.4/lib ROCKSDB_DISABLE_ZLIB=1 ROCKSDB_DISABLE_BZIP=1 ROCKSDB_DISABLE_SNAPPY=1 ROCKSDB_DISABLE_ZSTD=1 make static_lib -j$(nproc)"
+
 task zbar, "Build zbar":
   withDir "deps/zbar":
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
