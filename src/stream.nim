@@ -598,7 +598,6 @@ proc miningTemplateWorker(arg: StreamThreadArg) {.thread.} =
 
 
 proc streamThreadWrapper(wrapperArg: WrapperStreamThreadArg) {.thread.} =
-  echo wrapperArg
   try:
     wrapperArg.threadFunc(wrapperArg.arg)
   except:
@@ -667,8 +666,6 @@ proc streamConnect*(client: Client): tuple[sendFlag: bool, sendResult: SendResul
 
 proc parseCmd(client: Client, json: JsonNode): SendResult =
   result = SendResult.None
-  echo json.pretty
-
   if json.hasKey("cmd"):
     var cmd = json["cmd"].getStr
     var cmdSwitch: ParseCmdSwitch = ParseCmdSwitch.None
@@ -790,7 +787,6 @@ proc parseCmd(client: Client, json: JsonNode): SendResult =
         jsonData = %*{"type": "utxo", "data": {"nid": nid, "addr": astr, "utxos": utxos}}
       if json.hasKey("ref"):
         jsonData["ref"] = json["ref"]
-      echo "jsonData", jsonData
       result = client.sendCmd(jsonData)
     elif cmd == "addrlog":
       let reqData = json["data"]
@@ -934,7 +930,6 @@ proc parseCmd(client: Client, json: JsonNode): SendResult =
       var jsonData = %*{"type": "block", "data": {"nid": nid, "blocks": blks}}
       if json.hasKey("ref"):
         jsonData["ref"] = json["ref"]
-      echo "jsonData", jsonData
       result = client.sendCmd(jsonData)
     elif cmd == "mining":
       let reqData = json["data"]
@@ -962,7 +957,6 @@ proc parseCmd(client: Client, json: JsonNode): SendResult =
 
 proc streamMain(client: Client, opcode: WebSocketOpCode,
                 data: ptr UncheckedArray[byte], size: int): SendResult =
-  echo "ws opcode=", opcode, " size=", size
   case opcode
   of WebSocketOpcode.Binary, WebSocketOpcode.Text, WebSocketOpcode.Continue:
     var sobj = cast[ptr StreamObj](client.pStream)
