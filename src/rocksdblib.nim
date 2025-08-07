@@ -3,7 +3,7 @@
 import rocksdb, cpuinfo, algorithm
 
 type
-  RocksDb* = ref object
+  RocksDb* = object
     db: rocksdb_t
     dbpath: cstring
     dbpathBackup: cstring
@@ -28,7 +28,7 @@ template rocksdb_checkerr* {.dirty.} =
     rocksdb_free(rocks.err)
     raise newException(RocksDbErr, err_msg)
 
-proc open*(rocks: RocksDb, dbpath: cstring, dbpathBackup: cstring = "",
+proc open*(rocks: var RocksDb, dbpath: cstring, dbpathBackup: cstring = "",
           total_threads: int32 = cpuinfo.countProcessors().int32) =
   rocks.options = rocksdb_options_create()
   rocksdb_options_increase_parallelism(rocks.options, total_threads)
@@ -45,7 +45,7 @@ proc open*(rocks: RocksDb, dbpath: cstring, dbpathBackup: cstring = "",
     rocksdb_backup_engine_create_new_backup(rocks.be, rocks.db, rocks.err.addr)
     rocksdb_checkerr
 
-proc close*(rocks: RocksDb) =
+proc close*(rocks: var RocksDb) =
   if not rocks.err.isNil:
     rocksdb_free(rocks.err)
     rocks.err = nil

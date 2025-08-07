@@ -84,27 +84,27 @@ elif DB_ROCKSDB:
   converter toDbInst*(rocksdb: RocksDb): DbInst = rocksdb.DbInst
 
   proc open*(datapath: string): DbInst =
-    var dbInst = new RocksDb
+    var dbInst: RocksDb
     dbInst.open(datapath)
     dbInst
 
   proc open*(dbpath, dbname: string): DbInst =
-    var dbInst = new RocksDb
+    var dbInst: RocksDb
     dbInst.open(dbpath / dbname)
     dbInst
 
   proc opens*(dbpath: string, dbnames: seq[string]): DbInsts =
     for dbname in dbnames:
-      var dbInst = new RocksDb
+      var dbInst: RocksDb
       dbInst.open(dbpath / dbname)
       result.add(dbInst)
 
-  proc close*(dbInst: DbInst) =
-    rocksdblib.close(dbInst)
+  proc close*(dbInst: var DbInst) =
+    rocksdblib.close(dbInst.RocksDb)
 
-  proc close*(dbInsts: DbInsts) =
-    for dbInst in dbInsts:
-      rocksdblib.close(dbInst)
+  proc close*(dbInsts: var DbInsts) =
+    for i, dbInst in dbInsts:
+      rocksdblib.close(dbInsts[i].RocksDb)
 
   template checkpoint*(dbInst: DbInst) =
     discard
