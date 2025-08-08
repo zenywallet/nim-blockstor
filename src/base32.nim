@@ -163,19 +163,19 @@ proc decStrict*(data: string): seq[byte] =
   var pos = 0
   try:
     if data.len mod 8 != 0:
-      raise
+      raise newException(Base32Error, "invalid")
 
     result = newSeqOfCap[byte]((data.len * 5 / 8).int)
     while pos < data.len:
       let m0 = base32Map[data[pos].uint8]
       if m0 < 0:
-        raise
+        raise newException(Base32Error, "invalid")
       let c0 = m0.byte
 
       inc(pos)
       let m1 = base32Map[data[pos].uint8]
       if m1 < 0:
-        raise
+        raise newException(Base32Error, "invalid")
       let c1 = m1.byte
 
       let b0 = c0 shl 3 or c1 shr 2
@@ -186,13 +186,13 @@ proc decStrict*(data: string): seq[byte] =
       if m2 < 0:
         if data[pos] == base32Pad:
           break
-        raise
+        raise newException(Base32Error, "invalid")
       let c2 = m2.byte
 
       inc(pos)
       let m3 = base32Map[data[pos].uint8]
       if m3 < 0:
-        raise
+        raise newException(Base32Error, "invalid")
       let c3 = m3.byte
 
       let b1 = c1 shl 6 or c2 shl 1 or c3 shr 4
@@ -203,7 +203,7 @@ proc decStrict*(data: string): seq[byte] =
       if m4 < 0:
         if data[pos] == base32Pad:
           break
-        raise
+        raise newException(Base32Error, "invalid")
       let c4 = m4.byte
 
       let b2 = c3 shl 4 or c4 shr 1
@@ -214,13 +214,13 @@ proc decStrict*(data: string): seq[byte] =
       if m5 < 0:
         if data[pos] == base32Pad:
           break
-        raise
+        raise newException(Base32Error, "invalid")
       let c5 = m5.byte
 
       inc(pos)
       let m6 = base32Map[data[pos].uint8]
       if m6 < 0:
-        raise
+        raise newException(Base32Error, "invalid")
       let c6 = m6.byte
 
       let b3 = c4 shl 7 or c5 shl 2 or c6 shr 3
@@ -231,15 +231,17 @@ proc decStrict*(data: string): seq[byte] =
       if m7 < 0:
         if data[pos] == base32Pad:
           break
-        raise
+        raise newException(Base32Error, "invalid")
       let c7 = m7.byte
 
       let b4 = c6 shl 5 or c7
       result.add(b4)
 
       inc(pos)
+  except Base32Error as e:
+    raise e
   except:
-    raise newException(Base32Error, "invalid")
+    raise newException(Base32Error, "decode")
 
 
 when isMainModule:
