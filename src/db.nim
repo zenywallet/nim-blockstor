@@ -39,6 +39,9 @@ type
     of DbStatus.NotFound:
       discard
 
+type
+  DbError* = object of CatchableError
+
 when DB_SOPHIA:
   type
     DbInst* = distinct Sophia
@@ -313,13 +316,13 @@ iterator getUnspents*(db: DbInst, address_hash: Hash160,
       low_id = val.uint64
     of "gt":
       if val.uint64 == uint64.high:
-        raise
+        raise newException(DbError, "gt")
       low_id = val.uint64 + 1'u64
     of "lte":
       high_id = val.uint64
     of "lt":
       if val.uint64 == uint64.low:
-        raise
+        raise newException(DbError, "lt")
       high_id = val.uint64 - 1'u64
     of "rev":
       if val.uint64 > uint64.low:
@@ -414,13 +417,13 @@ iterator getAddrlogs*(db: DbInst, address_hash: Hash160,
       low_id = val.uint64
     of "gt":
       if val.uint64 == uint64.high:
-        raise
+        raise newException(DbError, "gt")
       low_id = val.uint64 + 1'u64
     of "lte":
       high_id = val.uint64
     of "lt":
       if val.uint64 == uint64.low:
-        raise
+        raise newException(DbError, "lt")
       high_id = val.uint64 - 1'u64
     of "rev":
       if val.uint64 > uint64.low:
