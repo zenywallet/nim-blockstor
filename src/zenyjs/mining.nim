@@ -217,7 +217,7 @@ constMinerScriptNames()
 try:
   cpuMaxCount = window.navigator.hardwareConcurrency.to(int)
   if cpuMaxCount.toJs == jsNull:
-    raise
+    raise newException(CatchableError, "")
 except:
   cpuCount = 4
   cpuMaxCount = 16
