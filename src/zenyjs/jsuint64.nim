@@ -4,6 +4,11 @@ import jsffi
 import jslib
 import os
 
+type
+  Uint64Obj* = JsObject
+  Uint64* = ref object of Uint64Obj
+  Uint64Error* = object of CatchableError
+
 var this {.importc, nodecl.}: JsObject
 var module {.importc, nodecl.}: JsObject
 
@@ -17,11 +22,7 @@ if not this.UINT64.isNil:
 elif not module.exports.isNil:
   ModuleUINT64 = module.exports
 else:
-  raise
-
-type
-  Uint64Obj* = JsObject
-  Uint64* = ref object of Uint64Obj
+  raise newException(Uint64Error, "module")
 
 proc newUint64(jsMod: JsObject, val: uint): Uint64 {.importcpp: "new #(#)".}
 
@@ -38,7 +39,7 @@ proc newUint64*(jval: JsObject): Uint64 =
   elif typ == "string":
     result = newUint64(jval.to(cstring))
   else:
-    raise
+    raise newException(Uint64Error, "new")
 
 proc `+`*(a, b: Uint64): Uint64 =
   result = a.clone().to(Uint64)
