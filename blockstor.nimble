@@ -46,6 +46,7 @@ task depsAll, "Build deps":
     exec "emmake make -j$(nproc)"
 
   withDir "deps/zbar":
+    exec "make clean"
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
     exec "autoreconf -vfi"
     exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
@@ -64,6 +65,7 @@ task rocksdb, "Build rocksdb":
 
 task zbar, "Build zbar":
   withDir "deps/zbar":
+    exec "make clean"
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
     exec "autoreconf -vfi"
     exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
