@@ -17,9 +17,6 @@ type
     streamId: ClientId
 
 caprese.base:
-  type
-    ServerNeedRestartError* = object of CatchableError
-
   include stream
 
 server(ssl = true, ip = "0.0.0.0", port = HTTPS_PORT):
