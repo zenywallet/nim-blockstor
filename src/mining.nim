@@ -214,7 +214,7 @@ proc main() =
           minerParams[][i].data = pdata
         inc(shiftCount)
         statsTimeStart = 0.0
-        echo "new block template"
+        echo "new block template #", height
       else:
         if curTime != prevCurTime:
           prevCurTime = curTime
