@@ -6,7 +6,6 @@ import jslib
 import asyncjs
 import arraylib
 import json
-import templates
 import strformat
 import times
 import deoxy
@@ -34,8 +33,7 @@ import address
 include karax / prelude
 
 
-proc index*(): string {.compileTime.} =
-  tmpli html"""
+proc index*(): string {.compileTime.} = """
 <!DOCTYPE html>
 <html>
 <head>
