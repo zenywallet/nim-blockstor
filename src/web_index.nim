@@ -1,9 +1,6 @@
 # Copyright (c) 2021 zenywallet
 
-import templates
-
-proc index*(): string =
-  tmpli html"""
+proc index*(): string = """
 <!DOCTYPE html>
 <meta charset="utf-8">
 <title>blockstor - a block explorer for wallet</title>
