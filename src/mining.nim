@@ -1,7 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
 import os, times, posix
-import sequtils, strFormat
+import sequtils, strformat
 import bytes, blocks, tx, address, script
 import yespower, seed, rpc
 import opcodes
