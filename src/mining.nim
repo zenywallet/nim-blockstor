@@ -1,7 +1,10 @@
 # Copyright (c) 2021 zenywallet
 
-import os, times, posix
-import sequtils, strformat
+import std/os
+import std/times
+import std/posix
+import std/sequtils
+import std/strformat
 import bytes, blocks, tx, address, script
 import yespower, seed, rpc
 import opcodes
