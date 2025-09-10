@@ -2,10 +2,12 @@
 
 const USE_CURL = false
 
-import libcurl, strutils, json, locks
+import strutils, json, locks
 export json
 
-when not USE_CURL:
+when USE_CURL:
+  import libcurl
+else:
   import nativesockets, posix
   import bytes
   import regex
