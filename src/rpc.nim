@@ -14,6 +14,15 @@ else:
   import base64
   import std/epoll
 
+  type
+    Code* = enum
+      E_OK = 0
+      E_COULDNT_RESOLVE_HOST = 6
+      E_COULDNT_CONNECT = 7
+      E_HTTP_RETURNED_ERROR = 22
+      E_OPERATION_TIMEOUTED = 28
+      E_RECV_ERROR = 56
+
 type
   CoreCommand* = enum
     addMultiSigAddress = "addmultisigaddress"
