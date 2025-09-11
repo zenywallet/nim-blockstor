@@ -252,6 +252,7 @@ else:
     var code = 0
     var contentLength = 0
     var headerSize = 0
+    var totalSize = 0
     var events: array[1, EpollEvent]
     var ev: EpollEvent
     ev.events = EPOLLIN or EPOLLRDHUP or EPOLLET
@@ -277,21 +278,32 @@ else:
         var recvLen = sock.recv(addr rpcRecvBuf[0], rpcRecvBuf.len, 0'i32)
         if recvLen > 0:
           buf = buf & rpcRecvBuf[0..<recvLen]
-          break
+          if recvLen < rpcRecvBuf.len:
+            break
         elif recvLen < 0:
-          if errno == EINTR:
-            continue
-          return (E_RECV_ERROR, "")
+          if errno == EAGAIN or errno == EWOULDBLOCK:
+            break
+          elif errno != EINTR:
+            return (E_RECV_ERROR, "")
         else:
           return (E_RECV_ERROR, "")
 
-      (code, contentLength, headerSize) = parseHeader(buf)
-      when declared(RPC_HTTP_STATUS_CODE_CHECK):
-        if code != 200 and code != 0:
-          return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
-      let totalSize = contentLength + headerSize
-      if totalSize == buf.len:
-        return (E_OK, buf[headerSize..^1].toString())
+      if headerSize == 0:
+        (code, contentLength, headerSize) = parseHeader(buf)
+        if headerSize != 0:
+          when declared(RPC_HTTP_STATUS_CODE_CHECK):
+            if code != 200 and code != 0:
+              return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
+          totalSize = contentLength + headerSize
+          if totalSize == buf.len:
+            return (E_OK, buf[headerSize..^1].toString())
+          elif totalSize < buf.len:
+            return (E_RECV_ERROR, "")
+      else:
+        if totalSize == buf.len:
+          return (E_OK, buf[headerSize..^1].toString())
+        elif totalSize < buf.len:
+          return (E_RECV_ERROR, "")
 
 proc filterAlphaNumeric(s: string): string =
   var check = true
