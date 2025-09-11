@@ -290,20 +290,16 @@ else:
 
       if headerSize == 0:
         (code, contentLength, headerSize) = parseHeader(buf)
-        if headerSize != 0:
-          when declared(RPC_HTTP_STATUS_CODE_CHECK):
-            if code != 200 and code != 0:
-              return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
-          totalSize = contentLength + headerSize
-          if totalSize == buf.len:
-            return (E_OK, buf[headerSize..^1].toString())
-          elif totalSize < buf.len:
-            return (E_RECV_ERROR, "")
-      else:
-        if totalSize == buf.len:
-          return (E_OK, buf[headerSize..^1].toString())
-        elif totalSize < buf.len:
-          return (E_RECV_ERROR, "")
+        if headerSize == 0:
+          continue
+        when declared(RPC_HTTP_STATUS_CODE_CHECK):
+          if code != 200 and code != 0:
+            return (E_HTTP_RETURNED_ERROR, buf[headerSize..^1].toString())
+        totalSize = contentLength + headerSize
+      if totalSize == buf.len:
+        return (E_OK, buf[headerSize..^1].toString())
+      elif totalSize < buf.len:
+        return (E_RECV_ERROR, "")
 
 proc filterAlphaNumeric(s: string): string =
   var check = true
