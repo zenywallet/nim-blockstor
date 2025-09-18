@@ -18,6 +18,7 @@ requires "zip"
 requires "karax"
 requires "regex"
 requires "caprese"
+requires "zenyjs"
 
 
 
