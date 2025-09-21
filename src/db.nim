@@ -2,6 +2,8 @@
 
 import bytes, json
 import blocks
+import zenycore/db_types
+export db_types
 
 const DB_SOPHIA = defined(DB_SOPHIA) or (not defined(DB_SOPHIA) and not defined(DB_ROCKSDB))
 const DB_ROCKSDB = defined(DB_ROCKSDB) and not defined(DB_SOPHIA)
@@ -10,7 +12,7 @@ when DB_SOPHIA:
   import sophia
 
 elif DB_ROCKSDB:
-  import rocksdblib
+  import zenycore/rocksdblib
   import os
 
 type Prefix* {.pure.} = enum
@@ -23,24 +25,6 @@ type Prefix* {.pure.} = enum
   addrvals    # address_hash, (address_type) = value, utxo_count
   addrlogs    # address_hash, id, trans (0 - out | 1 - in) = value, address_type
   minedids    # id = height
-
-type
-  DbStatus* {.pure.} = enum
-    Success = 0
-    Error
-    NotFound
-
-  DbResult*[T] = object
-    case err*: DbStatus
-    of DbStatus.Success:
-      res*: T
-    of DbStatus.Error:
-      discard
-    of DbStatus.NotFound:
-      discard
-
-type
-  DbError* = object of CatchableError
 
 when DB_SOPHIA:
   type
