@@ -4,7 +4,7 @@ import std/sequtils # keepIf
 import std/strutils # endsWith
 import deoxy
 import zenyjs/ed25519
-import seed
+import zenyjs/seed
 import zenyjs/lz4
 import json
 import db, sophia
