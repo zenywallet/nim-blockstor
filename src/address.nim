@@ -1,7 +1,8 @@
 # Copyright (c) 2020 zenywallet
 
 import sequtils, strutils, nimcrypto
-import script, segwit, opcodes, bytes, utils, base58
+import script, opcodes, bytes, utils, base58
+import zenyjs/segwit
 
 type
   Network* = object
