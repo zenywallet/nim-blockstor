@@ -15,9 +15,6 @@
 	path = deps/wasm-secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
 	ignore = dirty
-[submodule "deps/ed25519"]
-	path = deps/ed25519
-	url = https://github.com/orlp/ed25519
 [submodule "deps/lz4"]
 	path = deps/lz4
 	url = https://github.com/lz4/lz4
