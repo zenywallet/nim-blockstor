@@ -1,15 +1,15 @@
 # Copyright (c) 2019 zenywallet
 
-import ed25519
-import serpent
-import yespower
+import zenyjs/ed25519
+import zenyjs/serpent
+import zenyjs/yespower
 import nimcrypto
 import algorithm
 
 const USE_LZ4 = true
 
 when USE_LZ4:
-  import lz4
+  import zenyjs/lz4
   const DICT_SIZE = 64 * 1024
 else:
   import brotli
