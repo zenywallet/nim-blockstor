@@ -5,7 +5,7 @@ import std/strutils # endsWith
 import deoxy
 import zenyjs/ed25519
 import seed
-import lz4
+import zenyjs/lz4
 import json
 import db, sophia
 import address
