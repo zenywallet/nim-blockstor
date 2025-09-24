@@ -3,7 +3,7 @@
 import std/sequtils # keepIf
 import std/strutils # endsWith
 import deoxy
-import ed25519
+import zenyjs/ed25519
 import seed
 import lz4
 import json
