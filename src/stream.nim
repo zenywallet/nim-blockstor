@@ -20,7 +20,8 @@ import blocks, tx, script
 import mempool
 import opcodes
 
-const DECODE_BUF_SIZE = 1048576
+when not declared(DECODE_BUF_SIZE):
+  const DECODE_BUF_SIZE = 1048576
 when not declared(SERVER_LABELS):
   const SERVER_LABELS = ["BitZeny_mainnet", "BitZeny_testnet"]
 const RPC_NODE_COUNT = SERVER_LABELS.len
