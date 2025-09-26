@@ -2,12 +2,12 @@
 
 import bytes
 import deoxy
-import ed25519
-import lz4
+import zenyjs/ed25519
+import zenyjs/lz4
 import os
 import system
 import strutils
-import seed
+import zenyjs/seed
 import bip32c
 import base58c
 import address_c
