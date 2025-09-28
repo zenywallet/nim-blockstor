@@ -26,17 +26,6 @@ task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
 task depsAll, "Build deps":
-  withDir "deps/secp256k1":
-    exec "./autogen.sh"
-    exec "./configure --enable-module-ecdh --disable-shared --enable-static --disable-tests --disable-benchmark --disable-openssl-tests --disable-exhaustive-tests"
-    exec "make -j$(nproc)"
-
-  withDir "deps/wasm-secp256k1":
-    exec "./autogen.sh"
-    exec "emconfigure ./configure --enable-module-ecdh --disable-shared --enable-static --disable-tests --disable-benchmark --disable-openssl-tests --disable-exhaustive-tests"
-    exec "sed -i 's/\\.\\/\\$(gen_context_BIN)/\\.\\.\\/secp256k1\\/\\$(gen_context_BIN)/' Makefile"
-    exec "emmake make -j$(nproc)"
-
   withDir "deps/zbar":
     exec "make clean"
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
