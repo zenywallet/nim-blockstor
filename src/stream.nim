@@ -7,7 +7,7 @@ import zenyjs/ed25519
 import zenyjs/seed
 import zenyjs/lz4
 import json
-import db, sophia
+import db
 import address
 import bytes
 import uthash
