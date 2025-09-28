@@ -26,14 +26,6 @@ task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
 task depsAll, "Build deps":
-  exec "nim c -r src/sophia_patch.nim"
-  withDir "deps/sophia":
-    if fileExists("sophia/std/ss_lz4filter.c"):
-      exec "rm sophia/std/ss_lz4filter.c"
-    if fileExists("sophia/std/ss_zstdfilter.c"):
-      exec "rm sophia/std/ss_zstdfilter.c"
-    exec "make -j$(nproc)"
-
   withDir "deps/secp256k1":
     exec "./autogen.sh"
     exec "./configure --enable-module-ecdh --disable-shared --enable-static --disable-tests --disable-benchmark --disable-openssl-tests --disable-exhaustive-tests"
