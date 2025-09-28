@@ -4,13 +4,6 @@
 [submodule "deps/zopfli"]
 	path = deps/zopfli
 	url = https://github.com/google/zopfli
-[submodule "deps/secp256k1"]
-	path = deps/secp256k1
-	url = https://github.com/bitcoin-core/secp256k1
-[submodule "deps/wasm-secp256k1"]
-	path = deps/wasm-secp256k1
-	url = https://github.com/bitcoin-core/secp256k1
-	ignore = dirty
 [submodule "deps/yespower"]
 	path = deps/yespower
 	url = https://github.com/openwall/yespower
