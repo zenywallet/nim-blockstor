@@ -9,7 +9,7 @@ const DB_SOPHIA = defined(DB_SOPHIA) or (not defined(DB_SOPHIA) and not defined(
 const DB_ROCKSDB = defined(DB_ROCKSDB) and not defined(DB_SOPHIA)
 
 when DB_SOPHIA:
-  import sophia
+  import zenycore/sophia
 
 elif DB_ROCKSDB:
   import zenycore/rocksdblib
