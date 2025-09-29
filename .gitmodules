@@ -1,6 +1,3 @@
-[submodule "deps/zopfli"]
-	path = deps/zopfli
-	url = https://github.com/google/zopfli
 [submodule "deps/yespower"]
 	path = deps/yespower
 	url = https://github.com/openwall/yespower
