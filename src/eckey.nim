@@ -1,7 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
 import sequtils
-import secp256k1
+import zenyjs/secp256k1
 
 type
   PrivateKey* = distinct seq[byte]
