@@ -33,7 +33,6 @@ when isMainModule:
   import utils
   import address
   import script
-  import nimcrypto
   import tx
   import opcodes
 
@@ -113,7 +112,7 @@ when isMainModule:
   var s = alicePrv.ecdh(m_bob_47h_0h_0h_0.publicKey.pubObj)
   echo "Shared secret: ", s
 
-  var I = sha512.hmac(outputAlice, s).data # opposite? s = HMAC-SHA512(x, o)
+  var I = sha512Hmac(outputAlice, s) # opposite? s = HMAC-SHA512(x, o)
   var mask = I.toSeq
   echo "Blinding mask:"
   echo mask
