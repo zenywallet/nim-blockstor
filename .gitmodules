@@ -18,6 +18,3 @@
 	path = deps/rocksdb
 	url = https://github.com/facebook/rocksdb
 	ignore = dirty
-[submodule "deps/js-cuint"]
-	path = deps/js-cuint
-	url = https://github.com/pierrec/js-cuint
