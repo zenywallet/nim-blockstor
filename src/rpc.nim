@@ -14,7 +14,6 @@ else:
   import std/posix
   import std/epoll
   import std/base64
-  import bytes
   import regex
 
   type
@@ -25,6 +24,13 @@ else:
       E_HTTP_RETURNED_ERROR = 22
       E_OPERATION_TIMEOUTED = 28
       E_RECV_ERROR = 56
+
+  template toString(s: seq[byte]): string = cast[string](s)
+
+  proc toString(buf: ptr UncheckedArray[byte], size: SomeInteger): string =
+    result = newStringOfCap(size)
+    for i in 0..<size:
+      result.add(cast[char](buf[i]))
 
 type
   CoreCommand* = enum
