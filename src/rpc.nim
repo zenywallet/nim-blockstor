@@ -2,17 +2,20 @@
 
 const USE_CURL = false
 
-import strutils, json, locks
+import std/strutils
+import std/locks
+import std/json
 export json
 
 when USE_CURL:
   import libcurl
 else:
-  import nativesockets, posix
+  import std/nativesockets
+  import std/posix
+  import std/epoll
+  import std/base64
   import bytes
   import regex
-  import base64
-  import std/epoll
 
   type
     Code* = enum
