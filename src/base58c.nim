@@ -1,13 +1,14 @@
 # Copyright (c) 2021 zenywallet
 
-import base58
-import bytes
+import zenyjs/base58
+import zenyjs/bytes
+import zenyjs/arraylib
 
 {.used.}
 
 var strtmp {.threadvar.}: string
 
-proc base58_enc*(buf: ptr UncheckedArray[byte], size: cint): cstring {.exportc.} =
+proc base58_enc*(buf: ptr UncheckedArray[byte], size: cint): cstring {.exportc: "base58_enc_raw".} =
   strtmp = base58.enc(buf.toBytes(size)) & "\0"
   result = strtmp.cstring
 
@@ -15,7 +16,7 @@ proc base58_enc_from_hex*(hex: cstring): cstring {.exportc.} =
    strtmp = base58.enc(($hex).Hex.toBytes) & "\0"
    result = strtmp.cstring
 
-proc base58_dec*(s: cstring, buf: ptr UncheckedArray[byte], size: cint): cint {.exportc.} =
+proc base58_dec*(s: cstring, buf: ptr UncheckedArray[byte], size: cint): cint {.exportc: "base58_dec_raw".} =
   var d = base58.dec($s)
   if size >= d.len.cint:
     copyMem(buf, addr d[0], d.len)
@@ -29,8 +30,8 @@ proc base58_dec_to_hex*(s: cstring): cstring {.exportc.} =
   result = strtmp.cstring
 
 #[
-char* base58_enc(char* buf, int size);
+char* base58_enc_raw(char* buf, int size);
 char* base58_enc_from_hex(char* hex);
-int base58_dec(char* s, char* buf, int size);
+int base58_dec_raw(char* s, char* buf, int size);
 char* base58_dec_to_hex(char* s);
 ]#

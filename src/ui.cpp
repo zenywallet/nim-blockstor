@@ -163,9 +163,9 @@ extern "C" {
 
     int crypt_seed(unsigned char *seed, int size);
 
-    char* base58_enc(char* buf, int size);
+    char* base58_enc_raw(char* buf, int size);
     char* base58_enc_from_hex(char* hex);
-    int base58_dec(char* s, char* buf, int size);
+    int base58_dec_raw(char* s, char* buf, int size);
     char* base58_dec_to_hex(char* s);
 
     void address_init();
