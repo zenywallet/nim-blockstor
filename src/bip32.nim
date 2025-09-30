@@ -2,7 +2,6 @@
 
 import bytes
 import base58
-import nimcrypto
 import sequtils
 import eckey
 import utils
@@ -33,7 +32,7 @@ converter toBytes*(o: ChainCode): seq[byte] {.inline.} = cast[seq[byte]](o)
 converter toChainCode*(s: seq[byte]): ChainCode {.inline.} = ChainCode(s)
 
 proc master*(seed: seq[byte], versionPub: uint32, versionPrv: uint32): HDNode =
-  var I = sha512.hmac("Bitcoin seed", seed).data
+  var I = sha512Hmac("Bitcoin seed", seed)
   var privateKey: PrivateKey = I[0..31].toBytes
   var chainCode: ChainCode = I[32..63].toBytes
   var node = new HDNode
@@ -112,7 +111,7 @@ proc hardened*(node: HDNode, index: uint32): HDNode =
     raise newException(HdError, "derive privateKey len=" & $node.privateKey.len)
   var childNumber = (0x80000000'u32 or index)
   var data = (0x00'u8, node.privateKey, childNumber).toBytesBE
-  var I = sha512.hmac(node.chainCode.toBytes, data).data
+  var I = sha512Hmac(node.chainCode.toBytes, data)
   var privateKey: PrivateKey = I[0..31]
   var chainCode: ChainCode = I[32..63]
   var deriveNode = new HDNode
@@ -129,7 +128,7 @@ proc hardened*(node: HDNode, index: uint32): HDNode =
 proc derive*(node: HDNode, index: uint32): HDNode =
   var childNumber = index
   var data = (node.publicKey, childNumber).toBytesBE
-  var I = sha512.hmac(node.chainCode.toBytes, data).data
+  var I = sha512Hmac(node.chainCode.toBytes, data)
   var privateKey: PrivateKey = I[0..31]
   var chainCode: ChainCode = I[32..63]
   var deriveNode = new HDNode
