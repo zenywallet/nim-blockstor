@@ -1,6 +1,6 @@
 # Copyright (c) 2020 zenywallet
 
-const USE_CURL = false
+const USE_CURL = defined(USE_CURL)
 
 import std/strutils
 import std/locks
