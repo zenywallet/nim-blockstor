@@ -1,8 +1,9 @@
 # Copyright (c) 2020 zenywallet
 
-import sequtils, strutils, nimcrypto
+import sequtils, strutils
 import script, opcodes, bytes, utils, base58
 import zenyjs/segwit
+import zenyjs/ripemd160_native
 
 type
   Network* = object
@@ -42,7 +43,8 @@ proc getNetwork*(networkId: NetworkId): Network = Networks[networkId.int]
 proc getNetworksLen*(): int = Networks.len
 
 proc ripemd160hash*(pub: seq[byte]): Hash160 =
-  Hash160(ripemd160.digest(sha256s(pub)).data.toSeq)
+  let data = sha256s(pub)
+  Hash160(ripemd160(cast[ptr UncheckedArray[byte]](addr data[0]), data.len.uint32).toBytes)
 
 proc checkSum(hash160Prefix: seq[byte]): seq[byte] =
   let hashd = sha256d(hash160Prefix)
