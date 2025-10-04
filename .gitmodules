@@ -14,7 +14,3 @@
 	path = deps/zbar
 	url = https://github.com/mchehab/zbar
 	ignore = dirty
-[submodule "deps/rocksdb"]
-	path = deps/rocksdb
-	url = https://github.com/facebook/rocksdb
-	ignore = dirty
