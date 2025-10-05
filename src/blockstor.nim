@@ -9,6 +9,7 @@ import server
 import monitor
 import utils
 import sequtils
+import json
 
 type
   WorkerParams = tuple[nodeParams: NodeParams, dbInst: DbInst, id: int]

@@ -5,7 +5,6 @@ const USE_CURL = defined(USE_CURL)
 import std/strutils
 import std/locks
 import std/json
-export json
 
 when USE_CURL:
   import libcurl
