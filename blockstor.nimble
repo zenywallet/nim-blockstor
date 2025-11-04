@@ -21,6 +21,8 @@ requires "zenycore"
 
 
 
+import emsdkenv
+
 task debug, "Debug build, and Run":
   exec "nim c -r --threads:on -d:DYNAMIC_FILES src/blockstor.nim"
 
@@ -29,16 +31,16 @@ task depsAll, "Build deps":
     exec "make clean"
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
     exec "autoreconf -vfi"
-    exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
-    exec "emmake make -j$(nproc)"
+    emsdkEnv "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all", "3.1.65"
+    emsdkEnv "emmake make -j$(nproc)", "3.1.65"
 
 task zbar, "Build zbar":
   withDir "deps/zbar":
     exec "make clean"
     exec "sed -i \"s/ -Werror//\" $(pwd)/configure.ac"
     exec "autoreconf -vfi"
-    exec "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all"
-    exec "emmake make -j$(nproc)"
+    emsdkEnv "emconfigure ./configure CPPFLAGS=-DNDEBUG=1 --without-x --without-jpeg --without-imagemagick --without-npapi --without-gtk --without-python --without-qt --without-xshm --disable-video --disable-pthread --enable-codes=all", "3.1.65"
+    emsdkEnv "emmake make -j$(nproc)", "3.1.65"
 
 task ui, "Build ui":
   if dirExists("preload_tmp"):
@@ -49,7 +51,7 @@ task ui, "Build ui":
   exec "cp deps/fonts/Corporate-Logo-Medium-ver3/Corporate-Logo-Medium-ver3.otf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
-  exec "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:orc src/ui.nim"
+  emsdkEnv "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
@@ -75,7 +77,7 @@ task uidebug, "Build ui for debug":
   exec "cp deps/fonts/themify-icons/fonts/themify.ttf preload_tmp/"
   exec "nim js -d:release -o:src/ui_loader.js src/ui_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
-  exec "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:orc src/ui.nim"
+  emsdkEnv "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
   exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
@@ -86,8 +88,8 @@ task uidebug, "Build ui for debug":
 task webminer, "Build web miner":
   exec "nim js -d:release -o:src/web_miner_loader.js src/web_miner_loader.nim"
   exec "nim js -d:release -d:nodejs -o:src/web_miner_externs.js src/web_miner_externs.nim"
-  exec "nim c -d:release -d:emscripten -o:public/miner.js_tmp --gc:orc src/web_miner.nim"
-  exec "nim c -d:release -d:emscripten -d:ENABLE_SIMD128 -o:public/miner-simd128.js_tmp --gc:orc src/web_miner.nim"
+  emsdkEnv "nim c -d:release -d:emscripten -o:public/miner.js_tmp --gc:orc src/web_miner.nim"
+  emsdkEnv "nim c -d:release -d:emscripten -d:ENABLE_SIMD128 -o:public/miner-simd128.js_tmp --gc:orc src/web_miner.nim"
   exec "nim c -r src/web_miner_patch.nim"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
