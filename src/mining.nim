@@ -5,6 +5,7 @@ import std/times
 import std/posix
 import std/sequtils
 import std/strformat
+import std/json
 import bytes, blocks, tx, address, script
 import zenyjs/yespower
 import seed, rpc
