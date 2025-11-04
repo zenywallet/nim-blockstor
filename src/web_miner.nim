@@ -1,7 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
 import blocks, bytes
-import yespower
+import zenyjs/yespower
 import os
 import times
 
