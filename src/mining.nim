@@ -6,7 +6,8 @@ import std/posix
 import std/sequtils
 import std/strformat
 import bytes, blocks, tx, address, script
-import yespower, seed, rpc
+import zenyjs/yespower
+import seed, rpc
 import opcodes
 import utils
 
