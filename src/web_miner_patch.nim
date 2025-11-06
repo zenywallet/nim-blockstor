@@ -1,6 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
-import os, strutils
+import std/os
+import std/strutils
 import regex
 
 const minerFileTmp1 = currentSourcePath().parentDir() / "../public/miner.js_tmp"

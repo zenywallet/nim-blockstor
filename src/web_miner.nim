@@ -2,8 +2,8 @@
 
 import blocks, bytes
 import zenyjs/yespower
-import os
-import times
+import std/os
+import std/times
 
 const srcPath = currentSourcePath().parentDir()
 {.passL: "--extern-pre-js " & srcPath / "web_miner_loader.js".}

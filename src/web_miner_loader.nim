@@ -1,6 +1,6 @@
 # Copyright (c) 2021 zenywallet
 
-import jsffi
+import std/jsffi
 
 type
   DocumentObj* = distinct JsObject
