@@ -42,14 +42,12 @@ proc miner(param: ptr MinerParam) {.thread.} =
   while not param.abort:
     let data = param.data
     discard yespower_hash(cast[ptr UncheckedArray[byte]](addr data[].header), 80, yhash)
-    var find = true
-    for j in countdown(31, 0):
-      if yhash[j] > data[].target[j]:
-        find = false
-        break
-      elif yhash[j] < data[].target[j]:
-        break
-    if find:
+    block findBlock:
+      for j in countdown(31, 0):
+        if yhash[j] > data[].target[j]:
+          break findBlock
+        elif yhash[j] < data[].target[j]:
+          break
       let header = ($data[].header.toBytes).cstring
       let nid = data[].nid
       {.emit: """
