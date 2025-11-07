@@ -53,6 +53,7 @@ task ui, "Build ui":
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   emsdkEnv "nim c -d:release -d:emscripten -o:public/ui.js_tmp --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
+  exec "rm src/ui_patch"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
   closure_compiler="google-closure-compiler"
@@ -79,6 +80,7 @@ task uidebug, "Build ui for debug":
   exec "nim js -d:release -d:nodejs -o:src/ui_externs.js src/ui_externs.nim"
   emsdkEnv "nim c -d:emscripten -o:public/ui.js --noMain:on --gc:orc src/ui.nim"
   exec "nim c -r src/ui_patch.nim"
+  exec "rm src/ui_patch"
   exec "nim c -r --hints:off src/web_index.nim > public/index.html"
   exec "rm src/web_index"
   exec "rm src/ui_externs.js"
@@ -91,6 +93,7 @@ task webminer, "Build web miner":
   emsdkEnv "nim c -d:release -d:emscripten -o:public/miner.js_tmp --gc:orc src/web_miner.nim"
   emsdkEnv "nim c -d:release -d:emscripten -d:ENABLE_SIMD128 -o:public/miner-simd128.js_tmp --gc:orc src/web_miner.nim"
   exec "nim c -r src/web_miner_patch.nim"
+  exec "rm src/web_miner_patch"
   exec """
 if [ -x "$(command -v google-closure-compiler)" ]; then
   closure_compiler="google-closure-compiler"
