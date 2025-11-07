@@ -1,6 +1,7 @@
 # Copyright (c) 2021 zenywallet
 
-import blocks, bytes
+import zenyjs/blocks
+import zenyjs/bytes
 import zenyjs/yespower
 import std/os
 import std/times
